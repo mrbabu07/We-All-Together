@@ -30,6 +30,29 @@ const validateBroadcastNotification = (body) => {
   }
 }
 
+const validateSendNotification = (body) => {
+  const role = optionalString(body, 'role')
+  const channel = optionalString(body, 'channel') || 'sms'
+  const allowedChannels = ['sms', 'whatsapp', 'both']
+
+  if (role && !Object.values(USER_ROLES).includes(role)) {
+    throw new AppError('Notification role is invalid.', 400)
+  }
+
+  if (!allowedChannels.includes(channel)) {
+    throw new AppError('Notification channel is invalid.', 400)
+  }
+
+  return {
+    channel,
+    link: optionalString(body, 'link') || '/notifications',
+    message: requireString(body, 'message', 'Message'),
+    role,
+    title: requireString(body, 'title', 'Title'),
+  }
+}
+
 module.exports = {
   validateBroadcastNotification,
+  validateSendNotification,
 }

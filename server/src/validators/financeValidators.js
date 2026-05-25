@@ -1,4 +1,5 @@
 const AppError = require('../utils/appError')
+const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
 
@@ -10,6 +11,16 @@ const requireString = (body, fieldName, label = fieldName) => {
   }
 
   return value.trim()
+}
+
+const requirePhone = (body, fieldName, label = fieldName) => {
+  const phone = normalizeBangladeshiPhone(requireString(body, fieldName, label))
+
+  if (!isBangladeshiPhone(phone)) {
+    throw new AppError(`${label} must use Bangladeshi format like 017XXXXXXXX.`, 400)
+  }
+
+  return phone
 }
 
 const optionalString = (body, fieldName) =>
@@ -47,7 +58,7 @@ const validateMonthlyPayment = (body) => ({
   month: validateMonth(body.month),
   method: requireString(body, 'method', 'Payment method'),
   transactionId: requireString(body, 'transactionId', 'Transaction ID'),
-  senderPhone: requireString(body, 'senderPhone', 'Sender phone'),
+  senderPhone: requirePhone(body, 'senderPhone', 'Sender phone'),
   note: optionalString(body, 'note'),
   proofImageUrl: optionalString(body, 'proofImageUrl'),
 })
@@ -70,7 +81,7 @@ const validateExpense = (body) => {
 
 const validateDonation = (body) => ({
   donorName: requireString(body, 'donorName', 'Donor name'),
-  phone: requireString(body, 'phone', 'Phone'),
+  phone: requirePhone(body, 'phone', 'Phone'),
   amount: readPositiveAmount(body, 'amount', 'Amount'),
   method: requireString(body, 'method', 'Payment method'),
   transactionId: requireString(body, 'transactionId', 'Transaction ID'),
@@ -87,6 +98,17 @@ const validateDonationNumber = (body) => ({
   donationProvider: optionalString(body, 'donationProvider'),
 })
 
+const toBoolean = (value) => value === true || value === 'true'
+
+const validateNotificationSettings = (body) => ({
+  smsFeeReminderEnabled: toBoolean(body.smsFeeReminderEnabled),
+  smsMeetingEnabled: toBoolean(body.smsMeetingEnabled),
+  smsNoticeEnabled: toBoolean(body.smsNoticeEnabled),
+  whatsappFeeReminderEnabled: toBoolean(body.whatsappFeeReminderEnabled),
+  whatsappMeetingEnabled: toBoolean(body.whatsappMeetingEnabled),
+  whatsappNoticeEnabled: toBoolean(body.whatsappNoticeEnabled),
+})
+
 module.exports = {
   validateDonation,
   validateDonationNumber,
@@ -94,4 +116,5 @@ module.exports = {
   validateMonth,
   validateMonthlyFee,
   validateMonthlyPayment,
+  validateNotificationSettings,
 }

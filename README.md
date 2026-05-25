@@ -18,6 +18,7 @@ A MERN organization management system for member registration, admin approval, f
 - Finance analytics dashboard with income/expense charts, donation trend, and overdue fee tracking
 - Server-generated PDF receipts for monthly payments and donations
 - QR code payment verification with admin scan/confirm page
+- Twilio SMS/WhatsApp alerts with admin-controlled triggers and Bangladeshi phone validation
 
 ## Tech Stack
 
@@ -30,6 +31,7 @@ A MERN organization management system for member registration, admin approval, f
 - Recharts analytics charts
 - PDFKit receipt generation
 - QRCode payment verification
+- Twilio SMS/WhatsApp notifications
 
 ## Project Structure
 
@@ -92,7 +94,13 @@ JWT_ACCESS_SECRET=replace_with_a_long_random_secret
 JWT_ACCESS_EXPIRES_IN=7d
 IMGBB_API_KEY=your_imgbb_api_key
 ADMIN_BOOTSTRAP_SECRET=replace_with_a_temporary_admin_setup_secret
+TWILIO_ACCOUNT_SID=optional_twilio_account_sid
+TWILIO_AUTH_TOKEN=optional_twilio_auth_token
+TWILIO_SMS_FROM=optional_twilio_sms_sender
+TWILIO_WHATSAPP_FROM=optional_twilio_whatsapp_sender
 ```
+
+Member, donation, and payment phone numbers are validated in Bangladeshi mobile format, such as `017XXXXXXXX`.
 
 Create `client/.env` from `client/.env.example` when needed:
 

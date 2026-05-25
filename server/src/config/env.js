@@ -20,6 +20,10 @@ const env = {
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '7d',
   imgbbApiKey: process.env.IMGBB_API_KEY || '',
   adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET || '',
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID || '',
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN || '',
+  twilioSmsFrom: process.env.TWILIO_SMS_FROM || '',
+  twilioWhatsappFrom: process.env.TWILIO_WHATSAPP_FROM || '',
 }
 
 module.exports = env

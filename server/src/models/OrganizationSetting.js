@@ -28,6 +28,37 @@ const organizationSettingSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    notificationSettings: {
+      smsNoticeEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      smsMeetingEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      smsFeeReminderEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      whatsappNoticeEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      whatsappMeetingEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      whatsappFeeReminderEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      lastFeeReminderMonth: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+    },
   },
   {
     timestamps: true,

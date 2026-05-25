@@ -1,4 +1,5 @@
 const AppError = require('../utils/appError')
+const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
 const requireString = (body, fieldName, label = fieldName) => {
   const value = body[fieldName]
@@ -8,6 +9,16 @@ const requireString = (body, fieldName, label = fieldName) => {
   }
 
   return value.trim()
+}
+
+const requirePhone = (body, fieldName, label = fieldName) => {
+  const phone = normalizeBangladeshiPhone(requireString(body, fieldName, label))
+
+  if (!isBangladeshiPhone(phone)) {
+    throw new AppError(`${label} must use Bangladeshi format like 017XXXXXXXX.`, 400)
+  }
+
+  return phone
 }
 
 const readOptionalString = (body, fieldName) =>
@@ -32,13 +43,13 @@ const validateRegistration = (body) => {
 
   return {
     name: requireString(body, 'name', 'Name'),
-    phone: requireString(body, 'phone', 'Phone'),
+    phone: requirePhone(body, 'phone', 'Phone'),
     address: requireString(body, 'address', 'Address'),
     password,
     payment: {
       method: requireString(body, 'paymentMethod', 'Payment method'),
       transactionId: requireString(body, 'transactionId', 'Transaction ID'),
-      senderPhone: requireString(body, 'senderPhone', 'Sender phone'),
+      senderPhone: requirePhone(body, 'senderPhone', 'Sender phone'),
       note: readOptionalString(body, 'paymentNote'),
       proofImageUrl: readOptionalString(body, 'proofImageUrl'),
     },

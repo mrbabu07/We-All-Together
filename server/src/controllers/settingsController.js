@@ -3,12 +3,14 @@ const { getSettings } = require('../services/settingsService')
 const {
   validateDonationNumber,
   validateMonthlyFee,
+  validateNotificationSettings,
 } = require('../validators/financeValidators')
 const { validateRegistrationFee } = require('../validators/registrationValidators')
 const { recordAuditLog } = require('../services/auditService')
 
 const getPublicSettings = asyncHandler(async (req, res) => {
   const settings = await getSettings()
+  const notificationSettings = settings.notificationSettings || {}
 
   res.status(200).json({
     success: true,
@@ -19,7 +21,41 @@ const getPublicSettings = asyncHandler(async (req, res) => {
         monthlyFee: settings.monthlyFee,
         donationNumber: settings.donationNumber,
         donationProvider: settings.donationProvider,
+        notificationSettings: {
+          smsFeeReminderEnabled: Boolean(notificationSettings.smsFeeReminderEnabled),
+          smsMeetingEnabled: Boolean(notificationSettings.smsMeetingEnabled),
+          smsNoticeEnabled: Boolean(notificationSettings.smsNoticeEnabled),
+          whatsappFeeReminderEnabled: Boolean(notificationSettings.whatsappFeeReminderEnabled),
+          whatsappMeetingEnabled: Boolean(notificationSettings.whatsappMeetingEnabled),
+          whatsappNoticeEnabled: Boolean(notificationSettings.whatsappNoticeEnabled),
+        },
       },
+    },
+  })
+})
+
+const updateNotificationSettings = asyncHandler(async (req, res) => {
+  const payload = validateNotificationSettings(req.body)
+  const settings = await getSettings()
+
+  settings.notificationSettings = {
+    ...settings.notificationSettings,
+    ...payload,
+  }
+  await settings.save()
+  await recordAuditLog({
+    action: 'settings.notificationSettings.update',
+    actor: req.user,
+    entityId: settings._id,
+    entityType: 'OrganizationSetting',
+    metadata: payload,
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Notification settings updated successfully.',
+    data: {
+      settings,
     },
   })
 })
@@ -104,5 +140,6 @@ module.exports = {
   getPublicSettings,
   updateDonationNumber,
   updateMonthlyFee,
+  updateNotificationSettings,
   updateRegistrationFee,
 }

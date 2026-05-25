@@ -5,6 +5,7 @@ const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
 const { validateAdminPasswordReset } = require('../validators/authValidators')
+const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
 const getApprovedMembers = asyncHandler(async (req, res) => {
   const members = await User.find({
@@ -50,6 +51,17 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
   ]
   allowedFields.forEach((field) => {
     if (typeof req.body[field] === 'string' && req.body[field].trim()) {
+      if (field === 'phone') {
+        const phone = normalizeBangladeshiPhone(req.body[field])
+
+        if (!isBangladeshiPhone(phone)) {
+          throw new AppError('Phone must use Bangladeshi format like 017XXXXXXXX.', 400)
+        }
+
+        user[field] = phone
+        return
+      }
+
       user[field] = req.body[field].trim()
     }
   })

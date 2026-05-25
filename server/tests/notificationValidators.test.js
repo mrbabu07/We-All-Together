@@ -1,6 +1,9 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
-const { validateBroadcastNotification } = require('../src/validators/notificationValidators')
+const {
+  validateBroadcastNotification,
+  validateSendNotification,
+} = require('../src/validators/notificationValidators')
 
 test('validateBroadcastNotification accepts all approved users by default', () => {
   const payload = validateBroadcastNotification({
@@ -22,4 +25,16 @@ test('validateBroadcastNotification rejects invalid role values', () => {
       }),
     /role is invalid/,
   )
+})
+
+test('validateSendNotification accepts sms whatsapp channels', () => {
+  const payload = validateSendNotification({
+    channel: 'both',
+    message: 'Please join meeting',
+    role: 'member',
+    title: 'Meeting reminder',
+  })
+
+  assert.equal(payload.channel, 'both')
+  assert.equal(payload.role, 'member')
 })

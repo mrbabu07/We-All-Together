@@ -50,6 +50,7 @@ DELETE /members/:id
 PATCH  /settings/registration-fee
 PATCH  /settings/monthly-fee
 PATCH  /settings/donation-number
+PATCH  /settings/notification-settings
 
 GET    /payments
 GET    /payments/:id
@@ -66,6 +67,7 @@ GET    /backup
 GET    /finance/analytics
 GET    /notifications
 POST   /notifications/broadcast
+POST   /notifications/send
 GET    /receipts/donations/:id
 GET    /receipts/payments/:id
 GET    /receipts/registrations/:id
@@ -162,3 +164,9 @@ Protected routes require:
 ```text
 Authorization: Bearer <jwt_token>
 ```
+
+## Phone and Message Notes
+
+Phone inputs for users, donations, and payment submissions are normalized and validated as Bangladeshi mobile numbers, for example `017XXXXXXXX`.
+
+`POST /notifications/send` creates in-app notifications and can send SMS, WhatsApp, or both through Twilio when the server has Twilio credentials configured. Notice, meeting, and monthly fee reminder SMS/WhatsApp triggers are controlled by `PATCH /settings/notification-settings`.

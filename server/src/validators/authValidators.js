@@ -1,4 +1,5 @@
 const AppError = require('../utils/appError')
+const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
 const requireString = (body, fieldName, label = fieldName) => {
   const value = body[fieldName]
@@ -10,8 +11,18 @@ const requireString = (body, fieldName, label = fieldName) => {
   return value.trim()
 }
 
+const requirePhone = (body, fieldName, label = fieldName) => {
+  const phone = normalizeBangladeshiPhone(requireString(body, fieldName, label))
+
+  if (!isBangladeshiPhone(phone)) {
+    throw new AppError(`${label} must use Bangladeshi format like 017XXXXXXXX.`, 400)
+  }
+
+  return phone
+}
+
 const validateLogin = (body) => ({
-  phone: requireString(body, 'phone', 'Phone'),
+  phone: requirePhone(body, 'phone', 'Phone'),
   password: requireString(body, 'password', 'Password'),
 })
 
@@ -24,7 +35,7 @@ const validateBootstrapAdmin = (body) => {
 
   return {
     name: requireString(body, 'name', 'Name'),
-    phone: requireString(body, 'phone', 'Phone'),
+    phone: requirePhone(body, 'phone', 'Phone'),
     address: typeof body.address === 'string' ? body.address.trim() : '',
     password,
     setupSecret: requireString(body, 'setupSecret', 'Setup secret'),
@@ -37,7 +48,7 @@ const validateProfileUpdate = (body) => ({
     typeof body.birthCertificateUrl === 'string' ? body.birthCertificateUrl.trim() : '',
   name: requireString(body, 'name', 'Name'),
   nidImageUrl: typeof body.nidImageUrl === 'string' ? body.nidImageUrl.trim() : '',
-  phone: requireString(body, 'phone', 'Phone'),
+  phone: requirePhone(body, 'phone', 'Phone'),
   profilePhotoUrl: typeof body.profilePhotoUrl === 'string' ? body.profilePhotoUrl.trim() : '',
 })
 

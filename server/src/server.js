@@ -1,6 +1,7 @@
 const app = require('./app')
 const connectDB = require('./config/db')
 const env = require('./config/env')
+const { startMonthlyFeeReminderScheduler } = require('./services/messageNotificationService')
 
 let server
 
@@ -12,6 +13,10 @@ const startServer = async () => {
     server = app.listen(env.port, () => {
       console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`)
     })
+
+    if (env.nodeEnv !== 'test') {
+      startMonthlyFeeReminderScheduler()
+    }
   } catch (error) {
     console.error(`Server failed to start: ${error.message}`)
     process.exit(1)

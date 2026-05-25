@@ -64,6 +64,9 @@ Deployment is intentionally skipped for now.
 20. QR payment verification
     - Payment QR generation, verification URLs, admin scan page, QR-enabled printable/PDF receipts, and admin payment lookup route.
 
+21. SMS and WhatsApp notification pass
+    - Twilio-ready SMS/WhatsApp sending service, admin notification trigger settings, manual message endpoint, first-day monthly fee reminder scheduler, notice/meeting message triggers, and Bangladeshi phone validation.
+
 ## Verification Command Set
 
 Run these before every push:

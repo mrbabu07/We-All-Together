@@ -25,6 +25,7 @@ test('validateMonthlyPayment accepts required payment fields', () => {
 
   assert.equal(payload.month, '2026-05')
   assert.equal(payload.method, 'bKash')
+  assert.equal(payload.senderPhone, '01711111111')
 })
 
 test('validateExpense parses expense date and amount', () => {

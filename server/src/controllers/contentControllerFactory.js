@@ -2,6 +2,7 @@ const { AUDIENCES } = require('../constants/contentConstants')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
+const { sendContentTriggerMessages } = require('../services/messageNotificationService')
 
 const createContentController = ({ model, validate, sort = { createdAt: -1 }, name }) => {
   const getPublicItems = asyncHandler(async (req, res) => {
@@ -44,6 +45,24 @@ const createContentController = ({ model, validate, sort = { createdAt: -1 }, na
         title: item.title,
       },
     })
+    if (name === 'Notice') {
+      await sendContentTriggerMessages({
+        actor: req.user,
+        body: item.body,
+        link: '/member',
+        title: item.title,
+        trigger: 'notice',
+      })
+    }
+    if (name === 'Meeting') {
+      await sendContentTriggerMessages({
+        actor: req.user,
+        body: `${item.agenda} Location: ${item.location}`,
+        link: '/member',
+        title: item.title,
+        trigger: 'meeting',
+      })
+    }
 
     res.status(201).json({
       success: true,

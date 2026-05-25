@@ -184,6 +184,14 @@ export default function AdminDashboardPage() {
   const [settingsForm, setSettingsForm] = useState({
     donationNumber: '',
     donationProvider: '',
+    notificationSettings: {
+      smsFeeReminderEnabled: false,
+      smsMeetingEnabled: false,
+      smsNoticeEnabled: false,
+      whatsappFeeReminderEnabled: false,
+      whatsappMeetingEnabled: false,
+      whatsappNoticeEnabled: false,
+    },
     monthlyFee: 0,
     registrationFee: 0,
   })
@@ -207,6 +215,7 @@ export default function AdminDashboardPage() {
     link: '',
     message: '',
     role: '',
+    channel: 'sms',
     title: '',
     type: 'general',
   })
@@ -267,6 +276,16 @@ export default function AdminDashboardPage() {
       setSettingsForm({
         donationNumber: settings.donationNumber || '',
         donationProvider: settings.donationProvider || '',
+        notificationSettings: {
+          smsFeeReminderEnabled: Boolean(settings.notificationSettings?.smsFeeReminderEnabled),
+          smsMeetingEnabled: Boolean(settings.notificationSettings?.smsMeetingEnabled),
+          smsNoticeEnabled: Boolean(settings.notificationSettings?.smsNoticeEnabled),
+          whatsappFeeReminderEnabled: Boolean(
+            settings.notificationSettings?.whatsappFeeReminderEnabled,
+          ),
+          whatsappMeetingEnabled: Boolean(settings.notificationSettings?.whatsappMeetingEnabled),
+          whatsappNoticeEnabled: Boolean(settings.notificationSettings?.whatsappNoticeEnabled),
+        },
         monthlyFee: settings.monthlyFee || 0,
         registrationFee: settings.registrationFee || 0,
       })
@@ -349,8 +368,19 @@ export default function AdminDashboardPage() {
           donationNumber: settingsForm.donationNumber,
           donationProvider: settingsForm.donationProvider,
         }),
+        api.patch('/settings/notification-settings', settingsForm.notificationSettings),
       ])
     }, 'Settings updated successfully.')
+  }
+
+  const updateNotificationSetting = (field, value) => {
+    setSettingsForm((current) => ({
+      ...current,
+      notificationSettings: {
+        ...current.notificationSettings,
+        [field]: value,
+      },
+    }))
   }
 
   const saveExpense = async (event) => {
@@ -710,8 +740,9 @@ export default function AdminDashboardPage() {
   const sendBroadcastNotification = async (event) => {
     event.preventDefault()
     await runAction(async () => {
-      await api.post('/notifications/broadcast', notificationForm)
+      await api.post('/notifications/send', notificationForm)
       setNotificationForm({
+        channel: 'sms',
         link: '',
         message: '',
         role: '',
@@ -834,6 +865,7 @@ export default function AdminDashboardPage() {
           onSettingsChange={(field, value) =>
             setSettingsForm((current) => ({ ...current, [field]: value }))
           }
+          onNotificationSettingChange={updateNotificationSetting}
           onUpdateSettings={updateSettings}
           settingsForm={settingsForm}
         />
@@ -1007,6 +1039,7 @@ function FinanceTab({
   onPaymentVerify,
   onDonationReceipt,
   onSaveExpense,
+  onNotificationSettingChange,
   onSettingsChange,
   onUpdateSettings,
   settingsForm,
@@ -1068,6 +1101,45 @@ function FinanceTab({
             Save Settings
           </Button>
         </form>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={Bell} title="SMS and WhatsApp Triggers" />
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <ToggleField
+            checked={settingsForm.notificationSettings.smsNoticeEnabled}
+            label="SMS on new notice"
+            onChange={(value) => onNotificationSettingChange('smsNoticeEnabled', value)}
+          />
+          <ToggleField
+            checked={settingsForm.notificationSettings.smsMeetingEnabled}
+            label="SMS on meeting scheduled"
+            onChange={(value) => onNotificationSettingChange('smsMeetingEnabled', value)}
+          />
+          <ToggleField
+            checked={settingsForm.notificationSettings.smsFeeReminderEnabled}
+            label="SMS fee reminder"
+            onChange={(value) => onNotificationSettingChange('smsFeeReminderEnabled', value)}
+          />
+          <ToggleField
+            checked={settingsForm.notificationSettings.whatsappNoticeEnabled}
+            label="WhatsApp on new notice"
+            onChange={(value) => onNotificationSettingChange('whatsappNoticeEnabled', value)}
+          />
+          <ToggleField
+            checked={settingsForm.notificationSettings.whatsappMeetingEnabled}
+            label="WhatsApp on meeting scheduled"
+            onChange={(value) => onNotificationSettingChange('whatsappMeetingEnabled', value)}
+          />
+          <ToggleField
+            checked={settingsForm.notificationSettings.whatsappFeeReminderEnabled}
+            label="WhatsApp fee reminder"
+            onChange={(value) => onNotificationSettingChange('whatsappFeeReminderEnabled', value)}
+          />
+        </div>
+        <p className="mt-3 text-sm text-slate-500">
+          Twilio credentials must be configured on the server before SMS or WhatsApp messages are sent.
+        </p>
       </Panel>
 
       <Panel>
@@ -1188,6 +1260,20 @@ function FinanceTab({
         rightTitle="Donations"
       />
     </div>
+  )
+}
+
+function ToggleField({ checked, label, onChange }) {
+  return (
+    <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+      <input
+        checked={checked}
+        className="h-4 w-4 accent-emerald-700"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>{label}</span>
+    </label>
   )
 }
 
@@ -2209,6 +2295,16 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
             onChange={(event) => onNotificationChange('type', event.target.value)}
             value={notificationForm.type}
           />
+          <SelectField
+            label="Channel"
+            name="channel"
+            onChange={(event) => onNotificationChange('channel', event.target.value)}
+            value={notificationForm.channel}
+          >
+            <option value="sms">SMS</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="both">SMS + WhatsApp</option>
+          </SelectField>
           <SelectField
             label="Send To"
             name="role"

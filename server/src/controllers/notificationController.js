@@ -3,7 +3,11 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { broadcastNotification } = require('../services/notificationService')
-const { validateBroadcastNotification } = require('../validators/notificationValidators')
+const { sendManualMessageNotification } = require('../services/messageNotificationService')
+const {
+  validateBroadcastNotification,
+  validateSendNotification,
+} = require('../validators/notificationValidators')
 
 const getMyNotifications = asyncHandler(async (req, res) => {
   const [notifications, unreadCount] = await Promise.all([
@@ -105,10 +109,37 @@ const sendBroadcastNotification = asyncHandler(async (req, res) => {
   })
 })
 
+const sendNotificationMessage = asyncHandler(async (req, res) => {
+  const payload = validateSendNotification(req.body)
+  const result = await sendManualMessageNotification({
+    ...payload,
+    actor: req.user,
+  })
+
+  await recordAuditLog({
+    action: 'notification.message.send',
+    actor: req.user,
+    entityType: 'Notification',
+    metadata: {
+      channel: payload.channel,
+      recipientCount: result.recipientCount,
+      role: payload.role || 'all',
+      title: payload.title,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Notification message processed successfully.',
+    data: result,
+  })
+})
+
 module.exports = {
   getAllNotifications,
   getMyNotifications,
   markAllNotificationsRead,
   markNotificationRead,
   sendBroadcastNotification,
+  sendNotificationMessage,
 }
