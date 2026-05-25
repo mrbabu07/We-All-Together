@@ -1398,7 +1398,7 @@ function FinanceAnalytics({ analytics }) {
           {monthly.length === 0 ? (
             <Empty text="No analytics data yet." />
           ) : (
-            <ResponsiveContainer height="100%" width="100%">
+            <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
               <BarChart data={monthly}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
@@ -1419,7 +1419,7 @@ function FinanceAnalytics({ analytics }) {
           {donationTrend.length === 0 ? (
             <Empty text="No donation trend data yet." />
           ) : (
-            <ResponsiveContainer height="100%" width="100%">
+            <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
               <LineChart data={donationTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
@@ -1812,7 +1812,7 @@ function PollResultsChart({ poll }) {
 
   return (
     <div className="mt-4 h-56">
-      <ResponsiveContainer height="100%" width="100%">
+      <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
         <BarChart data={rows}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />

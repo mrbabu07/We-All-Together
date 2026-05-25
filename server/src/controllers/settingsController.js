@@ -4,7 +4,7 @@ const Donation = require('../models/Donation')
 const User = require('../models/User')
 const { PAYMENT_STATUSES } = require('../constants/paymentConstants')
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
-const { getSettings } = require('../services/settingsService')
+const { getSettings, updateSettings } = require('../services/settingsService')
 const {
   validateDonationNumber,
   validateMonthlyFee,
@@ -68,13 +68,11 @@ const getPublicSettings = asyncHandler(async (req, res) => {
 
 const updateNotificationSettings = asyncHandler(async (req, res) => {
   const payload = validateNotificationSettings(req.body)
-  const settings = await getSettings()
-
-  settings.notificationSettings = {
-    ...settings.notificationSettings,
-    ...payload,
-  }
-  await settings.save()
+  const settings = await updateSettings(
+    Object.fromEntries(
+      Object.entries(payload).map(([key, value]) => [`notificationSettings.${key}`, value]),
+    ),
+  )
   await recordAuditLog({
     action: 'settings.notificationSettings.update',
     actor: req.user,
@@ -94,10 +92,9 @@ const updateNotificationSettings = asyncHandler(async (req, res) => {
 
 const updateRegistrationFee = asyncHandler(async (req, res) => {
   const payload = validateRegistrationFee(req.body)
-  const settings = await getSettings()
-
-  settings.registrationFee = payload.registrationFee
-  await settings.save()
+  const settings = await updateSettings({
+    registrationFee: payload.registrationFee,
+  })
   await recordAuditLog({
     action: 'settings.registrationFee.update',
     actor: req.user,
@@ -119,10 +116,9 @@ const updateRegistrationFee = asyncHandler(async (req, res) => {
 
 const updateMonthlyFee = asyncHandler(async (req, res) => {
   const payload = validateMonthlyFee(req.body)
-  const settings = await getSettings()
-
-  settings.monthlyFee = payload.monthlyFee
-  await settings.save()
+  const settings = await updateSettings({
+    monthlyFee: payload.monthlyFee,
+  })
   await recordAuditLog({
     action: 'settings.monthlyFee.update',
     actor: req.user,
@@ -144,11 +140,10 @@ const updateMonthlyFee = asyncHandler(async (req, res) => {
 
 const updateDonationNumber = asyncHandler(async (req, res) => {
   const payload = validateDonationNumber(req.body)
-  const settings = await getSettings()
-
-  settings.donationNumber = payload.donationNumber
-  settings.donationProvider = payload.donationProvider
-  await settings.save()
+  const settings = await updateSettings({
+    donationNumber: payload.donationNumber,
+    donationProvider: payload.donationProvider,
+  })
   await recordAuditLog({
     action: 'settings.donationNumber.update',
     actor: req.user,

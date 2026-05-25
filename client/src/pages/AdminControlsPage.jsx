@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
 import { HexColorPicker } from 'react-colorful'
 import toast from 'react-hot-toast'
 import {
@@ -34,6 +32,7 @@ import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
+import RichTextEditor from '../components/ui/RichTextEditor'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
 
@@ -873,14 +872,11 @@ function SiteSettingsTab({ form, onChange, onSave, onUpload, saving }) {
             />
           </div>
           <div className="md:col-span-2">
-            <label className="grid gap-1.5 text-sm font-medium text-gray-700">
-              <span>সদস্য ড্যাশবোর্ড welcome message</span>
-              <ReactQuill
-                onChange={(value) => onChange('siteSettings', 'welcomeMessage', value)}
-                theme="snow"
-                value={form.siteSettings.welcomeMessage}
-              />
-            </label>
+            <RichTextEditor
+              label="সদস্য ড্যাশবোর্ড welcome message"
+              onChange={(value) => onChange('siteSettings', 'welcomeMessage', value)}
+              value={form.siteSettings.welcomeMessage || ''}
+            />
           </div>
         </div>
         <div className="mt-5 flex justify-end">

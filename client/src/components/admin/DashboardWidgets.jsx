@@ -114,7 +114,7 @@ export default function DashboardWidgets() {
           </WidgetMetric>
         </div>
         <div className="mt-6 h-64">
-          <ResponsiveContainer height="100%" width="100%">
+          <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
             <LineChart data={data?.memberGrowth || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
               <XAxis dataKey="_id" stroke="#6B7280" />

@@ -17,7 +17,7 @@ export default function useSocket(enabled = true) {
 
     const nextSocket = io(socketUrl, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 3,
     })
 
     nextSocket.on('presence:update', (snapshot) => {

@@ -6,7 +6,22 @@ const getSettings = async () => {
   const settings = await OrganizationSetting.findOneAndUpdate(
     { key: DEFAULT_SETTINGS_KEY },
     { $setOnInsert: { key: DEFAULT_SETTINGS_KEY } },
-    { new: true, upsert: true },
+    { returnDocument: 'after', upsert: true },
+  )
+
+  return settings
+}
+
+const updateSettings = async (updates) => {
+  const settings = await OrganizationSetting.findOneAndUpdate(
+    { key: DEFAULT_SETTINGS_KEY },
+    { $set: updates, $setOnInsert: { key: DEFAULT_SETTINGS_KEY } },
+    {
+      returnDocument: 'after',
+      runValidators: true,
+      setDefaultsOnInsert: true,
+      upsert: true,
+    },
   )
 
   return settings
@@ -14,4 +29,5 @@ const getSettings = async () => {
 
 module.exports = {
   getSettings,
+  updateSettings,
 }
