@@ -59,7 +59,20 @@ const validateChangePassword = (body) => {
   }
 }
 
+const validateAdminPasswordReset = (body) => {
+  const newPassword = requireString(body, 'newPassword', 'New password')
+
+  if (newPassword.length < 6) {
+    throw new AppError('New password must be at least 6 characters.', 400)
+  }
+
+  return {
+    newPassword,
+  }
+}
+
 module.exports = {
+  validateAdminPasswordReset,
   validateChangePassword,
   validateBootstrapAdmin,
   validateLogin,

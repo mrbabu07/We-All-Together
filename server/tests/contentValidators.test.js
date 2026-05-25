@@ -1,9 +1,11 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  validateMeetingAttendance,
   validateMeeting,
   validateNotice,
   validateTour,
+  validateTourParticipants,
 } = require('../src/validators/contentValidators')
 
 test('validateNotice defaults notices to public audience', () => {
@@ -39,4 +41,32 @@ test('validateTour rejects an end date before start date', () => {
       }),
     /End date cannot be before start date/,
   )
+})
+
+test('validateMeetingAttendance accepts member status rows', () => {
+  const payload = validateMeetingAttendance({
+    attendance: [{ member: '665f88f930d34b816c9d0001', status: 'present' }],
+    minutes: 'Decision recorded.',
+  })
+
+  assert.equal(payload.attendance.length, 1)
+  assert.equal(payload.attendance[0].status, 'present')
+  assert.equal(payload.minutes, 'Decision recorded.')
+})
+
+test('validateTourParticipants accepts cost tracking rows', () => {
+  const payload = validateTourParticipants({
+    participants: [
+      {
+        amountDue: 500,
+        member: '665f88f930d34b816c9d0001',
+        paidAmount: 200,
+        status: 'confirmed',
+      },
+    ],
+  })
+
+  assert.equal(payload.participants.length, 1)
+  assert.equal(payload.participants[0].amountDue, 500)
+  assert.equal(payload.participants[0].status, 'confirmed')
 })

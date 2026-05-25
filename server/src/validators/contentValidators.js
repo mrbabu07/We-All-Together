@@ -62,6 +62,14 @@ const readNumber = (body, fieldName, label = fieldName, fallback = 0) => {
   return value
 }
 
+const readObjectId = (value, label) => {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new AppError(`${label} is required.`, 400)
+  }
+
+  return value.trim()
+}
+
 const validateNotice = (body) => ({
   title: requireString(body, 'title', 'Title'),
   body: requireString(body, 'body', 'Body'),
@@ -78,6 +86,29 @@ const validateMeeting = (body) => ({
   audience: readAudience(body, AUDIENCES.MEMBERS),
   imageUrl: optionalString(body, 'imageUrl'),
 })
+
+const validateMeetingAttendance = (body) => {
+  const attendance = Array.isArray(body.attendance) ? body.attendance : []
+  const validStatuses = ['present', 'absent', 'excused']
+
+  return {
+    attendance: attendance.map((item) => {
+      const status = typeof item.status === 'string' ? item.status : 'present'
+
+      if (!validStatuses.includes(status)) {
+        throw new AppError('Attendance status is invalid.', 400)
+      }
+
+      return {
+        member: readObjectId(item.member, 'Member'),
+        note: typeof item.note === 'string' ? item.note.trim() : '',
+        recordedAt: new Date(),
+        status,
+      }
+    }),
+    minutes: optionalString(body, 'minutes'),
+  }
+}
 
 const validateTour = (body) => {
   const startDate = readDate(body, 'startDate', 'Start date')
@@ -97,6 +128,30 @@ const validateTour = (body) => {
     audience: readAudience(body, AUDIENCES.MEMBERS),
     imageUrl: optionalString(body, 'imageUrl'),
     status: readStatus(body),
+  }
+}
+
+const validateTourParticipants = (body) => {
+  const participants = Array.isArray(body.participants) ? body.participants : []
+  const validStatuses = ['interested', 'confirmed', 'paid', 'cancelled']
+
+  return {
+    participants: participants.map((item) => {
+      const status = typeof item.status === 'string' ? item.status : 'interested'
+
+      if (!validStatuses.includes(status)) {
+        throw new AppError('Tour participant status is invalid.', 400)
+      }
+
+      return {
+        amountDue: readNumber(item, 'amountDue', 'Amount due'),
+        joinedAt: item.joinedAt ? new Date(item.joinedAt) : new Date(),
+        member: readObjectId(item.member, 'Member'),
+        note: typeof item.note === 'string' ? item.note.trim() : '',
+        paidAmount: readNumber(item, 'paidAmount', 'Paid amount'),
+        status,
+      }
+    }),
   }
 }
 
@@ -122,7 +177,9 @@ const validateRule = (body) => ({
 module.exports = {
   validateActivity,
   validateMeeting,
+  validateMeetingAttendance,
   validateNotice,
   validateRule,
   validateTour,
+  validateTourParticipants,
 }

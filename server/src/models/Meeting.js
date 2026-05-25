@@ -36,6 +36,36 @@ const meetingSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    minutes: {
+      type: String,
+      trim: true,
+      maxlength: [3000, 'Meeting minutes cannot exceed 3000 characters.'],
+      default: '',
+    },
+    attendance: [
+      {
+        member: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['present', 'absent', 'excused'],
+          default: 'present',
+        },
+        note: {
+          type: String,
+          trim: true,
+          maxlength: [300, 'Attendance note cannot exceed 300 characters.'],
+          default: '',
+        },
+        recordedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { validateAdminPasswordReset } = require('../validators/authValidators')
 
 const getApprovedMembers = asyncHandler(async (req, res) => {
   const members = await User.find({
@@ -166,10 +167,50 @@ const deleteUser = asyncHandler(async (req, res) => {
   })
 })
 
+const resetUserPassword = asyncHandler(async (req, res) => {
+  if (req.user._id.toString() === req.params.id) {
+    throw new AppError('Use the account page to change your own password.', 400)
+  }
+
+  const payload = validateAdminPasswordReset(req.body)
+  const user = await User.findById(req.params.id).select('+password')
+
+  if (!user) {
+    throw new AppError('User not found.', 404)
+  }
+
+  user.password = payload.newPassword
+  await user.save()
+  await createNotification({
+    createdBy: req.user,
+    link: '/account',
+    message: 'An admin reset your password. Please log in with the new password and update it soon.',
+    title: 'Password reset',
+    type: 'account',
+    user,
+  })
+  await recordAuditLog({
+    action: 'member.password.reset',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      role: user.role,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'User password reset successfully.',
+  })
+})
+
 module.exports = {
   deleteUser,
   getAllUsers,
   getApprovedMembers,
+  resetUserPassword,
   updateUserAccess,
   updateMemberProfile,
 }

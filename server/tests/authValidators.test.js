@@ -1,6 +1,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  validateAdminPasswordReset,
   validateChangePassword,
   validateProfileUpdate,
 } = require('../src/validators/authValidators')
@@ -32,4 +33,12 @@ test('validateChangePassword rejects same password', () => {
       }),
     /different from current password/,
   )
+})
+
+test('validateAdminPasswordReset accepts a new password', () => {
+  const payload = validateAdminPasswordReset({
+    newPassword: 'Member@123',
+  })
+
+  assert.equal(payload.newPassword, 'Member@123')
 })

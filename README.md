@@ -13,6 +13,7 @@ A MERN organization management system for member registration, admin approval, f
 - ImgBB image uploads for notices, meetings, tours, activities, and rules
 - Audit logs, admin JSON backup export, member notifications, printable receipts, and profile document uploads
 - Searchable admin/member lists, confirmation dialogs, finance summaries, and Bengali/English navigation toggle
+- Meeting attendance/minutes, tour participant cost tracking, and admin password reset
 
 ## Tech Stack
 

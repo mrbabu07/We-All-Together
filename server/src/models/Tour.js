@@ -51,6 +51,40 @@ const tourSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    participants: [
+      {
+        member: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['interested', 'confirmed', 'paid', 'cancelled'],
+          default: 'interested',
+        },
+        amountDue: {
+          type: Number,
+          min: [0, 'Amount due cannot be negative.'],
+          default: 0,
+        },
+        paidAmount: {
+          type: Number,
+          min: [0, 'Paid amount cannot be negative.'],
+          default: 0,
+        },
+        note: {
+          type: String,
+          trim: true,
+          maxlength: [300, 'Participant note cannot exceed 300 characters.'],
+          default: '',
+        },
+        joinedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

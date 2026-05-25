@@ -520,6 +520,22 @@ function UpdateList({ items, textKey, title }) {
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
             </div>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item[textKey] || item.location}</p>
+            {item.minutes ? (
+              <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
+                {item.minutes}
+              </p>
+            ) : null}
+            {Array.isArray(item.attendance) && item.attendance.length ? (
+              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+                Attendance recorded: {item.attendance.length}
+              </p>
+            ) : null}
+            {Array.isArray(item.participants) && item.participants.length ? (
+              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+                Participants: {item.participants.length} | Paid:{' '}
+                {money(item.participants.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0))}
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

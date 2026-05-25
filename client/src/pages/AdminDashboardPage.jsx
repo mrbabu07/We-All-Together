@@ -6,6 +6,7 @@ import {
   DatabaseBackup,
   Download,
   FileText,
+  KeyRound,
   Pencil,
   FilePlus2,
   RefreshCw,
@@ -487,10 +488,28 @@ export default function AdminDashboardPage() {
     }, 'Member profile updated successfully.')
   }
 
+  const resetUserPassword = async (id, newPassword) => {
+    await runAction(async () => {
+      await api.patch(`/members/${id}/password`, { newPassword })
+    }, 'User password reset successfully.')
+  }
+
   const updateUserAccess = async (id, payload) => {
     await runAction(async () => {
       await api.patch(`/members/${id}/access`, payload)
     }, 'User access updated successfully.')
+  }
+
+  const saveMeetingAttendance = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/meetings/${id}/attendance`, payload)
+    }, 'Meeting attendance saved successfully.')
+  }
+
+  const saveTourParticipants = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/tours/${id}/participants`, payload)
+    }, 'Tour participants saved successfully.')
   }
 
   const deleteUser = async (id) => {
@@ -800,6 +819,8 @@ export default function AdminDashboardPage() {
           onEdit={editContent}
           onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
+          onSaveMeetingAttendance={saveMeetingAttendance}
+          onSaveTourParticipants={saveTourParticipants}
           uploadingContentKey={uploadingContentKey}
         />
       ) : null}
@@ -807,6 +828,7 @@ export default function AdminDashboardPage() {
       {!loading && activeTab === 'members' ? (
         <MembersTab
           onDeleteUser={deleteUser}
+          onResetPassword={resetUserPassword}
           onUpdateAccess={updateUserAccess}
           onUpdateProfile={updateMemberProfile}
           users={data.users}
@@ -1192,8 +1214,14 @@ function ContentTab({
   onEdit,
   onFormChange,
   onImageUpload,
+  onSaveMeetingAttendance,
+  onSaveTourParticipants,
   uploadingContentKey,
 }) {
+  const approvedMembers = data.users.filter(
+    (item) => item.role === 'member' && item.status === 'approved',
+  )
+
   return (
     <div className="mt-6 grid gap-6">
       {contentConfigs.map((config) => (
@@ -1252,14 +1280,288 @@ function ContentTab({
               </div>
             ))}
           </div>
+          {config.key === 'meetings' ? (
+            <MeetingWorkflowPanel
+              meetings={data.content.meetings}
+              members={approvedMembers}
+              onSave={onSaveMeetingAttendance}
+            />
+          ) : null}
+          {config.key === 'tours' ? (
+            <TourWorkflowPanel
+              members={approvedMembers}
+              onSave={onSaveTourParticipants}
+              tours={data.content.tours}
+            />
+          ) : null}
         </Panel>
       ))}
     </div>
   )
 }
 
-function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
+function MeetingWorkflowPanel({ meetings, members, onSave }) {
+  const [selectedMeetingId, setSelectedMeetingId] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const [attendance, setAttendance] = useState({})
+
+  const selectMeeting = (id) => {
+    const meeting = meetings.find((item) => item._id === id)
+    const rows = {}
+
+    members.forEach((member) => {
+      const existing = meeting?.attendance?.find(
+        (item) => String(item.member?._id || item.member) === member._id,
+      )
+      rows[member._id] = {
+        note: existing?.note || '',
+        status: existing?.status || 'absent',
+      }
+    })
+
+    setSelectedMeetingId(id)
+    setMinutes(meeting?.minutes || '')
+    setAttendance(rows)
+  }
+
+  const updateAttendance = (memberId, field, value) => {
+    setAttendance((current) => ({
+      ...current,
+      [memberId]: {
+        ...current[memberId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const saveAttendance = async (event) => {
+    event.preventDefault()
+
+    await onSave(selectedMeetingId, {
+      attendance: Object.entries(attendance).map(([member, row]) => ({
+        member,
+        note: row.note,
+        status: row.status,
+      })),
+      minutes,
+    })
+  }
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h3 className="font-bold text-slate-950">Meeting Attendance</h3>
+      <form className="mt-4 grid gap-4" onSubmit={saveAttendance}>
+        <SelectField
+          label="Meeting"
+          name="meeting"
+          onChange={(event) => selectMeeting(event.target.value)}
+          value={selectedMeetingId}
+        >
+          <option value="">Select meeting</option>
+          {meetings.map((meeting) => (
+            <option key={meeting._id} value={meeting._id}>
+              {meeting.title}
+            </option>
+          ))}
+        </SelectField>
+        {selectedMeetingId ? (
+          <>
+            <Field
+              label="Minutes"
+              name="minutes"
+              onChange={(event) => setMinutes(event.target.value)}
+              textarea
+              value={minutes}
+            />
+            <div className="grid gap-3">
+              {members.map((member) => (
+                <div
+                  className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_160px_1fr]"
+                  key={member._id}
+                >
+                  <div>
+                    <p className="font-semibold text-slate-950">{member.name}</p>
+                    <p className="text-sm text-slate-500">{member.phone}</p>
+                  </div>
+                  <SelectField
+                    label="Status"
+                    name={`status-${member._id}`}
+                    onChange={(event) =>
+                      updateAttendance(member._id, 'status', event.target.value)
+                    }
+                    value={attendance[member._id]?.status || 'absent'}
+                  >
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="excused">Excused</option>
+                  </SelectField>
+                  <Field
+                    label="Note"
+                    name={`note-${member._id}`}
+                    onChange={(event) => updateAttendance(member._id, 'note', event.target.value)}
+                    value={attendance[member._id]?.note || ''}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button icon={Save} type="submit">
+              Save Attendance
+            </Button>
+          </>
+        ) : null}
+      </form>
+    </div>
+  )
+}
+
+function TourWorkflowPanel({ members, onSave, tours }) {
+  const [selectedTourId, setSelectedTourId] = useState('')
+  const [participants, setParticipants] = useState({})
+
+  const selectTour = (id) => {
+    const tour = tours.find((item) => item._id === id)
+    const rows = {}
+
+    members.forEach((member) => {
+      const existing = tour?.participants?.find(
+        (item) => String(item.member?._id || item.member) === member._id,
+      )
+      rows[member._id] = {
+        amountDue: existing?.amountDue || '',
+        note: existing?.note || '',
+        paidAmount: existing?.paidAmount || '',
+        status: existing?.status || '',
+      }
+    })
+
+    setSelectedTourId(id)
+    setParticipants(rows)
+  }
+
+  const updateParticipant = (memberId, field, value) => {
+    setParticipants((current) => ({
+      ...current,
+      [memberId]: {
+        ...current[memberId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const saveParticipants = async (event) => {
+    event.preventDefault()
+
+    await onSave(selectedTourId, {
+      participants: Object.entries(participants)
+        .filter(([, row]) => row.status)
+        .map(([member, row]) => ({
+          amountDue: row.amountDue || 0,
+          member,
+          note: row.note,
+          paidAmount: row.paidAmount || 0,
+          status: row.status,
+        })),
+    })
+  }
+
+  const totalDue = Object.values(participants).reduce(
+    (sum, row) => sum + Number(row.amountDue || 0),
+    0,
+  )
+  const totalPaid = Object.values(participants).reduce(
+    (sum, row) => sum + Number(row.paidAmount || 0),
+    0,
+  )
+
+  return (
+    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
+      <h3 className="font-bold text-slate-950">Tour Participants</h3>
+      <form className="mt-4 grid gap-4" onSubmit={saveParticipants}>
+        <SelectField
+          label="Tour"
+          name="tour"
+          onChange={(event) => selectTour(event.target.value)}
+          value={selectedTourId}
+        >
+          <option value="">Select tour</option>
+          {tours.map((tour) => (
+            <option key={tour._id} value={tour._id}>
+              {tour.title}
+            </option>
+          ))}
+        </SelectField>
+        {selectedTourId ? (
+          <>
+            <div className="grid gap-3 md:grid-cols-2">
+              <SummaryStat label="Total Due" value={money(totalDue)} />
+              <SummaryStat label="Total Paid" value={money(totalPaid)} />
+            </div>
+            <div className="grid gap-3">
+              {members.map((member) => (
+                <div
+                  className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_150px_120px_120px_1fr]"
+                  key={member._id}
+                >
+                  <div>
+                    <p className="font-semibold text-slate-950">{member.name}</p>
+                    <p className="text-sm text-slate-500">{member.phone}</p>
+                  </div>
+                  <SelectField
+                    label="Status"
+                    name={`tour-status-${member._id}`}
+                    onChange={(event) =>
+                      updateParticipant(member._id, 'status', event.target.value)
+                    }
+                    value={participants[member._id]?.status || ''}
+                  >
+                    <option value="">Not going</option>
+                    <option value="interested">Interested</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="paid">Paid</option>
+                    <option value="cancelled">Cancelled</option>
+                  </SelectField>
+                  <Field
+                    label="Due"
+                    name={`amountDue-${member._id}`}
+                    onChange={(event) =>
+                      updateParticipant(member._id, 'amountDue', event.target.value)
+                    }
+                    type="number"
+                    value={participants[member._id]?.amountDue || ''}
+                  />
+                  <Field
+                    label="Paid"
+                    name={`paidAmount-${member._id}`}
+                    onChange={(event) =>
+                      updateParticipant(member._id, 'paidAmount', event.target.value)
+                    }
+                    type="number"
+                    value={participants[member._id]?.paidAmount || ''}
+                  />
+                  <Field
+                    label="Note"
+                    name={`tour-note-${member._id}`}
+                    onChange={(event) =>
+                      updateParticipant(member._id, 'note', event.target.value)
+                    }
+                    value={participants[member._id]?.note || ''}
+                  />
+                </div>
+              ))}
+            </div>
+            <Button icon={Save} type="submit">
+              Save Participants
+            </Button>
+          </>
+        ) : null}
+      </form>
+    </div>
+  )
+}
+
+function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdateProfile, users }) {
   const [editingUserId, setEditingUserId] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
   const [query, setQuery] = useState('')
   const [memberForm, setMemberForm] = useState({
     address: '',
@@ -1274,6 +1576,7 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
 
   const startEdit = (user) => {
     setEditingUserId(user._id)
+    setNewPassword('')
     setMemberForm({
       address: user.address || '',
       birthCertificateUrl: user.birthCertificateUrl || '',
@@ -1288,6 +1591,7 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
 
   const cancelEdit = () => {
     setEditingUserId(null)
+    setNewPassword('')
     setMemberForm({
       address: '',
       birthCertificateUrl: '',
@@ -1323,6 +1627,15 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
       status: memberForm.status,
     })
     cancelEdit()
+  }
+
+  const resetPassword = async () => {
+    if (!newPassword) {
+      return
+    }
+
+    await onResetPassword(editingUserId, newPassword)
+    setNewPassword('')
   }
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -1406,6 +1719,25 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
               Cancel
             </Button>
           </form>
+          <div className="mt-5 grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto]">
+            <Field
+              label="New Password"
+              name="newPassword"
+              onChange={(event) => setNewPassword(event.target.value)}
+              type="password"
+              value={newPassword}
+            />
+            <div className="flex items-end">
+              <Button
+                disabled={!newPassword}
+                icon={KeyRound}
+                onClick={resetPassword}
+                variant="secondary"
+              >
+                Reset Password
+              </Button>
+            </div>
+          </div>
         </Panel>
       ) : null}
 

@@ -49,6 +49,9 @@ Deployment is intentionally skipped for now.
 15. UI and reporting pass
     - Confirmation dialog, searchable admin/member lists, finance category summaries, member photo display, and Bengali/English navigation toggle.
 
+16. Workflow completion pass
+    - Meeting minutes and attendance tracking, tour participant/cost tracking, member-visible workflow summaries, and admin password reset.
+
 ## Verification Command Set
 
 Run these before every push:

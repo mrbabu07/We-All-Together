@@ -65,6 +65,9 @@ POST   /notifications/broadcast
 GET    /receipts/donations/:id
 GET    /receipts/payments/:id
 GET    /receipts/registrations/:id
+PATCH  /members/:id/password
+PATCH  /meetings/:id/attendance
+PATCH  /tours/:id/participants
 
 GET    /expenses
 POST   /expenses

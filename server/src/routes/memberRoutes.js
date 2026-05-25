@@ -4,6 +4,7 @@ const {
   deleteUser,
   getAllUsers,
   getApprovedMembers,
+  resetUserPassword,
   updateUserAccess,
   updateMemberProfile,
 } = require('../controllers/memberController')
@@ -16,6 +17,7 @@ router.get('/', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), getAppr
 router.get('/users', protect, authorize(USER_ROLES.ADMIN), getAllUsers)
 router.patch('/:id', protect, authorize(USER_ROLES.ADMIN), updateMemberProfile)
 router.patch('/:id/access', protect, authorize(USER_ROLES.ADMIN), updateUserAccess)
+router.patch('/:id/password', protect, authorize(USER_ROLES.ADMIN), resetUserPassword)
 router.delete('/:id', protect, authorize(USER_ROLES.ADMIN), deleteUser)
 
 module.exports = router
