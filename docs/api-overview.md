@@ -13,6 +13,7 @@ GET  /health
 GET  /settings/public
 POST /registrations
 POST /donations
+GET  /donations/verified
 POST /uploads/payment-proof
 GET  /notices/public
 GET  /meetings/public
@@ -29,6 +30,7 @@ POST /auth/login
 GET  /auth/me
 PATCH /auth/me
 PATCH /auth/change-password
+POST /uploads/profile-document
 ```
 
 ## Admin Routes
@@ -55,6 +57,14 @@ PATCH  /payments/:id/reject
 GET    /donations
 PATCH  /donations/:id/verify
 PATCH  /donations/:id/reject
+
+GET    /audit-logs
+GET    /backup
+GET    /notifications
+POST   /notifications/broadcast
+GET    /receipts/donations/:id
+GET    /receipts/payments/:id
+GET    /receipts/registrations/:id
 
 GET    /expenses
 POST   /expenses
@@ -111,6 +121,11 @@ GET  /meetings/members
 GET  /tours/members
 GET  /activities/members
 GET  /rules/members
+GET  /notifications/my
+PATCH /notifications/:id/read
+PATCH /notifications/my/read-all
+GET  /receipts/payments/:id
+GET  /receipts/registrations/:id
 ```
 
 ## Auth Header

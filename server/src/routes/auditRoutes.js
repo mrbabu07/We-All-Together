@@ -1,13 +1,11 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
-const { uploadImage } = require('../controllers/uploadController')
+const { getAuditLogs } = require('../controllers/auditController')
 const { protect } = require('../middlewares/authMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
 
-router.post('/payment-proof', uploadImage)
-router.post('/profile-document', protect, uploadImage)
-router.post('/image', protect, authorize(USER_ROLES.ADMIN), uploadImage)
+router.get('/', protect, authorize(USER_ROLES.ADMIN), getAuditLogs)
 
 module.exports = router

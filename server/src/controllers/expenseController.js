@@ -1,6 +1,7 @@
 const Expense = require('../models/Expense')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
+const { recordAuditLog } = require('../services/auditService')
 const { validateExpense } = require('../validators/financeValidators')
 
 const createExpense = asyncHandler(async (req, res) => {
@@ -8,6 +9,17 @@ const createExpense = asyncHandler(async (req, res) => {
   const expense = await Expense.create({
     ...payload,
     createdBy: req.user._id,
+  })
+  await recordAuditLog({
+    action: 'expense.create',
+    actor: req.user,
+    entityId: expense._id,
+    entityType: 'Expense',
+    metadata: {
+      amount: expense.amount,
+      category: expense.category,
+      title: expense.title,
+    },
   })
 
   res.status(201).json({
@@ -43,6 +55,17 @@ const updateExpense = asyncHandler(async (req, res) => {
 
   Object.assign(expense, payload)
   await expense.save()
+  await recordAuditLog({
+    action: 'expense.update',
+    actor: req.user,
+    entityId: expense._id,
+    entityType: 'Expense',
+    metadata: {
+      amount: expense.amount,
+      category: expense.category,
+      title: expense.title,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -61,6 +84,17 @@ const deleteExpense = asyncHandler(async (req, res) => {
   }
 
   await expense.deleteOne()
+  await recordAuditLog({
+    action: 'expense.delete',
+    actor: req.user,
+    entityId: req.params.id,
+    entityType: 'Expense',
+    metadata: {
+      amount: expense.amount,
+      category: expense.category,
+      title: expense.title,
+    },
+  })
 
   res.status(200).json({
     success: true,

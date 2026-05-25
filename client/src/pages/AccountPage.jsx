@@ -1,31 +1,39 @@
 import { useEffect, useState } from 'react'
-import { KeyRound, Save } from 'lucide-react'
+import { KeyRound, Save, Upload } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 export default function AccountPage() {
   const { refreshProfile, user } = useAuth()
   const [profileForm, setProfileForm] = useState({
     address: '',
+    birthCertificateUrl: '',
     name: '',
+    nidImageUrl: '',
     phone: '',
+    profilePhotoUrl: '',
   })
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
   })
   const [message, setMessage] = useState('')
+  const [uploadingField, setUploadingField] = useState('')
 
   useEffect(() => {
     if (user) {
       const timer = window.setTimeout(() => {
         setProfileForm({
           address: user.address || '',
+          birthCertificateUrl: user.birthCertificateUrl || '',
           name: user.name || '',
+          nidImageUrl: user.nidImageUrl || '',
           phone: user.phone || '',
+          profilePhotoUrl: user.profilePhotoUrl || '',
         })
       }, 0)
 
@@ -57,6 +65,32 @@ export default function AccountPage() {
       setMessage('Profile updated successfully.')
     } catch (error) {
       setMessage(getErrorMessage(error))
+    }
+  }
+
+  const uploadProfileDocument = async (field, file) => {
+    if (!file) {
+      return
+    }
+
+    setMessage('')
+    setUploadingField(field)
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/profile-document', {
+        image,
+        name: `${field}-${Date.now()}`,
+      })
+      setProfileForm((current) => ({
+        ...current,
+        [field]: response.data.data.image.url,
+      }))
+      setMessage('Image uploaded. Save profile to keep it on your account.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingField('')
     }
   }
 
@@ -117,6 +151,30 @@ export default function AccountPage() {
               textarea
               value={profileForm.address}
             />
+            <DocumentUpload
+              field="profilePhotoUrl"
+              label="Profile Photo"
+              onChange={updateProfileField}
+              onUpload={uploadProfileDocument}
+              uploading={uploadingField === 'profilePhotoUrl'}
+              value={profileForm.profilePhotoUrl}
+            />
+            <DocumentUpload
+              field="nidImageUrl"
+              label="NID Image"
+              onChange={updateProfileField}
+              onUpload={uploadProfileDocument}
+              uploading={uploadingField === 'nidImageUrl'}
+              value={profileForm.nidImageUrl}
+            />
+            <DocumentUpload
+              field="birthCertificateUrl"
+              label="Birth Certificate"
+              onChange={updateProfileField}
+              onUpload={uploadProfileDocument}
+              uploading={uploadingField === 'birthCertificateUrl'}
+              value={profileForm.birthCertificateUrl}
+            />
             <Button icon={Save} type="submit">
               Save Profile
             </Button>
@@ -149,5 +207,34 @@ export default function AccountPage() {
         </Panel>
       </div>
     </main>
+  )
+}
+
+function DocumentUpload({ field, label, onChange, onUpload, uploading, value }) {
+  return (
+    <div className="grid gap-3 rounded-md border border-slate-200 p-3">
+      <Field label={`${label} URL`} name={field} onChange={onChange} value={value} />
+      <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+        <Upload aria-hidden="true" className="h-4 w-4" />
+        <span>{uploading ? 'Uploading...' : `Upload ${label}`}</span>
+        <input
+          accept="image/*"
+          className="sr-only"
+          disabled={uploading}
+          onChange={(event) => onUpload(field, event.target.files?.[0])}
+          type="file"
+        />
+      </label>
+      {value ? (
+        <a
+          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+          href={value}
+          rel="noreferrer"
+          target="_blank"
+        >
+          View uploaded file
+        </a>
+      ) : null}
+    </div>
   )
 }

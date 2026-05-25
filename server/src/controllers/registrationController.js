@@ -4,6 +4,8 @@ const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
+const { recordAuditLog } = require('../services/auditService')
+const { createNotification } = require('../services/notificationService')
 const {
   validateRegistration,
   validateRejectRegistration,
@@ -73,6 +75,24 @@ const approveRegistration = asyncHandler(async (req, res) => {
   user.registrationPayment.verifiedAt = new Date()
   user.registrationPayment.verifiedBy = req.user._id
   await user.save()
+  await createNotification({
+    createdBy: req.user,
+    link: '/member',
+    message: 'Your registration has been approved. You can now access member features.',
+    title: 'Registration approved',
+    type: 'registration',
+    user,
+  })
+  await recordAuditLog({
+    action: 'registration.approve',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      registrationFee: user.registrationPayment.amount,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -102,6 +122,16 @@ const rejectRegistration = asyncHandler(async (req, res) => {
   user.registrationPayment.status = PAYMENT_STATUSES.REJECTED
   user.registrationPayment.note = payload.reason || user.registrationPayment.note
   await user.save()
+  await recordAuditLog({
+    action: 'registration.reject',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      reason: payload.reason || '',
+    },
+  })
 
   res.status(200).json({
     success: true,

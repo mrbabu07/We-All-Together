@@ -2,6 +2,8 @@ const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
+const { recordAuditLog } = require('../services/auditService')
+const { createNotification } = require('../services/notificationService')
 
 const getApprovedMembers = asyncHandler(async (req, res) => {
   const members = await User.find({
@@ -37,7 +39,14 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
     throw new AppError('Member not found.', 404)
   }
 
-  const allowedFields = ['name', 'phone', 'address']
+  const allowedFields = [
+    'name',
+    'phone',
+    'address',
+    'profilePhotoUrl',
+    'nidImageUrl',
+    'birthCertificateUrl',
+  ]
   allowedFields.forEach((field) => {
     if (typeof req.body[field] === 'string' && req.body[field].trim()) {
       user[field] = req.body[field].trim()
@@ -45,6 +54,17 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
   })
 
   await user.save()
+  await recordAuditLog({
+    action: 'member.update',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -84,6 +104,25 @@ const updateUserAccess = asyncHandler(async (req, res) => {
   }
 
   await user.save()
+  await createNotification({
+    createdBy: req.user,
+    link: '/member',
+    message: `Your account access is now ${user.status}.`,
+    title: 'Account access updated',
+    type: 'account',
+    user,
+  })
+  await recordAuditLog({
+    action: 'member.access.update',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -106,6 +145,17 @@ const deleteUser = asyncHandler(async (req, res) => {
   }
 
   await user.deleteOne()
+  await recordAuditLog({
+    action: 'member.delete',
+    actor: req.user,
+    entityId: req.params.id,
+    entityType: 'User',
+    metadata: {
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+    },
+  })
 
   res.status(200).json({
     success: true,

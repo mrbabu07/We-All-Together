@@ -5,6 +5,7 @@ const {
   validateMonthlyFee,
 } = require('../validators/financeValidators')
 const { validateRegistrationFee } = require('../validators/registrationValidators')
+const { recordAuditLog } = require('../services/auditService')
 
 const getPublicSettings = asyncHandler(async (req, res) => {
   const settings = await getSettings()
@@ -29,6 +30,15 @@ const updateRegistrationFee = asyncHandler(async (req, res) => {
 
   settings.registrationFee = payload.registrationFee
   await settings.save()
+  await recordAuditLog({
+    action: 'settings.registrationFee.update',
+    actor: req.user,
+    entityId: settings._id,
+    entityType: 'OrganizationSetting',
+    metadata: {
+      registrationFee: settings.registrationFee,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -45,6 +55,15 @@ const updateMonthlyFee = asyncHandler(async (req, res) => {
 
   settings.monthlyFee = payload.monthlyFee
   await settings.save()
+  await recordAuditLog({
+    action: 'settings.monthlyFee.update',
+    actor: req.user,
+    entityId: settings._id,
+    entityType: 'OrganizationSetting',
+    metadata: {
+      monthlyFee: settings.monthlyFee,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -62,6 +81,15 @@ const updateDonationNumber = asyncHandler(async (req, res) => {
   settings.donationNumber = payload.donationNumber
   settings.donationProvider = payload.donationProvider
   await settings.save()
+  await recordAuditLog({
+    action: 'settings.donationNumber.update',
+    actor: req.user,
+    entityId: settings._id,
+    entityType: 'OrganizationSetting',
+    metadata: {
+      donationProvider: settings.donationProvider,
+    },
+  })
 
   res.status(200).json({
     success: true,

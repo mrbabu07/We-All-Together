@@ -33,8 +33,12 @@ const validateBootstrapAdmin = (body) => {
 
 const validateProfileUpdate = (body) => ({
   address: typeof body.address === 'string' ? body.address.trim() : '',
+  birthCertificateUrl:
+    typeof body.birthCertificateUrl === 'string' ? body.birthCertificateUrl.trim() : '',
   name: requireString(body, 'name', 'Name'),
+  nidImageUrl: typeof body.nidImageUrl === 'string' ? body.nidImageUrl.trim() : '',
   phone: requireString(body, 'phone', 'Phone'),
+  profilePhotoUrl: typeof body.profilePhotoUrl === 'string' ? body.profilePhotoUrl.trim() : '',
 })
 
 const validateChangePassword = (body) => {

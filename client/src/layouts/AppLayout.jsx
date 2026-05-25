@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, LogOut, UserRound, UserPlus, Users } from 'lucide-react'
+import { Bell, LayoutDashboard, LogOut, UserRound, UserPlus, Users } from 'lucide-react'
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
 
@@ -46,6 +46,9 @@ export default function AppLayout() {
                 </NavLink>
                 <NavLink className={navLinkClass} to="/account">
                   <UserRound aria-hidden="true" className="inline h-4 w-4" /> Account
+                </NavLink>
+                <NavLink className={navLinkClass} to="/notifications">
+                  <Bell aria-hidden="true" className="inline h-4 w-4" /> Alerts
                 </NavLink>
               </>
             ) : (

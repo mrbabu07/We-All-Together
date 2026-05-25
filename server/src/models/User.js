@@ -26,6 +26,21 @@ const userSchema = new mongoose.Schema(
       maxlength: [240, 'Address cannot exceed 240 characters.'],
       default: '',
     },
+    profilePhotoUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    nidImageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    birthCertificateUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     password: {
       type: String,
       required: [true, 'Password is required.'],

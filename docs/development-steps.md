@@ -43,6 +43,9 @@ Deployment is intentionally skipped for now.
 13. Admin management completion pass
     - Edit/delete content, edit/delete expenses, edit/update users, public meetings and tours display.
 
+14. Operations and communication pass
+    - Audit logs, admin backup export, member notifications, printable receipts, public verified donation wall, and profile document uploads.
+
 ## Verification Command Set
 
 Run these before every push:

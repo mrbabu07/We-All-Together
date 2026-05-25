@@ -5,6 +5,8 @@ const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
+const { recordAuditLog } = require('../services/auditService')
+const { createNotification } = require('../services/notificationService')
 const {
   validateMonth,
   validateMonthlyPayment,
@@ -72,6 +74,25 @@ const verifyPayment = asyncHandler(async (req, res) => {
   payment.verifiedAt = new Date()
   payment.verifiedBy = req.user._id
   await payment.save()
+  await createNotification({
+    createdBy: req.user,
+    link: '/member',
+    message: `Your monthly payment for ${payment.month} has been verified.`,
+    title: 'Payment verified',
+    type: 'payment',
+    user: payment.user,
+  })
+  await recordAuditLog({
+    action: 'payment.verify',
+    actor: req.user,
+    entityId: payment._id,
+    entityType: 'Payment',
+    metadata: {
+      amount: payment.amount,
+      month: payment.month,
+      user: payment.user,
+    },
+  })
 
   res.status(200).json({
     success: true,
@@ -93,6 +114,25 @@ const rejectPayment = asyncHandler(async (req, res) => {
   payment.verifiedAt = null
   payment.verifiedBy = null
   await payment.save()
+  await createNotification({
+    createdBy: req.user,
+    link: '/member',
+    message: `Your monthly payment for ${payment.month} was rejected. Please review and submit again.`,
+    title: 'Payment rejected',
+    type: 'payment',
+    user: payment.user,
+  })
+  await recordAuditLog({
+    action: 'payment.reject',
+    actor: req.user,
+    entityId: payment._id,
+    entityType: 'Payment',
+    metadata: {
+      amount: payment.amount,
+      month: payment.month,
+      user: payment.user,
+    },
+  })
 
   res.status(200).json({
     success: true,

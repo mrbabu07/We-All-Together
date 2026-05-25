@@ -38,6 +38,7 @@ export default function PublicHomePage() {
   const [uploadingProof, setUploadingProof] = useState(false)
   const [data, setData] = useState({
     activities: [],
+    donations: [],
     meetings: [],
     notices: [],
     rules: [],
@@ -57,6 +58,7 @@ export default function PublicHomePage() {
         toursResponse,
         activitiesResponse,
         rulesResponse,
+        donationsResponse,
       ] =
         await Promise.all([
           api.get('/settings/public'),
@@ -65,10 +67,12 @@ export default function PublicHomePage() {
           api.get('/tours/public'),
           api.get('/activities/public'),
           api.get('/rules/public'),
+          api.get('/donations/verified'),
         ])
 
       setData({
         activities: activitiesResponse.data.data.items,
+        donations: donationsResponse.data.data.donations,
         meetings: meetingsResponse.data.data.items,
         notices: noticesResponse.data.data.items,
         rules: rulesResponse.data.data.items,
@@ -285,6 +289,28 @@ export default function PublicHomePage() {
               <UserPlus aria-hidden="true" className="h-4 w-4" />
               Apply for Membership
             </Link>
+          </Panel>
+
+          <Panel>
+            <h2 className="text-xl font-bold text-slate-950">Verified Donations</h2>
+            <div className="mt-4 grid gap-3">
+              {data.donations.length === 0 ? (
+                <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                  No verified donations yet.
+                </p>
+              ) : null}
+              {data.donations.slice(0, 8).map((donation) => (
+                <div className="rounded-md border border-slate-200 p-3" key={donation._id}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="font-semibold text-slate-950">{donation.donorName}</p>
+                    <p className="font-bold text-emerald-700">{money(donation.amount)}</p>
+                  </div>
+                  <p className="mt-1 text-xs font-medium text-slate-500">
+                    {formatDate(donation.verifiedAt || donation.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </Panel>
         </aside>
       </section>

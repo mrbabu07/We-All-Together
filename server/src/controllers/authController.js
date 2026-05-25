@@ -86,6 +86,9 @@ const updateMe = asyncHandler(async (req, res) => {
   user.name = payload.name
   user.phone = payload.phone
   user.address = payload.address
+  user.profilePhotoUrl = payload.profilePhotoUrl
+  user.nidImageUrl = payload.nidImageUrl
+  user.birthCertificateUrl = payload.birthCertificateUrl
   await user.save()
 
   res.status(200).json({

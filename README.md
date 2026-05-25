@@ -11,6 +11,7 @@ A MERN organization management system for member registration, admin approval, f
 - Member dashboard for private updates, monthly fee submission, and payment history
 - Public homepage with donation submission and public organization updates
 - ImgBB image uploads for notices, meetings, tours, activities, and rules
+- Audit logs, admin JSON backup export, member notifications, printable receipts, and profile document uploads
 
 ## Tech Stack
 

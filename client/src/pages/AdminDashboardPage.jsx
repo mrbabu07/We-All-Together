@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Bell,
   CheckCircle2,
   ClipboardList,
+  DatabaseBackup,
   Download,
+  FileText,
   Pencil,
   FilePlus2,
   RefreshCw,
@@ -25,6 +28,15 @@ const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
 const toExportDate = (value) => (value ? new Date(value).toISOString() : '')
+const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
+
+const escapeHtml = (value = '') =>
+  String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 
 const emptyContentForms = {
   notices: { title: '', body: '', audience: 'public', imageUrl: '', pinned: false },
@@ -131,6 +143,7 @@ const tabLabels = [
   ['finance', 'Finance'],
   ['content', 'Content'],
   ['members', 'Members'],
+  ['logs', 'Logs & Alerts'],
 ]
 
 export default function AdminDashboardPage() {
@@ -139,6 +152,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [data, setData] = useState({
+    auditLogs: [],
     content: { activities: [], meetings: [], notices: [], rules: [], tours: [] },
     donations: [],
     expenses: [],
@@ -168,6 +182,13 @@ export default function AdminDashboardPage() {
   const [editingContent, setEditingContent] = useState({})
   const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [uploadingContentKey, setUploadingContentKey] = useState('')
+  const [notificationForm, setNotificationForm] = useState({
+    link: '',
+    message: '',
+    role: '',
+    title: '',
+    type: 'general',
+  })
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -186,6 +207,7 @@ export default function AdminDashboardPage() {
         toursResponse,
         activitiesResponse,
         rulesResponse,
+        auditLogsResponse,
       ] = await Promise.all([
         api.get('/registrations/pending'),
         api.get('/settings/public'),
@@ -198,10 +220,12 @@ export default function AdminDashboardPage() {
         api.get('/tours/members'),
         api.get('/activities/members'),
         api.get('/rules/members'),
+        api.get('/audit-logs', { params: { limit: 80 } }),
       ])
 
       const settings = settingsResponse.data.data.settings
       setData({
+        auditLogs: auditLogsResponse.data.data.logs,
         content: {
           activities: activitiesResponse.data.data.items,
           meetings: meetingsResponse.data.data.items,
@@ -507,6 +531,106 @@ export default function AdminDashboardPage() {
     setMessage(ok ? 'Expenses CSV downloaded.' : 'No expenses to export.')
   }
 
+  const exportBackup = async () => {
+    await runAction(async () => {
+      const response = await api.get('/backup')
+      const blob = new Blob([JSON.stringify(response.data.data, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `dargah-para-backup-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    }, 'Backup downloaded successfully.')
+  }
+
+  const printReceipt = async (endpoint) => {
+    try {
+      setMessage('')
+      const response = await api.get(endpoint)
+      const receipt = response.data.data.receipt
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+
+      if (!printWindow) {
+        setMessage('Allow popups to print the receipt.')
+        return
+      }
+
+      const personName =
+        receipt.payment?.user?.name || receipt.user?.name || receipt.donation?.donorName || 'N/A'
+      const transactionId =
+        receipt.payment?.transactionId ||
+        receipt.registrationPayment?.transactionId ||
+        receipt.donation?.transactionId ||
+        'N/A'
+      const amount =
+        receipt.payment?.amount || receipt.registrationPayment?.amount || receipt.donation?.amount || 0
+      const status =
+        receipt.payment?.status || receipt.registrationPayment?.status || receipt.donation?.status || 'N/A'
+      const method =
+        receipt.payment?.method || receipt.registrationPayment?.method || receipt.donation?.method || 'N/A'
+
+      printWindow.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <title>${escapeHtml(receipt.receiptNo)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; color: #0f172a; padding: 32px; }
+              .receipt { border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
+              h1 { margin: 0; font-size: 24px; }
+              .muted { color: #64748b; }
+              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+              .item { border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+              .label { display: block; color: #64748b; font-size: 12px; text-transform: uppercase; }
+              .value { display: block; font-weight: 700; margin-top: 4px; }
+              @media print { button { display: none; } body { padding: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="receipt">
+              <h1>${escapeHtml(receipt.organization.name)}</h1>
+              <p class="muted">Receipt No: ${escapeHtml(receipt.receiptNo)} | Issued: ${escapeHtml(toReadableDate(receipt.issuedAt))}</p>
+              <div class="grid">
+                <div class="item"><span class="label">Name</span><span class="value">${escapeHtml(personName || 'N/A')}</span></div>
+                <div class="item"><span class="label">Type</span><span class="value">${escapeHtml(receipt.type)}</span></div>
+                <div class="item"><span class="label">Amount</span><span class="value">${escapeHtml(money(amount))}</span></div>
+                <div class="item"><span class="label">Method</span><span class="value">${escapeHtml(method)}</span></div>
+                <div class="item"><span class="label">Transaction ID</span><span class="value">${escapeHtml(transactionId)}</span></div>
+                <div class="item"><span class="label">Status</span><span class="value">${escapeHtml(status)}</span></div>
+              </div>
+              <p class="muted">This receipt was generated from the organization management system.</p>
+              <button onclick="window.print()">Print</button>
+            </div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
+  const sendBroadcastNotification = async (event) => {
+    event.preventDefault()
+    await runAction(async () => {
+      await api.post('/notifications/broadcast', notificationForm)
+      setNotificationForm({
+        link: '',
+        message: '',
+        role: '',
+        title: '',
+        type: 'general',
+      })
+    }, 'Notification sent successfully.')
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -556,12 +680,14 @@ export default function AdminDashboardPage() {
           onExportExpenses={exportExpenses}
           onExportPayments={exportPayments}
           onExportUsers={exportUsers}
+          onExportBackup={exportBackup}
           onApprove={(id) =>
             runAction(() => api.patch(`/registrations/${id}/approve`), 'Registration approved.')
           }
           onReject={(id) =>
             runAction(() => api.patch(`/registrations/${id}/reject`), 'Registration rejected.')
           }
+          onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
           stats={stats}
         />
       ) : null}
@@ -585,12 +711,14 @@ export default function AdminDashboardPage() {
           onPaymentReject={(id) =>
             runAction(() => api.patch(`/payments/${id}/reject`), 'Payment rejected.')
           }
+          onPaymentReceipt={(id) => printReceipt(`/receipts/payments/${id}`)}
           onPaymentVerify={(id) =>
             runAction(() => api.patch(`/payments/${id}/verify`), 'Payment verified.')
           }
           onDonationReject={(id) =>
             runAction(() => api.patch(`/donations/${id}/reject`), 'Donation rejected.')
           }
+          onDonationReceipt={(id) => printReceipt(`/receipts/donations/${id}`)}
           onDonationVerify={(id) =>
             runAction(() => api.patch(`/donations/${id}/verify`), 'Donation verified.')
           }
@@ -625,6 +753,17 @@ export default function AdminDashboardPage() {
           users={data.users}
         />
       ) : null}
+
+      {!loading && activeTab === 'logs' ? (
+        <LogsTab
+          auditLogs={data.auditLogs}
+          notificationForm={notificationForm}
+          onNotificationChange={(field, value) =>
+            setNotificationForm((current) => ({ ...current, [field]: value }))
+          }
+          onSendNotification={sendBroadcastNotification}
+        />
+      ) : null}
     </main>
   )
 }
@@ -632,11 +771,13 @@ export default function AdminDashboardPage() {
 function OverviewTab({
   data,
   onApprove,
+  onExportBackup,
   onExportDonations,
   onExportExpenses,
   onExportPayments,
   onExportUsers,
   onReject,
+  onRegistrationReceipt,
   stats,
 }) {
   return (
@@ -663,6 +804,9 @@ function OverviewTab({
           </Button>
           <Button icon={Download} onClick={onExportExpenses} variant="secondary">
             Expenses CSV
+          </Button>
+          <Button icon={DatabaseBackup} onClick={onExportBackup} variant="secondary">
+            Full Backup
           </Button>
         </div>
       </Panel>
@@ -701,6 +845,13 @@ function OverviewTab({
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
+                <Button
+                  icon={FileText}
+                  onClick={() => onRegistrationReceipt(item._id)}
+                  variant="secondary"
+                >
+                  Receipt
+                </Button>
                 <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
                   Approve
                 </Button>
@@ -731,7 +882,9 @@ function FinanceTab({
   onLoadMonthlyStatus,
   onMonthChange,
   onPaymentReject,
+  onPaymentReceipt,
   onPaymentVerify,
+  onDonationReceipt,
   onSaveExpense,
   onSettingsChange,
   onUpdateSettings,
@@ -882,8 +1035,10 @@ function FinanceTab({
       <TwoColumnLists
         leftItems={data.payments}
         leftTitle="Member Payments"
+        onLeftReceipt={onPaymentReceipt}
         onLeftReject={onPaymentReject}
         onLeftVerify={onPaymentVerify}
+        onRightReceipt={onDonationReceipt}
         onRightReject={onDonationReject}
         onRightVerify={onDonationVerify}
         rightItems={data.donations}
@@ -1270,8 +1425,10 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
 function TwoColumnLists({
   leftItems,
   leftTitle,
+  onLeftReceipt,
   onLeftReject,
   onLeftVerify,
+  onRightReceipt,
   onRightReject,
   onRightVerify,
   rightItems,
@@ -1281,12 +1438,14 @@ function TwoColumnLists({
     <div className="grid gap-6 xl:grid-cols-2">
       <VerificationList
         items={leftItems}
+        onReceipt={onLeftReceipt}
         onReject={onLeftReject}
         onVerify={onLeftVerify}
         title={leftTitle}
       />
       <VerificationList
         items={rightItems}
+        onReceipt={onRightReceipt}
         onReject={onRightReject}
         onVerify={onRightVerify}
         title={rightTitle}
@@ -1295,7 +1454,7 @@ function TwoColumnLists({
   )
 }
 
-function VerificationList({ items, onReject, onVerify, title }) {
+function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
   return (
     <Panel>
       <SectionTitle icon={CheckCircle2} title={title} />
@@ -1334,10 +1493,107 @@ function VerificationList({ items, onReject, onVerify, title }) {
                 </Button>
               </div>
             ) : null}
+            {item.status !== 'pending' ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button icon={FileText} onClick={() => onReceipt(item._id)} variant="secondary">
+                  Receipt
+                </Button>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
     </Panel>
+  )
+}
+
+function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNotification }) {
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={Bell} title="Send Notification" />
+        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSendNotification}>
+          <Field
+            label="Title"
+            name="title"
+            onChange={(event) => onNotificationChange('title', event.target.value)}
+            required
+            value={notificationForm.title}
+          />
+          <Field
+            label="Type"
+            name="type"
+            onChange={(event) => onNotificationChange('type', event.target.value)}
+            value={notificationForm.type}
+          />
+          <SelectField
+            label="Send To"
+            name="role"
+            onChange={(event) => onNotificationChange('role', event.target.value)}
+            value={notificationForm.role}
+          >
+            <option value="">All approved users</option>
+            <option value="member">Members only</option>
+            <option value="admin">Admins only</option>
+          </SelectField>
+          <Field
+            label="Link"
+            name="link"
+            onChange={(event) => onNotificationChange('link', event.target.value)}
+            placeholder="/member"
+            value={notificationForm.link}
+          />
+          <Field
+            className="md:col-span-2"
+            label="Message"
+            name="message"
+            onChange={(event) => onNotificationChange('message', event.target.value)}
+            required
+            textarea
+            value={notificationForm.message}
+          />
+          <Button className="md:col-span-2" icon={Bell} type="submit">
+            Send Notification
+          </Button>
+        </form>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Audit Logs" />
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[840px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-600">
+                <th className="py-3 pr-4">Date</th>
+                <th className="py-3 pr-4">Action</th>
+                <th className="py-3 pr-4">Actor</th>
+                <th className="py-3 pr-4">Entity</th>
+                <th className="py-3 pr-4">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.map((log) => (
+                <tr className="border-b border-slate-100" key={log._id}>
+                  <td className="py-3 pr-4 text-slate-600">{toReadableDate(log.createdAt)}</td>
+                  <td className="py-3 pr-4 font-medium text-slate-950">{log.action}</td>
+                  <td className="py-3 pr-4 text-slate-600">
+                    {log.actor?.name || 'System'}
+                  </td>
+                  <td className="py-3 pr-4 text-slate-600">{log.entityType}</td>
+                  <td className="py-3 pr-4 text-slate-600">
+                    {Object.entries(log.metadata || {})
+                      .slice(0, 3)
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join(', ') || 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {auditLogs.length === 0 ? <Empty text="No audit logs yet." /> : null}
+        </div>
+      </Panel>
+    </div>
   )
 }
 

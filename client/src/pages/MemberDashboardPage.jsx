@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, CreditCard, RefreshCw, Send, Users } from 'lucide-react'
+import { CalendarDays, CreditCard, FileText, RefreshCw, Send, Users } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -29,6 +29,14 @@ const formatDate = (value) => {
 }
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+
+const escapeHtml = (value = '') =>
+  String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 
 const tabs = [
   ['overview', 'Overview'],
@@ -154,6 +162,61 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const printPaymentReceipt = async (id) => {
+    try {
+      setMessage('')
+      const response = await api.get(`/receipts/payments/${id}`)
+      const receipt = response.data.data.receipt
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+
+      if (!printWindow) {
+        setMessage('Allow popups to print the receipt.')
+        return
+      }
+
+      printWindow.document.write(`
+        <!doctype html>
+        <html>
+          <head>
+            <title>${escapeHtml(receipt.receiptNo)}</title>
+            <style>
+              body { font-family: Arial, sans-serif; color: #0f172a; padding: 32px; }
+              .receipt { border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
+              h1 { margin: 0; font-size: 24px; }
+              .muted { color: #64748b; }
+              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+              .item { border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+              .label { display: block; color: #64748b; font-size: 12px; text-transform: uppercase; }
+              .value { display: block; font-weight: 700; margin-top: 4px; }
+              @media print { button { display: none; } body { padding: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="receipt">
+              <h1>${escapeHtml(receipt.organization.name)}</h1>
+              <p class="muted">Receipt No: ${escapeHtml(receipt.receiptNo)} | Issued: ${escapeHtml(formatDate(receipt.issuedAt))}</p>
+              <div class="grid">
+                <div class="item"><span class="label">Member</span><span class="value">${escapeHtml(receipt.payment.user.name)}</span></div>
+                <div class="item"><span class="label">Month</span><span class="value">${escapeHtml(receipt.payment.month)}</span></div>
+                <div class="item"><span class="label">Amount</span><span class="value">${escapeHtml(money(receipt.payment.amount))}</span></div>
+                <div class="item"><span class="label">Method</span><span class="value">${escapeHtml(receipt.payment.method)}</span></div>
+                <div class="item"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receipt.payment.transactionId)}</span></div>
+                <div class="item"><span class="label">Status</span><span class="value">${escapeHtml(receipt.payment.status)}</span></div>
+              </div>
+              <p class="muted">This receipt was generated from the organization management system.</p>
+              <button onclick="window.print()">Print</button>
+            </div>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -209,6 +272,7 @@ export default function MemberDashboardPage() {
             setPaymentForm((current) => ({ ...current, [field]: value }))
           }
           onProofUpload={uploadPaymentProof}
+          onReceipt={printPaymentReceipt}
           onSubmit={submitPayment}
           payments={data.payments}
           uploadingProof={uploadingProof}
@@ -252,7 +316,16 @@ function Overview({ data, monthlyFee, stats }) {
   )
 }
 
-function Payments({ form, monthlyFee, onChange, onProofUpload, onSubmit, payments, uploadingProof }) {
+function Payments({
+  form,
+  monthlyFee,
+  onChange,
+  onProofUpload,
+  onReceipt,
+  onSubmit,
+  payments,
+  uploadingProof,
+}) {
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
@@ -349,7 +422,14 @@ function Payments({ form, monthlyFee, onChange, onProofUpload, onSubmit, payment
                   </a>
                 ) : null}
               </div>
-              <Badge value={payment.status}>{payment.status}</Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge value={payment.status}>{payment.status}</Badge>
+                {payment.status === 'verified' ? (
+                  <Button icon={FileText} onClick={() => onReceipt(payment._id)} variant="secondary">
+                    Receipt
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 const { AUDIENCES } = require('../constants/contentConstants')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
+const { recordAuditLog } = require('../services/auditService')
 
 const createContentController = ({ model, validate, sort = { createdAt: -1 }, name }) => {
   const getPublicItems = asyncHandler(async (req, res) => {
@@ -33,6 +34,16 @@ const createContentController = ({ model, validate, sort = { createdAt: -1 }, na
       ...payload,
       createdBy: req.user._id,
     })
+    await recordAuditLog({
+      action: `${name.toLowerCase()}.create`,
+      actor: req.user,
+      entityId: item._id,
+      entityType: name,
+      metadata: {
+        audience: item.audience,
+        title: item.title,
+      },
+    })
 
     res.status(201).json({
       success: true,
@@ -53,6 +64,16 @@ const createContentController = ({ model, validate, sort = { createdAt: -1 }, na
 
     Object.assign(item, payload)
     await item.save()
+    await recordAuditLog({
+      action: `${name.toLowerCase()}.update`,
+      actor: req.user,
+      entityId: item._id,
+      entityType: name,
+      metadata: {
+        audience: item.audience,
+        title: item.title,
+      },
+    })
 
     res.status(200).json({
       success: true,
@@ -71,6 +92,16 @@ const createContentController = ({ model, validate, sort = { createdAt: -1 }, na
     }
 
     await item.deleteOne()
+    await recordAuditLog({
+      action: `${name.toLowerCase()}.delete`,
+      actor: req.user,
+      entityId: req.params.id,
+      entityType: name,
+      metadata: {
+        audience: item.audience,
+        title: item.title,
+      },
+    })
 
     res.status(200).json({
       success: true,
