@@ -66,6 +66,7 @@ const validateNotice = (body) => ({
   title: requireString(body, 'title', 'Title'),
   body: requireString(body, 'body', 'Body'),
   audience: readAudience(body, AUDIENCES.PUBLIC),
+  imageUrl: optionalString(body, 'imageUrl'),
   pinned: Boolean(body.pinned),
 })
 
@@ -75,6 +76,7 @@ const validateMeeting = (body) => ({
   meetingDate: readDate(body, 'meetingDate', 'Meeting date'),
   location: requireString(body, 'location', 'Location'),
   audience: readAudience(body, AUDIENCES.MEMBERS),
+  imageUrl: optionalString(body, 'imageUrl'),
 })
 
 const validateTour = (body) => {
@@ -93,6 +95,7 @@ const validateTour = (body) => {
     budget: readNumber(body, 'budget', 'Budget'),
     details: optionalString(body, 'details'),
     audience: readAudience(body, AUDIENCES.MEMBERS),
+    imageUrl: optionalString(body, 'imageUrl'),
     status: readStatus(body),
   }
 }
@@ -104,6 +107,7 @@ const validateActivity = (body) => ({
   activityDate: readDate(body, 'activityDate', 'Activity date'),
   participantsCount: readNumber(body, 'participantsCount', 'Participants count'),
   audience: readAudience(body, AUDIENCES.PUBLIC),
+  imageUrl: optionalString(body, 'imageUrl'),
   status: readStatus(body),
 })
 
@@ -111,6 +115,7 @@ const validateRule = (body) => ({
   title: requireString(body, 'title', 'Title'),
   description: requireString(body, 'description', 'Description'),
   audience: readAudience(body, AUDIENCES.MEMBERS),
+  imageUrl: optionalString(body, 'imageUrl'),
   order: readNumber(body, 'order', 'Order'),
 })
 

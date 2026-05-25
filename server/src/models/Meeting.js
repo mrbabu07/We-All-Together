@@ -31,6 +31,11 @@ const meetingSchema = new mongoose.Schema(
       default: AUDIENCES.MEMBERS,
       index: true,
     },
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

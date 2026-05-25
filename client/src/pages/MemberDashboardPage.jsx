@@ -334,6 +334,13 @@ function UpdateList({ items, textKey, title }) {
         {items.length === 0 ? <Empty text={`No ${title.toLowerCase()} yet.`} /> : null}
         {items.map((item) => (
           <div className="rounded-md border border-slate-200 p-4" key={item._id}>
+            {item.imageUrl ? (
+              <img
+                alt=""
+                className="mb-3 h-36 w-full rounded-md object-cover"
+                src={item.imageUrl}
+              />
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-slate-950">{item.title}</h3>
               {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}

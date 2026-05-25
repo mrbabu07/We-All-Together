@@ -23,8 +23,15 @@ const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 1
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
 
 const emptyContentForms = {
-  notices: { title: '', body: '', audience: 'public', pinned: false },
-  meetings: { title: '', agenda: '', meetingDate: '', location: '', audience: 'members' },
+  notices: { title: '', body: '', audience: 'public', imageUrl: '', pinned: false },
+  meetings: {
+    title: '',
+    agenda: '',
+    meetingDate: '',
+    location: '',
+    audience: 'members',
+    imageUrl: '',
+  },
   tours: {
     title: '',
     destination: '',
@@ -33,6 +40,7 @@ const emptyContentForms = {
     budget: '',
     details: '',
     audience: 'members',
+    imageUrl: '',
     status: 'planned',
   },
   activities: {
@@ -42,9 +50,10 @@ const emptyContentForms = {
     activityDate: '',
     participantsCount: '',
     audience: 'public',
+    imageUrl: '',
     status: 'planned',
   },
-  rules: { title: '', description: '', audience: 'members', order: '' },
+  rules: { title: '', description: '', audience: 'members', imageUrl: '', order: '' },
 }
 
 const contentConfigs = [
@@ -61,6 +70,7 @@ const getContentEditForm = (key, item) => {
       title: item.title || '',
       body: item.body || '',
       audience: item.audience || 'public',
+      imageUrl: item.imageUrl || '',
       pinned: Boolean(item.pinned),
     }
   }
@@ -72,6 +82,7 @@ const getContentEditForm = (key, item) => {
       meetingDate: toDateTimeInput(item.meetingDate),
       location: item.location || '',
       audience: item.audience || 'members',
+      imageUrl: item.imageUrl || '',
     }
   }
 
@@ -84,6 +95,7 @@ const getContentEditForm = (key, item) => {
       budget: item.budget || '',
       details: item.details || '',
       audience: item.audience || 'members',
+      imageUrl: item.imageUrl || '',
       status: item.status || 'planned',
     }
   }
@@ -96,6 +108,7 @@ const getContentEditForm = (key, item) => {
       activityDate: toDateInput(item.activityDate),
       participantsCount: item.participantsCount || '',
       audience: item.audience || 'public',
+      imageUrl: item.imageUrl || '',
       status: item.status || 'planned',
     }
   }
@@ -104,9 +117,18 @@ const getContentEditForm = (key, item) => {
     title: item.title || '',
     description: item.description || '',
     audience: item.audience || 'members',
+    imageUrl: item.imageUrl || '',
     order: item.order || '',
   }
 }
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 
 const tabLabels = [
   ['overview', 'Overview'],
@@ -149,6 +171,7 @@ export default function AdminDashboardPage() {
   const [contentForms, setContentForms] = useState(emptyContentForms)
   const [editingContent, setEditingContent] = useState({})
   const [editingExpenseId, setEditingExpenseId] = useState(null)
+  const [uploadingContentKey, setUploadingContentKey] = useState('')
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -333,6 +356,28 @@ export default function AdminDashboardPage() {
     }))
   }
 
+  const uploadContentImage = async (key, file) => {
+    if (!file) {
+      return
+    }
+
+    try {
+      setMessage('')
+      setUploadingContentKey(key)
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/image', {
+        image,
+        name: `${key}-${Date.now()}`,
+      })
+      updateContentForm(key, 'imageUrl', response.data.data.image.url)
+      setMessage('Image uploaded successfully.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingContentKey('')
+    }
+  }
+
   const createContent = async (event, config) => {
     event.preventDefault()
     await runAction(async () => {
@@ -502,6 +547,8 @@ export default function AdminDashboardPage() {
           onDelete={deleteContent}
           onEdit={editContent}
           onFormChange={updateContentForm}
+          onImageUpload={uploadContentImage}
+          uploadingContentKey={uploadingContentKey}
         />
       ) : null}
 
@@ -753,6 +800,8 @@ function ContentTab({
   onDelete,
   onEdit,
   onFormChange,
+  onImageUpload,
+  uploadingContentKey,
 }) {
   return (
     <div className="mt-6 grid gap-6">
@@ -763,7 +812,13 @@ function ContentTab({
             title={editingContent[config.key] ? `Edit ${config.title}` : config.title}
           />
           <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={(event) => onCreate(event, config)}>
-            <ContentFields config={config} form={contentForms[config.key]} onChange={onFormChange} />
+            <ContentFields
+              config={config}
+              form={contentForms[config.key]}
+              onChange={onFormChange}
+              onImageUpload={onImageUpload}
+              uploading={uploadingContentKey === config.key}
+            />
             <Button className={editingContent[config.key] ? '' : 'md:col-span-2'} icon={FilePlus2} type="submit">
               {editingContent[config.key] ? `Update ${config.title}` : `Add ${config.title}`}
             </Button>
@@ -781,6 +836,13 @@ function ContentTab({
                 key={item._id}
               >
                 <div>
+                  {item.imageUrl ? (
+                    <img
+                      alt=""
+                      className="mb-3 h-32 w-full max-w-sm rounded-md object-cover"
+                      src={item.imageUrl}
+                    />
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold text-slate-950">{item.title}</h3>
                     {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
@@ -959,7 +1021,31 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
   )
 }
 
-function ContentFields({ config, form, onChange }) {
+function ImageUploadControl({ form, itemKey, onChange, onImageUpload, uploading }) {
+  return (
+    <div className="grid gap-3 md:col-span-2">
+      <Field
+        label="Image URL"
+        name="imageUrl"
+        onChange={(event) => onChange(itemKey, 'imageUrl', event.target.value)}
+        value={form.imageUrl}
+      />
+      <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+        <span>Upload Image</span>
+        <input
+          accept="image/*"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          disabled={uploading}
+          onChange={(event) => onImageUpload(itemKey, event.target.files?.[0])}
+          type="file"
+        />
+      </label>
+      {uploading ? <p className="text-sm font-medium text-emerald-700">Uploading image...</p> : null}
+    </div>
+  )
+}
+
+function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
   const key = config.key
 
   if (key === 'notices') {
@@ -970,6 +1056,13 @@ function ContentFields({ config, form, onChange }) {
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
+        <ImageUploadControl
+          form={form}
+          itemKey={key}
+          onChange={onChange}
+          onImageUpload={onImageUpload}
+          uploading={uploading}
+        />
         <Field className="md:col-span-2" label="Body" name="body" onChange={(e) => onChange(key, 'body', e.target.value)} required textarea value={form.body} />
       </>
     )
@@ -985,6 +1078,13 @@ function ContentFields({ config, form, onChange }) {
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
+        <ImageUploadControl
+          form={form}
+          itemKey={key}
+          onChange={onChange}
+          onImageUpload={onImageUpload}
+          uploading={uploading}
+        />
         <Field className="md:col-span-2" label="Agenda" name="agenda" onChange={(e) => onChange(key, 'agenda', e.target.value)} required textarea value={form.agenda} />
       </>
     )
@@ -1004,6 +1104,13 @@ function ContentFields({ config, form, onChange }) {
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </SelectField>
+        <ImageUploadControl
+          form={form}
+          itemKey={key}
+          onChange={onChange}
+          onImageUpload={onImageUpload}
+          uploading={uploading}
+        />
         <Field className="md:col-span-2" label="Details" name="details" onChange={(e) => onChange(key, 'details', e.target.value)} textarea value={form.details} />
       </>
     )
@@ -1026,6 +1133,13 @@ function ContentFields({ config, form, onChange }) {
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </SelectField>
+        <ImageUploadControl
+          form={form}
+          itemKey={key}
+          onChange={onChange}
+          onImageUpload={onImageUpload}
+          uploading={uploading}
+        />
         <Field className="md:col-span-2" label="Description" name="description" onChange={(e) => onChange(key, 'description', e.target.value)} required textarea value={form.description} />
       </>
     )
@@ -1039,6 +1153,13 @@ function ContentFields({ config, form, onChange }) {
         <option value="public">Public</option>
         <option value="members">Members</option>
       </SelectField>
+      <ImageUploadControl
+        form={form}
+        itemKey={key}
+        onChange={onChange}
+        onImageUpload={onImageUpload}
+        uploading={uploading}
+      />
       <Field className="md:col-span-2" label="Description" name="description" onChange={(e) => onChange(key, 'description', e.target.value)} required textarea value={form.description} />
     </>
   )

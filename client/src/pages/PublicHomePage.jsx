@@ -256,6 +256,13 @@ function PublicList({ items, textKey, title }) {
         ) : null}
         {items.map((item) => (
           <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={item._id}>
+            {item.imageUrl ? (
+              <img
+                alt=""
+                className="mb-4 h-40 w-full rounded-md object-cover"
+                src={item.imageUrl}
+              />
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-slate-950">{item.title}</h3>
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}

@@ -42,6 +42,11 @@ const activitySchema = new mongoose.Schema(
       default: ITEM_STATUSES.PLANNED,
       index: true,
     },
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

@@ -12,6 +12,7 @@ const registrationRoutes = require('./registrationRoutes')
 const ruleRoutes = require('./ruleRoutes')
 const settingsRoutes = require('./settingsRoutes')
 const tourRoutes = require('./tourRoutes')
+const uploadRoutes = require('./uploadRoutes')
 
 const router = express.Router()
 
@@ -28,5 +29,6 @@ router.use('/registrations', registrationRoutes)
 router.use('/rules', ruleRoutes)
 router.use('/settings', settingsRoutes)
 router.use('/tours', tourRoutes)
+router.use('/uploads', uploadRoutes)
 
 module.exports = router

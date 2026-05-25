@@ -26,6 +26,11 @@ const ruleSchema = new mongoose.Schema(
       min: [0, 'Rule order cannot be negative.'],
       default: 0,
     },
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
