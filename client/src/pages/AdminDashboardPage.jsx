@@ -16,6 +16,7 @@ import {
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
@@ -182,6 +183,7 @@ export default function AdminDashboardPage() {
   const [editingContent, setEditingContent] = useState({})
   const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [uploadingContentKey, setUploadingContentKey] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [notificationForm, setNotificationForm] = useState({
     link: '',
     message: '',
@@ -291,6 +293,23 @@ export default function AdminDashboardPage() {
     }
   }
 
+  const requestConfirm = (dialog) => {
+    setConfirmDialog(dialog)
+  }
+
+  const closeConfirm = () => {
+    setConfirmDialog(null)
+  }
+
+  const confirmSelectedAction = async () => {
+    const action = confirmDialog?.action
+    setConfirmDialog(null)
+
+    if (action) {
+      await action()
+    }
+  }
+
   const updateSettings = async (event) => {
     event.preventDefault()
     await runAction(async () => {
@@ -352,9 +371,16 @@ export default function AdminDashboardPage() {
   }
 
   const deleteExpense = async (id) => {
-    await runAction(async () => {
-      await api.delete(`/expenses/${id}`)
-    }, 'Expense deleted successfully.')
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/expenses/${id}`)
+        }, 'Expense deleted successfully.'),
+      confirmLabel: 'Delete Expense',
+      message: 'This expense will be removed from the finance list.',
+      title: 'Delete expense?',
+      variant: 'danger',
+    })
   }
 
   const loadMonthlyStatus = async () => {
@@ -421,9 +447,16 @@ export default function AdminDashboardPage() {
   }
 
   const deleteContent = async (config, id) => {
-    await runAction(async () => {
-      await api.delete(`${config.endpoint}/${id}`)
-    }, `${config.title} item deleted successfully.`)
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`${config.endpoint}/${id}`)
+        }, `${config.title} item deleted successfully.`),
+      confirmLabel: 'Delete Item',
+      message: `This ${config.title.toLowerCase()} item will be removed.`,
+      title: `Delete ${config.title.toLowerCase()} item?`,
+      variant: 'danger',
+    })
   }
 
   const editContent = (config, item) => {
@@ -461,9 +494,16 @@ export default function AdminDashboardPage() {
   }
 
   const deleteUser = async (id) => {
-    await runAction(async () => {
-      await api.delete(`/members/${id}`)
-    }, 'User deleted successfully.')
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/members/${id}`)
+        }, 'User deleted successfully.'),
+      confirmLabel: 'Delete User',
+      message: 'This account will be permanently removed from the system.',
+      title: 'Delete user?',
+      variant: 'danger',
+    })
   }
 
   const exportUsers = () => {
@@ -682,10 +722,29 @@ export default function AdminDashboardPage() {
           onExportUsers={exportUsers}
           onExportBackup={exportBackup}
           onApprove={(id) =>
-            runAction(() => api.patch(`/registrations/${id}/approve`), 'Registration approved.')
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.patch(`/registrations/${id}/approve`),
+                  'Registration approved.',
+                ),
+              confirmLabel: 'Approve',
+              message: 'This pending user will become an approved member.',
+              title: 'Approve registration?',
+            })
           }
           onReject={(id) =>
-            runAction(() => api.patch(`/registrations/${id}/reject`), 'Registration rejected.')
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.patch(`/registrations/${id}/reject`),
+                  'Registration rejected.',
+                ),
+              confirmLabel: 'Reject',
+              message: 'This registration will be rejected and cannot access member features.',
+              title: 'Reject registration?',
+              variant: 'danger',
+            })
           }
           onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
           stats={stats}
@@ -764,6 +823,16 @@ export default function AdminDashboardPage() {
           onSendNotification={sendBroadcastNotification}
         />
       ) : null}
+
+      <ConfirmDialog
+        confirmLabel={confirmDialog?.confirmLabel}
+        message={confirmDialog?.message}
+        onCancel={closeConfirm}
+        onConfirm={confirmSelectedAction}
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title}
+        variant={confirmDialog?.variant}
+      />
     </main>
   )
 }
@@ -890,8 +959,28 @@ function FinanceTab({
   onUpdateSettings,
   settingsForm,
 }) {
+  const verifiedPayments = data.payments.filter((payment) => payment.status === 'verified')
+  const verifiedDonations = data.donations.filter((donation) => donation.status === 'verified')
+  const totalPayments = verifiedPayments.reduce((sum, item) => sum + Number(item.amount), 0)
+  const totalDonations = verifiedDonations.reduce((sum, item) => sum + Number(item.amount), 0)
+  const totalExpenses = data.expenses.reduce((sum, item) => sum + Number(item.amount), 0)
+  const expenseCategories = Object.entries(
+    data.expenses.reduce((totals, item) => {
+      const key = item.category || 'Other'
+      totals[key] = (totals[key] || 0) + Number(item.amount)
+      return totals
+    }, {}),
+  ).sort((left, right) => right[1] - left[1])
+
   return (
     <div className="mt-6 grid gap-6">
+      <FinanceSummary
+        expenseCategories={expenseCategories}
+        totalDonations={totalDonations}
+        totalExpenses={totalExpenses}
+        totalPayments={totalPayments}
+      />
+
       <Panel>
         <SectionTitle icon={Save} title="Finance Settings" />
         <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={onUpdateSettings}>
@@ -1048,6 +1137,51 @@ function FinanceTab({
   )
 }
 
+function FinanceSummary({ expenseCategories, totalDonations, totalExpenses, totalPayments }) {
+  const totalIncome = totalPayments + totalDonations
+  const balance = totalIncome - totalExpenses
+  const maxCategoryAmount = Math.max(...expenseCategories.map(([, amount]) => amount), 1)
+
+  return (
+    <Panel>
+      <SectionTitle icon={ClipboardList} title="Finance Summary" />
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        <SummaryStat label="Monthly Income" value={money(totalPayments)} />
+        <SummaryStat label="Donations" value={money(totalDonations)} />
+        <SummaryStat label="Expenses" value={money(totalExpenses)} />
+        <SummaryStat label="Balance" value={money(balance)} />
+      </div>
+      <div className="mt-5 grid gap-3">
+        <h3 className="text-sm font-bold uppercase text-slate-500">Expense Categories</h3>
+        {expenseCategories.length === 0 ? <Empty text="No category data yet." /> : null}
+        {expenseCategories.map(([category, amount]) => (
+          <div className="grid gap-2" key={category}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold text-slate-700">{category}</span>
+              <span className="font-bold text-slate-950">{money(amount)}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-700"
+                style={{ width: `${Math.max((amount / maxCategoryAmount) * 100, 4)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
+function SummaryStat({ label, value }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-semibold text-slate-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-slate-950">{value}</p>
+    </div>
+  )
+}
+
 function ContentTab({
   contentForms,
   data,
@@ -1126,10 +1260,14 @@ function ContentTab({
 
 function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
   const [editingUserId, setEditingUserId] = useState(null)
+  const [query, setQuery] = useState('')
   const [memberForm, setMemberForm] = useState({
     address: '',
+    birthCertificateUrl: '',
     name: '',
+    nidImageUrl: '',
     phone: '',
+    profilePhotoUrl: '',
     role: 'member',
     status: 'pending',
   })
@@ -1138,8 +1276,11 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
     setEditingUserId(user._id)
     setMemberForm({
       address: user.address || '',
+      birthCertificateUrl: user.birthCertificateUrl || '',
       name: user.name || '',
+      nidImageUrl: user.nidImageUrl || '',
       phone: user.phone || '',
+      profilePhotoUrl: user.profilePhotoUrl || '',
       role: user.role || 'member',
       status: user.status || 'pending',
     })
@@ -1149,8 +1290,11 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
     setEditingUserId(null)
     setMemberForm({
       address: '',
+      birthCertificateUrl: '',
       name: '',
+      nidImageUrl: '',
       phone: '',
+      profilePhotoUrl: '',
       role: 'member',
       status: 'pending',
     })
@@ -1168,8 +1312,11 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
 
     await onUpdateProfile(editingUserId, {
       address: memberForm.address,
+      birthCertificateUrl: memberForm.birthCertificateUrl,
       name: memberForm.name,
+      nidImageUrl: memberForm.nidImageUrl,
       phone: memberForm.phone,
+      profilePhotoUrl: memberForm.profilePhotoUrl,
     })
     await onUpdateAccess(editingUserId, {
       role: memberForm.role,
@@ -1177,6 +1324,15 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
     })
     cancelEdit()
   }
+
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleUsers = normalizedQuery
+    ? users.filter((item) =>
+        [item.name, item.phone, item.address, item.role, item.status]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+      )
+    : users
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1224,6 +1380,25 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </SelectField>
+            <Field
+              label="Profile Photo URL"
+              name="profilePhotoUrl"
+              onChange={(event) => updateField('profilePhotoUrl', event.target.value)}
+              value={memberForm.profilePhotoUrl}
+            />
+            <Field
+              label="NID Image URL"
+              name="nidImageUrl"
+              onChange={(event) => updateField('nidImageUrl', event.target.value)}
+              value={memberForm.nidImageUrl}
+            />
+            <Field
+              className="md:col-span-2"
+              label="Birth Certificate URL"
+              name="birthCertificateUrl"
+              onChange={(event) => updateField('birthCertificateUrl', event.target.value)}
+              value={memberForm.birthCertificateUrl}
+            />
             <Button icon={Save} type="submit">
               Save User
             </Button>
@@ -1236,6 +1411,14 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
 
       <Panel>
         <SectionTitle icon={ClipboardList} title="Users and Members" />
+        <Field
+          className="mt-4"
+          label="Search Users"
+          name="memberSearch"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Name, phone, address, role, status"
+          value={query}
+        />
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-left text-sm">
             <thead>
@@ -1249,9 +1432,24 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
               </tr>
             </thead>
             <tbody>
-              {users.map((item) => (
+              {visibleUsers.map((item) => (
                 <tr className="border-b border-slate-100" key={item._id}>
-                  <td className="py-3 pr-4 font-medium text-slate-950">{item.name}</td>
+                  <td className="py-3 pr-4 font-medium text-slate-950">
+                    <div className="flex items-center gap-2">
+                      {item.profilePhotoUrl ? (
+                        <img
+                          alt=""
+                          className="h-9 w-9 rounded-md object-cover"
+                          src={item.profilePhotoUrl}
+                        />
+                      ) : (
+                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-50 text-xs font-bold text-emerald-800">
+                          {item.name?.slice(0, 1) || 'U'}
+                        </span>
+                      )}
+                      <span>{item.name}</span>
+                    </div>
+                  </td>
                   <td className="py-3 pr-4 text-slate-600">{item.phone}</td>
                   <td className="py-3 pr-4 text-slate-600">{item.role}</td>
                   <td className="py-3 pr-4">
@@ -1272,6 +1470,7 @@ function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
               ))}
             </tbody>
           </table>
+          {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
         </div>
       </Panel>
     </div>
@@ -1455,12 +1654,39 @@ function TwoColumnLists({
 }
 
 function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleItems = normalizedQuery
+    ? items.filter((item) =>
+        [
+          item.user?.name,
+          item.user?.phone,
+          item.donorName,
+          item.phone,
+          item.method,
+          item.status,
+          item.transactionId,
+          item.month,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+      )
+    : items
+
   return (
     <Panel>
       <SectionTitle icon={CheckCircle2} title={title} />
+      <Field
+        className="mt-4"
+        label={`Search ${title}`}
+        name={`${title}-search`}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Name, phone, transaction, status"
+        value={query}
+      />
       <div className="mt-4 grid gap-3">
-        {items.length === 0 ? <Empty text={`No ${title.toLowerCase()}.`} /> : null}
-        {items.map((item) => (
+        {visibleItems.length === 0 ? <Empty text={`No ${title.toLowerCase()} found.`} /> : null}
+        {visibleItems.map((item) => (
           <div className="rounded-md border border-slate-200 p-4" key={item._id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -1508,6 +1734,22 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
 }
 
 function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNotification }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleLogs = normalizedQuery
+    ? auditLogs.filter((log) =>
+        [
+          log.action,
+          log.actor?.name,
+          log.actor?.phone,
+          log.entityType,
+          ...Object.values(log.metadata || {}),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+      )
+    : auditLogs
+
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
@@ -1560,6 +1802,14 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
 
       <Panel>
         <SectionTitle icon={ClipboardList} title="Audit Logs" />
+        <Field
+          className="mt-4"
+          label="Search Logs"
+          name="logSearch"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Action, actor, entity, amount"
+          value={query}
+        />
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[840px] border-collapse text-left text-sm">
             <thead>
@@ -1572,7 +1822,7 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
               </tr>
             </thead>
             <tbody>
-              {auditLogs.map((log) => (
+              {visibleLogs.map((log) => (
                 <tr className="border-b border-slate-100" key={log._id}>
                   <td className="py-3 pr-4 text-slate-600">{toReadableDate(log.createdAt)}</td>
                   <td className="py-3 pr-4 font-medium text-slate-950">{log.action}</td>
@@ -1590,7 +1840,7 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
               ))}
             </tbody>
           </table>
-          {auditLogs.length === 0 ? <Empty text="No audit logs yet." /> : null}
+          {visibleLogs.length === 0 ? <Empty text="No matching audit logs found." /> : null}
         </div>
       </Panel>
     </div>

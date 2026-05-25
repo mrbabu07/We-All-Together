@@ -46,6 +46,9 @@ Deployment is intentionally skipped for now.
 14. Operations and communication pass
     - Audit logs, admin backup export, member notifications, printable receipts, public verified donation wall, and profile document uploads.
 
+15. UI and reporting pass
+    - Confirmation dialog, searchable admin/member lists, finance category summaries, member photo display, and Bengali/English navigation toggle.
+
 ## Verification Command Set
 
 Run these before every push:

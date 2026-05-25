@@ -451,16 +451,47 @@ function Updates({ data }) {
 }
 
 function MemberDirectory({ members }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleMembers = normalizedQuery
+    ? members.filter((member) =>
+        [member.name, member.phone, member.address]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+      )
+    : members
+
   return (
     <Panel className="mt-6">
       <SectionTitle icon={Users} title="Member Directory" />
+      <Field
+        className="mt-4"
+        label="Search Members"
+        name="memberSearch"
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Name, phone, address"
+        value={query}
+      />
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {members.length === 0 ? <Empty text="No approved members yet." /> : null}
-        {members.map((member) => (
-          <div className="rounded-md border border-slate-200 p-4" key={member._id}>
-            <h3 className="font-semibold text-slate-950">{member.name}</h3>
-            <p className="mt-1 text-sm text-slate-600">{member.phone}</p>
-            <p className="mt-1 text-sm text-slate-600">{member.address}</p>
+        {visibleMembers.length === 0 ? <Empty text="No matching members found." /> : null}
+        {visibleMembers.map((member) => (
+          <div className="flex gap-3 rounded-md border border-slate-200 p-4" key={member._id}>
+            {member.profilePhotoUrl ? (
+              <img
+                alt=""
+                className="h-12 w-12 rounded-md object-cover"
+                src={member.profilePhotoUrl}
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-emerald-50 text-sm font-bold text-emerald-800">
+                {member.name?.slice(0, 1) || 'M'}
+              </div>
+            )}
+            <div>
+              <h3 className="font-semibold text-slate-950">{member.name}</h3>
+              <p className="mt-1 text-sm text-slate-600">{member.phone}</p>
+              <p className="mt-1 text-sm text-slate-600">{member.address}</p>
+            </div>
           </div>
         ))}
       </div>

@@ -1,7 +1,8 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Bell, LayoutDashboard, LogOut, UserRound, UserPlus, Users } from 'lucide-react'
+import { Bell, Languages, LayoutDashboard, LogOut, UserRound, UserPlus, Users } from 'lucide-react'
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
+import useLanguage from '../hooks/useLanguage'
 
 const navLinkClass = ({ isActive }) =>
   `rounded-md px-3 py-2 text-sm font-semibold transition ${
@@ -10,6 +11,7 @@ const navLinkClass = ({ isActive }) =>
 
 export default function AppLayout() {
   const { logout, user } = useAuth()
+  const { language, t, toggleLanguage } = useLanguage()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -26,44 +28,47 @@ export default function AppLayout() {
               Dargah Para OIkko Porishod
             </span>
             <span className="text-xs font-medium uppercase text-emerald-700">
-              Organization management
+              {t.organization}
             </span>
           </Link>
 
           <nav className="flex flex-wrap items-center gap-2">
             <NavLink className={navLinkClass} to="/">
-              Public
+              {t.public}
             </NavLink>
             {user?.role === 'admin' ? (
               <NavLink className={navLinkClass} to="/admin">
-                <LayoutDashboard aria-hidden="true" className="inline h-4 w-4" /> Admin
+                <LayoutDashboard aria-hidden="true" className="inline h-4 w-4" /> {t.admin}
               </NavLink>
             ) : null}
             {user ? (
               <>
                 <NavLink className={navLinkClass} to="/member">
-                  <Users aria-hidden="true" className="inline h-4 w-4" /> Member
+                  <Users aria-hidden="true" className="inline h-4 w-4" /> {t.member}
                 </NavLink>
                 <NavLink className={navLinkClass} to="/account">
-                  <UserRound aria-hidden="true" className="inline h-4 w-4" /> Account
+                  <UserRound aria-hidden="true" className="inline h-4 w-4" /> {t.account}
                 </NavLink>
                 <NavLink className={navLinkClass} to="/notifications">
-                  <Bell aria-hidden="true" className="inline h-4 w-4" /> Alerts
+                  <Bell aria-hidden="true" className="inline h-4 w-4" /> {t.alerts}
                 </NavLink>
               </>
             ) : (
               <>
                 <NavLink className={navLinkClass} to="/register">
-                  <UserPlus aria-hidden="true" className="inline h-4 w-4" /> Register
+                  <UserPlus aria-hidden="true" className="inline h-4 w-4" /> {t.register}
                 </NavLink>
                 <NavLink className={navLinkClass} to="/login">
-                  Login
+                  {t.login}
                 </NavLink>
               </>
             )}
+            <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
+              {language === 'en' ? 'BN' : 'EN'}
+            </Button>
             {user ? (
               <Button icon={LogOut} onClick={handleLogout} variant="secondary">
-                Logout
+                {t.logout}
               </Button>
             ) : null}
           </nav>
