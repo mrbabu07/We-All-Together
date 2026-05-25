@@ -19,6 +19,7 @@ const env = {
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || '',
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '7d',
   imgbbApiKey: process.env.IMGBB_API_KEY || '',
+  adminBootstrapSecret: process.env.ADMIN_BOOTSTRAP_SECRET || '',
 }
 
 module.exports = env

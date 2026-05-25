@@ -1,0 +1,90 @@
+const mongoose = require('mongoose')
+const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
+const { comparePassword, hashPassword } = require('../utils/passwordUtils')
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, 'Name is required.'],
+      trim: true,
+      minlength: [2, 'Name must be at least 2 characters.'],
+      maxlength: [80, 'Name cannot exceed 80 characters.'],
+    },
+    phone: {
+      type: String,
+      required: [true, 'Phone is required.'],
+      unique: true,
+      trim: true,
+      minlength: [7, 'Phone must be at least 7 characters.'],
+      maxlength: [20, 'Phone cannot exceed 20 characters.'],
+    },
+    address: {
+      type: String,
+      trim: true,
+      maxlength: [240, 'Address cannot exceed 240 characters.'],
+      default: '',
+    },
+    password: {
+      type: String,
+      required: [true, 'Password is required.'],
+      minlength: [6, 'Password must be at least 6 characters.'],
+      select: false,
+    },
+    role: {
+      type: String,
+      enum: Object.values(USER_ROLES),
+      default: USER_ROLES.MEMBER,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(USER_STATUSES),
+      default: USER_STATUSES.PENDING,
+      index: true,
+    },
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+  },
+)
+
+userSchema.pre('save', async function hashPasswordBeforeSave(next) {
+  if (!this.isModified('password')) {
+    next()
+    return
+  }
+
+  this.password = await hashPassword(this.password)
+  next()
+})
+
+userSchema.methods.comparePassword = function compareUserPassword(password) {
+  return comparePassword(password, this.password)
+}
+
+userSchema.methods.toJSON = function toSafeJSON() {
+  const user = this.toObject()
+  delete user.password
+  return user
+}
+
+module.exports = mongoose.model('User', userSchema)
