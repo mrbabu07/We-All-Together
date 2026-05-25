@@ -9,12 +9,6 @@ const {
   validateRejectRegistration,
 } = require('../validators/registrationValidators')
 
-const ensureAdmin = (user) => {
-  if (!user || user.role !== USER_ROLES.ADMIN) {
-    throw new AppError('Admin access is required.', 403)
-  }
-}
-
 const registerMember = asyncHandler(async (req, res) => {
   const payload = validateRegistration(req.body)
   const settings = await getSettings()
@@ -47,8 +41,6 @@ const registerMember = asyncHandler(async (req, res) => {
 })
 
 const getPendingRegistrations = asyncHandler(async (req, res) => {
-  ensureAdmin(req.user)
-
   const users = await User.find({ status: USER_STATUSES.PENDING }).sort({
     createdAt: -1,
   })
@@ -63,8 +55,6 @@ const getPendingRegistrations = asyncHandler(async (req, res) => {
 })
 
 const approveRegistration = asyncHandler(async (req, res) => {
-  ensureAdmin(req.user)
-
   const user = await User.findById(req.params.id)
 
   if (!user) {
@@ -93,7 +83,6 @@ const approveRegistration = asyncHandler(async (req, res) => {
 })
 
 const rejectRegistration = asyncHandler(async (req, res) => {
-  ensureAdmin(req.user)
   const payload = validateRejectRegistration(req.body)
 
   const user = await User.findById(req.params.id)

@@ -1,14 +1,6 @@
-const { USER_ROLES } = require('../constants/userConstants')
 const asyncHandler = require('../utils/asyncHandler')
-const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
 const { validateRegistrationFee } = require('../validators/registrationValidators')
-
-const ensureAdmin = (user) => {
-  if (!user || user.role !== USER_ROLES.ADMIN) {
-    throw new AppError('Admin access is required.', 403)
-  }
-}
 
 const getPublicSettings = asyncHandler(async (req, res) => {
   const settings = await getSettings()
@@ -27,7 +19,6 @@ const getPublicSettings = asyncHandler(async (req, res) => {
 })
 
 const updateRegistrationFee = asyncHandler(async (req, res) => {
-  ensureAdmin(req.user)
   const payload = validateRegistrationFee(req.body)
   const settings = await getSettings()
 
