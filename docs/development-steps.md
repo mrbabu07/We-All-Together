@@ -70,6 +70,9 @@ Deployment is intentionally skipped for now.
 22. Meeting poll system
     - Poll collection, admin poll creation attached to meetings, one-vote-per-member voting, live result counts/charts, seed polls, backup export, and poll API docs.
 
+23. Event RSVP system
+    - Additive meeting/tour RSVP fields, member RSVP endpoints/buttons, admin RSVP counts/lists, seeded RSVP responses, and API documentation.
+
 ## Verification Command Set
 
 Run these before every push:

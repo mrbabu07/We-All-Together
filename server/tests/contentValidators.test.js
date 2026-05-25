@@ -4,6 +4,7 @@ const {
   validateMeetingAttendance,
   validateMeeting,
   validateNotice,
+  validateRsvp,
   validateTour,
   validateTourParticipants,
 } = require('../src/validators/contentValidators')
@@ -69,4 +70,10 @@ test('validateTourParticipants accepts cost tracking rows', () => {
   assert.equal(payload.participants.length, 1)
   assert.equal(payload.participants[0].amountDue, 500)
   assert.equal(payload.participants[0].status, 'confirmed')
+})
+
+test('validateRsvp accepts going maybe and not going statuses', () => {
+  assert.equal(validateRsvp({ status: 'going' }).status, 'going')
+  assert.equal(validateRsvp({ status: 'maybe' }).status, 'maybe')
+  assert.equal(validateRsvp({ status: 'not_going' }).status, 'not_going')
 })

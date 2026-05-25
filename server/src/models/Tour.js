@@ -85,6 +85,24 @@ const tourSchema = new mongoose.Schema(
         },
       },
     ],
+    rsvp: [
+      {
+        memberId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        status: {
+          type: String,
+          enum: ['going', 'not_going', 'maybe'],
+          default: 'going',
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

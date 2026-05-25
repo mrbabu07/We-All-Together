@@ -418,6 +418,17 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const submitRsvp = async (type, id, status) => {
+    try {
+      setMessage('')
+      await api.post(`/${type}/${id}/rsvp`, { status })
+      setMessage('RSVP updated successfully.')
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -513,7 +524,14 @@ export default function MemberDashboardPage() {
           user={user}
         />
       ) : null}
-      {!loading && activeTab === 'updates' ? <Updates data={data} /> : null}
+      {!loading && activeTab === 'updates' ? (
+        <Updates
+          data={data}
+          onMeetingRsvp={(id, status) => submitRsvp('meetings', id, status)}
+          onTourRsvp={(id, status) => submitRsvp('tours', id, status)}
+          user={user}
+        />
+      ) : null}
       {!loading && activeTab === 'polls' ? (
         <Polls polls={data.polls} onVote={votePoll} />
       ) : null}
@@ -929,12 +947,26 @@ function Payments({
   )
 }
 
-function Updates({ data }) {
+function Updates({ data, onMeetingRsvp, onTourRsvp, user }) {
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <UpdateList items={data.notices} title="Notices" textKey="body" />
-      <UpdateList items={data.meetings} title="Meetings" textKey="agenda" />
-      <UpdateList items={data.tours} title="Tours" textKey="details" />
+      <UpdateList
+        items={data.meetings}
+        onRsvp={onMeetingRsvp}
+        rsvpEnabled
+        textKey="agenda"
+        title="Meetings"
+        user={user}
+      />
+      <UpdateList
+        items={data.tours}
+        onRsvp={onTourRsvp}
+        rsvpEnabled
+        textKey="details"
+        title="Tours"
+        user={user}
+      />
       <UpdateList items={data.activities} title="Activities" textKey="description" />
       <UpdateList items={data.rules} title="Rules" textKey="description" />
     </div>
@@ -1045,7 +1077,7 @@ function MemberDirectory({ members }) {
   )
 }
 
-function UpdateList({ items, textKey, title }) {
+function UpdateList({ items, onRsvp, rsvpEnabled = false, textKey, title, user }) {
   return (
     <Panel>
       <SectionTitle icon={CalendarDays} title={title} />
@@ -1082,10 +1114,47 @@ function UpdateList({ items, textKey, title }) {
                 {money(item.participants.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0))}
               </p>
             ) : null}
+            {rsvpEnabled ? (
+              <RsvpActions item={item} onRsvp={onRsvp} user={user} />
+            ) : null}
           </div>
         ))}
       </div>
     </Panel>
+  )
+}
+
+function RsvpActions({ item, onRsvp, user }) {
+  const current = item.rsvp?.find(
+    (row) => String(row.memberId?._id || row.memberId) === String(user?._id),
+  )
+  const counts = (item.rsvp || []).reduce(
+    (summary, row) => ({
+      ...summary,
+      [row.status]: (summary[row.status] || 0) + 1,
+    }),
+    { going: 0, maybe: 0, not_going: 0 },
+  )
+
+  return (
+    <div className="mt-4 rounded-md bg-slate-50 p-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-600">
+        <span>Going: {counts.going}</span>
+        <span>Maybe: {counts.maybe}</span>
+        <span>Not going: {counts.not_going}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {['going', 'maybe', 'not_going'].map((status) => (
+          <Button
+            key={status}
+            onClick={() => onRsvp(item._id, status)}
+            variant={current?.status === status ? 'primary' : 'secondary'}
+          >
+            {status.replace('_', ' ')}
+          </Button>
+        ))}
+      </div>
+    </div>
   )
 }
 

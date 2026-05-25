@@ -1503,6 +1503,9 @@ function ContentTab({
                     {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{item[config.main]}</p>
+                  {['meetings', 'tours'].includes(config.key) ? (
+                    <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button icon={Pencil} onClick={() => onEdit(config, item)} variant="secondary">
@@ -1747,6 +1750,43 @@ function PollResultsChart({ poll }) {
           <Bar dataKey="votes" fill="#047857" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+    </div>
+  )
+}
+
+function RsvpSummary({ members, rsvp }) {
+  const memberById = new Map(members.map((member) => [member._id, member]))
+  const counts = rsvp.reduce(
+    (summary, row) => ({
+      ...summary,
+      [row.status]: (summary[row.status] || 0) + 1,
+    }),
+    { going: 0, maybe: 0, not_going: 0 },
+  )
+
+  return (
+    <div className="mt-3 rounded-md bg-slate-50 p-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-600">
+        <span>Going: {counts.going}</span>
+        <span>Maybe: {counts.maybe}</span>
+        <span>Not going: {counts.not_going}</span>
+      </div>
+      {rsvp.length ? (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {rsvp.map((row) => {
+            const memberId = row.memberId?._id || row.memberId
+            const member = memberById.get(String(memberId))
+
+            return (
+              <Badge key={`${memberId}-${row.status}`} value={row.status}>
+                {member?.name || 'Member'}: {row.status.replace('_', ' ')}
+              </Badge>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs font-semibold text-slate-500">No RSVP responses yet.</p>
+      )}
     </div>
   )
 }

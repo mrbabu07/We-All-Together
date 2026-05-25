@@ -20,6 +20,7 @@ A MERN organization management system for member registration, admin approval, f
 - QR code payment verification with admin scan/confirm page
 - Twilio SMS/WhatsApp alerts with admin-controlled triggers and Bangladeshi phone validation
 - Meeting poll system with one-vote-per-member voting and live admin result charts
+- Meeting and tour RSVP tracking with admin counts and member response buttons
 
 ## Tech Stack
 

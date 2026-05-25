@@ -12,5 +12,7 @@ router.patch(
   authorize(USER_ROLES.ADMIN),
   tourController.updateParticipants,
 )
+router.post('/:id/rsvp', protect, authorize(USER_ROLES.MEMBER), tourController.submitRsvp)
+router.get('/:id/rsvp', protect, authorize(USER_ROLES.ADMIN), tourController.getRsvps)
 
 module.exports = router

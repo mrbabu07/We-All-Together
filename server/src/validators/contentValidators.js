@@ -155,6 +155,19 @@ const validateTourParticipants = (body) => {
   }
 }
 
+const validateRsvp = (body) => {
+  const validStatuses = ['going', 'not_going', 'maybe']
+  const status = typeof body.status === 'string' ? body.status : ''
+
+  if (!validStatuses.includes(status)) {
+    throw new AppError('RSVP status is invalid.', 400)
+  }
+
+  return {
+    status,
+  }
+}
+
 const validateActivity = (body) => ({
   title: requireString(body, 'title', 'Title'),
   category: requireString(body, 'category', 'Category'),
@@ -180,6 +193,7 @@ module.exports = {
   validateMeetingAttendance,
   validateNotice,
   validateRule,
+  validateRsvp,
   validateTour,
   validateTourParticipants,
 }

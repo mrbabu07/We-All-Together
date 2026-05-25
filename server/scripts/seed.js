@@ -535,6 +535,11 @@ const seedContent = async (admin, members) => {
       location: 'Dargah Para community room',
       meetingDate: dateFromNow(3),
       minutes: 'Seed minutes: finance report reviewed, collection team assigned, and next action list prepared.',
+      rsvp: members.map((member, index) => ({
+        memberId: member._id,
+        status: index === 5 ? 'maybe' : index === 4 ? 'not_going' : 'going',
+        timestamp: dateFromNow(-1),
+      })),
       title: contentTitles.meetings[0],
     },
     {
@@ -544,6 +549,11 @@ const seedContent = async (admin, members) => {
       imageUrl: image('meeting-eid'),
       location: 'Central mosque courtyard',
       meetingDate: dateFromNow(10),
+      rsvp: members.slice(0, 5).map((member, index) => ({
+        memberId: member._id,
+        status: index === 3 ? 'maybe' : 'going',
+        timestamp: dateFromNow(-1),
+      })),
       title: contentTitles.meetings[1],
     },
     {
@@ -553,6 +563,11 @@ const seedContent = async (admin, members) => {
       imageUrl: image('meeting-rules'),
       location: 'School veranda',
       meetingDate: dateFromNow(17),
+      rsvp: members.slice(1, 6).map((member, index) => ({
+        memberId: member._id,
+        status: index === 0 ? 'maybe' : 'going',
+        timestamp: dateFromNow(-1),
+      })),
       title: contentTitles.meetings[2],
     },
   ])
@@ -612,6 +627,11 @@ const seedContent = async (admin, members) => {
         paidAmount: index < 3 ? 1000 : 500,
         status: index < 3 ? 'paid' : 'confirmed',
       })),
+      rsvp: members.slice(0, 6).map((member, index) => ({
+        memberId: member._id,
+        status: index === 5 ? 'maybe' : index === 4 ? 'not_going' : 'going',
+        timestamp: dateFromNow(-1),
+      })),
       startDate: dateFromNow(34),
       status: ITEM_STATUSES.PLANNED,
       title: contentTitles.tours[0],
@@ -624,6 +644,11 @@ const seedContent = async (admin, members) => {
       details: 'Public heritage visit with student discussion session.',
       endDate: dateFromNow(22),
       imageUrl: image('tour-mosque'),
+      rsvp: members.slice(0, 4).map((member) => ({
+        memberId: member._id,
+        status: 'going',
+        timestamp: dateFromNow(-1),
+      })),
       startDate: dateFromNow(22),
       status: ITEM_STATUSES.ACTIVE,
       title: contentTitles.tours[1],

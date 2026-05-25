@@ -78,7 +78,9 @@ GET    /receipts/registrations/:id
 GET    /receipts/:id
 PATCH  /members/:id/password
 PATCH  /meetings/:id/attendance
+GET    /meetings/:id/rsvp
 PATCH  /tours/:id/participants
+GET    /tours/:id/rsvp
 
 GET    /blogs/members
 DELETE /blogs/:id
@@ -144,7 +146,9 @@ GET  /polls/:id
 POST /polls/:id/vote
 GET  /notices/members
 GET  /meetings/members
+POST /meetings/:id/rsvp
 GET  /tours/members
+POST /tours/:id/rsvp
 GET  /activities/members
 GET  /rules/members
 GET  /blogs/members
