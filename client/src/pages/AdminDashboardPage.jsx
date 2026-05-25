@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Vote,
   XCircle,
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
@@ -178,8 +179,15 @@ export default function AdminDashboardPage() {
     expenses: [],
     payments: [],
     pendingRegistrations: [],
+    polls: [],
     settings: {},
     users: [],
+  })
+  const [pollForm, setPollForm] = useState({
+    deadline: '',
+    meetingId: '',
+    optionsText: 'Yes\nNo',
+    question: '',
   })
   const [settingsForm, setSettingsForm] = useState({
     donationNumber: '',
@@ -239,6 +247,7 @@ export default function AdminDashboardPage() {
         rulesResponse,
         auditLogsResponse,
         analyticsResponse,
+        pollsResponse,
       ] = await Promise.all([
         api.get('/registrations/pending'),
         api.get('/settings/public'),
@@ -253,6 +262,7 @@ export default function AdminDashboardPage() {
         api.get('/rules/members'),
         api.get('/audit-logs', { params: { limit: 80 } }),
         api.get('/finance/analytics'),
+        api.get('/polls'),
       ])
 
       const settings = settingsResponse.data.data.settings
@@ -270,6 +280,7 @@ export default function AdminDashboardPage() {
         expenses: expensesResponse.data.data.expenses,
         payments: paymentsResponse.data.data.payments,
         pendingRegistrations: pendingResponse.data.data.users,
+        polls: pollsResponse.data.data.polls,
         settings,
         users: usersResponse.data.data.users,
       })
@@ -564,6 +575,27 @@ export default function AdminDashboardPage() {
     await runAction(async () => {
       await api.patch(`/tours/${id}/participants`, payload)
     }, 'Tour participants saved successfully.')
+  }
+
+  const createPoll = async (event) => {
+    event.preventDefault()
+    await runAction(async () => {
+      await api.post('/polls', {
+        deadline: pollForm.deadline,
+        meetingId: pollForm.meetingId,
+        options: pollForm.optionsText
+          .split('\n')
+          .map((option) => option.trim())
+          .filter(Boolean),
+        question: pollForm.question,
+      })
+      setPollForm({
+        deadline: '',
+        meetingId: '',
+        optionsText: 'Yes\nNo',
+        question: '',
+      })
+    }, 'Poll created successfully.')
   }
 
   const deleteUser = async (id) => {
@@ -882,8 +914,13 @@ export default function AdminDashboardPage() {
           onEdit={editContent}
           onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
+          onPollChange={(field, value) =>
+            setPollForm((current) => ({ ...current, [field]: value }))
+          }
+          onPollCreate={createPoll}
           onSaveMeetingAttendance={saveMeetingAttendance}
           onSaveTourParticipants={saveTourParticipants}
+          pollForm={pollForm}
           uploadingContentKey={uploadingContentKey}
         />
       ) : null}
@@ -1409,8 +1446,11 @@ function ContentTab({
   onEdit,
   onFormChange,
   onImageUpload,
+  onPollChange,
+  onPollCreate,
   onSaveMeetingAttendance,
   onSaveTourParticipants,
+  pollForm,
   uploadingContentKey,
 }) {
   const approvedMembers = data.users.filter(
@@ -1476,11 +1516,20 @@ function ContentTab({
             ))}
           </div>
           {config.key === 'meetings' ? (
-            <MeetingWorkflowPanel
-              meetings={data.content.meetings}
-              members={approvedMembers}
-              onSave={onSaveMeetingAttendance}
-            />
+            <div className="mt-5 grid gap-5">
+              <MeetingWorkflowPanel
+                meetings={data.content.meetings}
+                members={approvedMembers}
+                onSave={onSaveMeetingAttendance}
+              />
+              <PollWorkflowPanel
+                meetings={data.content.meetings}
+                onChange={onPollChange}
+                onCreate={onPollCreate}
+                pollForm={pollForm}
+                polls={data.polls}
+              />
+            </div>
           ) : null}
           {config.key === 'tours' ? (
             <TourWorkflowPanel
@@ -1605,6 +1654,99 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
           </>
         ) : null}
       </form>
+    </div>
+  )
+}
+
+function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <SectionTitle icon={Vote} title="Meeting Polls" />
+      <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
+        <SelectField
+          label="Meeting"
+          name="pollMeeting"
+          onChange={(event) => onChange('meetingId', event.target.value)}
+          required
+          value={pollForm.meetingId}
+        >
+          <option value="">Select meeting</option>
+          {meetings.map((meeting) => (
+            <option key={meeting._id} value={meeting._id}>
+              {meeting.title}
+            </option>
+          ))}
+        </SelectField>
+        <Field
+          label="Deadline"
+          name="pollDeadline"
+          onChange={(event) => onChange('deadline', event.target.value)}
+          required
+          type="datetime-local"
+          value={pollForm.deadline}
+        />
+        <Field
+          className="md:col-span-2"
+          label="Question"
+          name="pollQuestion"
+          onChange={(event) => onChange('question', event.target.value)}
+          required
+          value={pollForm.question}
+        />
+        <Field
+          className="md:col-span-2"
+          label="Options"
+          name="pollOptions"
+          onChange={(event) => onChange('optionsText', event.target.value)}
+          required
+          textarea
+          value={pollForm.optionsText}
+        />
+        <Button className="md:col-span-2" icon={Vote} type="submit">
+          Create Poll
+        </Button>
+      </form>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        {polls.length === 0 ? <Empty text="No polls created yet." /> : null}
+        {polls.map((poll) => (
+          <div className="rounded-md border border-slate-200 bg-white p-4" key={poll._id}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-semibold text-slate-950">{poll.question}</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {poll.meetingId?.title || 'Meeting'} | Deadline {toReadableDate(poll.deadline)}
+                </p>
+              </div>
+              <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
+                {poll.isClosed ? 'Closed' : 'Open'}
+              </Badge>
+            </div>
+            <PollResultsChart poll={poll} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PollResultsChart({ poll }) {
+  const rows = poll.options.map((option) => ({
+    name: option.text,
+    votes: option.voteCount,
+  }))
+
+  return (
+    <div className="mt-4 h-56">
+      <ResponsiveContainer height="100%" width="100%">
+        <BarChart data={rows}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis allowDecimals={false} />
+          <Tooltip />
+          <Bar dataKey="votes" fill="#047857" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   )
 }

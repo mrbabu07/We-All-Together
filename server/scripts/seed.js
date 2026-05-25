@@ -14,6 +14,7 @@ const Notice = require('../src/models/Notice')
 const Notification = require('../src/models/Notification')
 const OrganizationSetting = require('../src/models/OrganizationSetting')
 const Payment = require('../src/models/Payment')
+const Poll = require('../src/models/Poll')
 const Rule = require('../src/models/Rule')
 const Tour = require('../src/models/Tour')
 const User = require('../src/models/User')
@@ -76,6 +77,10 @@ const contentTitles = {
     'Seed: Monthly fee collection reminder',
     'Seed: Member-only finance update',
   ],
+  polls: [
+    'Seed: Approve Sylhet tour budget?',
+    'Seed: Preferred weekly meeting time?',
+  ],
   rules: [
     'Seed: Monthly fee deadline',
     'Seed: Meeting attendance',
@@ -104,6 +109,7 @@ const removePreviousSeedData = async () => {
       $or: [{ user: { $in: sampleUserIds } }, { title: /^Seed:/ }],
     }),
     Payment.deleteMany({ transactionId: /^SEED-PAY-/ }),
+    Poll.deleteMany({ question: { $in: contentTitles.polls } }),
     Rule.deleteMany({ title: { $in: contentTitles.rules } }),
     Tour.deleteMany({ title: { $in: contentTitles.tours } }),
   ])
@@ -515,7 +521,7 @@ const seedContent = async (admin, members) => {
     },
   ])
 
-  await Meeting.create([
+  const meetings = await Meeting.create([
     {
       agenda: 'Review monthly income, unpaid list, and pending donations.',
       attendance: members.map((member, index) => ({
@@ -548,6 +554,45 @@ const seedContent = async (admin, members) => {
       location: 'School veranda',
       meetingDate: dateFromNow(17),
       title: contentTitles.meetings[2],
+    },
+  ])
+
+  await Poll.create([
+    {
+      createdBy: admin._id,
+      deadline: dateFromNow(8),
+      meetingId: meetings[0]._id,
+      options: [
+        {
+          text: 'Approve full budget',
+          votes: members.slice(0, 3).map((member) => member._id),
+        },
+        {
+          text: 'Reduce by Tk 5,000',
+          votes: members.slice(3, 5).map((member) => member._id),
+        },
+        {
+          text: 'Discuss again',
+          votes: members.slice(5, 6).map((member) => member._id),
+        },
+      ],
+      question: contentTitles.polls[0],
+    },
+    {
+      createdBy: admin._id,
+      deadline: dateFromNow(14),
+      meetingId: meetings[2]._id,
+      options: [
+        {
+          text: 'Friday after Jumuah',
+          votes: members.slice(0, 2).map((member) => member._id),
+        },
+        {
+          text: 'Saturday evening',
+          votes: members.slice(2, 6).map((member) => member._id),
+        },
+      ],
+      question: contentTitles.polls[1],
     },
   ])
 

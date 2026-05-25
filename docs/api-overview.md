@@ -58,6 +58,10 @@ GET    /payments/monthly-status?month=YYYY-MM
 PATCH  /payments/:id/verify
 PATCH  /payments/:id/reject
 
+GET    /polls
+POST   /polls
+GET    /polls/:id
+
 GET    /donations
 PATCH  /donations/:id/verify
 PATCH  /donations/:id/reject
@@ -135,6 +139,9 @@ DELETE /rules/:id
 GET  /members
 GET  /payments/my
 POST /payments/monthly
+GET  /polls
+GET  /polls/:id
+POST /polls/:id/vote
 GET  /notices/members
 GET  /meetings/members
 GET  /tours/members

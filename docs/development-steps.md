@@ -67,6 +67,9 @@ Deployment is intentionally skipped for now.
 21. SMS and WhatsApp notification pass
     - Twilio-ready SMS/WhatsApp sending service, admin notification trigger settings, manual message endpoint, first-day monthly fee reminder scheduler, notice/meeting message triggers, and Bangladeshi phone validation.
 
+22. Meeting poll system
+    - Poll collection, admin poll creation attached to meetings, one-vote-per-member voting, live result counts/charts, seed polls, backup export, and poll API docs.
+
 ## Verification Command Set
 
 Run these before every push:

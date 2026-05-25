@@ -8,6 +8,7 @@ const Meeting = require('../models/Meeting')
 const Notice = require('../models/Notice')
 const Notification = require('../models/Notification')
 const Payment = require('../models/Payment')
+const Poll = require('../models/Poll')
 const Rule = require('../models/Rule')
 const Tour = require('../models/Tour')
 const User = require('../models/User')
@@ -27,6 +28,7 @@ const exportBackup = asyncHandler(async (req, res) => {
     notices,
     notifications,
     payments,
+    polls,
     rules,
     settings,
     tours,
@@ -42,6 +44,7 @@ const exportBackup = asyncHandler(async (req, res) => {
     Notice.find().lean(),
     Notification.find().lean(),
     Payment.find().lean(),
+    Poll.find().lean(),
     Rule.find().lean(),
     getSettings(),
     Tour.find().lean(),
@@ -53,7 +56,7 @@ const exportBackup = asyncHandler(async (req, res) => {
     actor: req.user,
     entityType: 'Backup',
     metadata: {
-      collections: 14,
+      collections: 15,
     },
   })
 
@@ -76,6 +79,7 @@ const exportBackup = asyncHandler(async (req, res) => {
         notices,
         notifications,
         payments,
+        polls,
         rules,
         settings,
         tours,

@@ -13,6 +13,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Vote,
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
@@ -73,6 +74,7 @@ const tabs = [
   ['blogs', 'Blogs'],
   ['gallery', 'Gallery'],
   ['updates', 'Updates'],
+  ['polls', 'Polls'],
   ['members', 'Members'],
 ]
 
@@ -95,6 +97,7 @@ export default function MemberDashboardPage() {
     members: [],
     notices: [],
     payments: [],
+    polls: [],
     rules: [],
     settings: {},
     tours: [],
@@ -116,6 +119,7 @@ export default function MemberDashboardPage() {
         membersResponse,
         blogsResponse,
         galleryResponse,
+        pollsResponse,
       ] = await Promise.all([
         api.get('/settings/public'),
         api.get('/payments/my'),
@@ -127,6 +131,7 @@ export default function MemberDashboardPage() {
         api.get('/members'),
         api.get('/blogs/members'),
         api.get('/gallery/members'),
+        api.get('/polls'),
       ])
 
       setData({
@@ -137,6 +142,7 @@ export default function MemberDashboardPage() {
         members: membersResponse.data.data.members,
         notices: noticesResponse.data.data.items,
         payments: paymentsResponse.data.data.payments,
+        polls: pollsResponse.data.data.polls,
         rules: rulesResponse.data.data.items,
         settings: settingsResponse.data.data.settings,
         tours: toursResponse.data.data.items,
@@ -401,6 +407,17 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const votePoll = async (pollId, optionId) => {
+    try {
+      setMessage('')
+      await api.post(`/polls/${pollId}/vote`, { optionId })
+      setMessage('Vote submitted successfully.')
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -497,6 +514,9 @@ export default function MemberDashboardPage() {
         />
       ) : null}
       {!loading && activeTab === 'updates' ? <Updates data={data} /> : null}
+      {!loading && activeTab === 'polls' ? (
+        <Polls polls={data.polls} onVote={votePoll} />
+      ) : null}
       {!loading && activeTab === 'members' ? <MemberDirectory members={data.members} /> : null}
     </main>
   )
@@ -917,6 +937,61 @@ function Updates({ data }) {
       <UpdateList items={data.tours} title="Tours" textKey="details" />
       <UpdateList items={data.activities} title="Activities" textKey="description" />
       <UpdateList items={data.rules} title="Rules" textKey="description" />
+    </div>
+  )
+}
+
+function Polls({ onVote, polls }) {
+  return (
+    <div className="mt-6 grid gap-4 xl:grid-cols-2">
+      {polls.length === 0 ? <Empty text="No active polls yet." /> : null}
+      {polls.map((poll) => (
+        <Panel key={poll._id}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionTitle icon={Vote} title="Meeting Poll" />
+            <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
+              {poll.isClosed ? 'Closed' : 'Open'}
+            </Badge>
+          </div>
+          <h3 className="mt-4 text-lg font-bold text-slate-950">{poll.question}</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            {poll.meetingId?.title || 'Meeting'} | Deadline {formatDate(poll.deadline)}
+          </p>
+          <div className="mt-4 grid gap-3">
+            {poll.options.map((option) => {
+              const percent = poll.totalVotes
+                ? Math.round((option.voteCount / poll.totalVotes) * 100)
+                : 0
+              const disabled = poll.isClosed || poll.hasVoted
+
+              return (
+                <div className="rounded-md border border-slate-200 p-3" key={option._id}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-slate-950">{option.text}</p>
+                      <p className="text-sm text-slate-500">
+                        {option.voteCount} votes | {percent}%
+                      </p>
+                    </div>
+                    {option.hasMyVote ? <Badge value="approved">Your vote</Badge> : null}
+                    {!disabled ? (
+                      <Button icon={Vote} onClick={() => onVote(poll._id, option._id)}>
+                        Vote
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-700"
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Panel>
+      ))}
     </div>
   )
 }
