@@ -23,6 +23,7 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
     transactionId: payload.transactionId,
     senderPhone: payload.senderPhone,
     note: payload.note,
+    proofImageUrl: payload.proofImageUrl,
   })
 
   res.status(201).json({

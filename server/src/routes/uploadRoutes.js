@@ -6,6 +6,7 @@ const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
 
+router.post('/payment-proof', uploadImage)
 router.post('/image', protect, authorize(USER_ROLES.ADMIN), uploadImage)
 
 module.exports = router

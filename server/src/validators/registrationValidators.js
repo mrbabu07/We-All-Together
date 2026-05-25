@@ -40,6 +40,7 @@ const validateRegistration = (body) => {
       transactionId: requireString(body, 'transactionId', 'Transaction ID'),
       senderPhone: requireString(body, 'senderPhone', 'Sender phone'),
       note: readOptionalString(body, 'paymentNote'),
+      proofImageUrl: readOptionalString(body, 'proofImageUrl'),
     },
   }
 }

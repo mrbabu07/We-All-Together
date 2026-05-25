@@ -4,6 +4,7 @@ import api, { getErrorMessage } from '../api/http'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialForm = {
   name: '',
@@ -14,6 +15,7 @@ const initialForm = {
   transactionId: '',
   senderPhone: '',
   paymentNote: '',
+  proofImageUrl: '',
 }
 
 export default function RegisterPage() {
@@ -21,6 +23,7 @@ export default function RegisterPage() {
   const [registrationFee, setRegistrationFee] = useState(0)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingProof, setUploadingProof] = useState(false)
 
   useEffect(() => {
     api.get('/settings/public').then((response) => {
@@ -48,6 +51,32 @@ export default function RegisterPage() {
       setMessage(getErrorMessage(error))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const uploadProof = async (file) => {
+    if (!file) {
+      return
+    }
+
+    setUploadingProof(true)
+    setMessage('')
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/payment-proof', {
+        image,
+        name: `registration-${Date.now()}`,
+      })
+      setForm((current) => ({
+        ...current,
+        proofImageUrl: response.data.data.image.url,
+      }))
+      setMessage('Payment proof uploaded.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingProof(false)
     }
   }
 
@@ -108,6 +137,27 @@ export default function RegisterPage() {
             textarea
             value={form.paymentNote}
           />
+          <Field
+            label="Payment Proof URL"
+            name="proofImageUrl"
+            onChange={handleChange}
+            value={form.proofImageUrl}
+          />
+          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+            <span>Upload Payment Proof</span>
+            <input
+              accept="image/*"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+              disabled={uploadingProof}
+              onChange={(event) => uploadProof(event.target.files?.[0])}
+              type="file"
+            />
+          </label>
+          {uploadingProof ? (
+            <p className="md:col-span-2 text-sm font-medium text-emerald-700">
+              Uploading payment proof...
+            </p>
+          ) : null}
           {message ? (
             <p className="md:col-span-2 text-sm font-medium text-emerald-700">{message}</p>
           ) : null}

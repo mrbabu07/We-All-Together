@@ -13,6 +13,7 @@ GET  /health
 GET  /settings/public
 POST /registrations
 POST /donations
+POST /uploads/payment-proof
 GET  /notices/public
 GET  /meetings/public
 GET  /tours/public

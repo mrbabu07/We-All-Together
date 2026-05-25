@@ -7,6 +7,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialDonationForm = {
   amount: '',
@@ -14,6 +15,7 @@ const initialDonationForm = {
   method: '',
   note: '',
   phone: '',
+  proofImageUrl: '',
   transactionId: '',
 }
 
@@ -33,6 +35,7 @@ export default function PublicHomePage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [donationForm, setDonationForm] = useState(initialDonationForm)
+  const [uploadingProof, setUploadingProof] = useState(false)
   const [data, setData] = useState({
     activities: [],
     meetings: [],
@@ -104,6 +107,32 @@ export default function PublicHomePage() {
       setMessage('Donation submitted for admin verification. Thank you.')
     } catch (error) {
       setMessage(getErrorMessage(error))
+    }
+  }
+
+  const uploadDonationProof = async (file) => {
+    if (!file) {
+      return
+    }
+
+    setUploadingProof(true)
+    setMessage('')
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/payment-proof', {
+        image,
+        name: `donation-${Date.now()}`,
+      })
+      setDonationForm((current) => ({
+        ...current,
+        proofImageUrl: response.data.data.image.url,
+      }))
+      setMessage('Donation proof uploaded.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingProof(false)
     }
   }
 
@@ -219,6 +248,25 @@ export default function PublicHomePage() {
                 textarea
                 value={donationForm.note}
               />
+              <Field
+                label="Payment Proof URL"
+                name="proofImageUrl"
+                onChange={handleDonationChange}
+                value={donationForm.proofImageUrl}
+              />
+              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+                <span>Upload Payment Proof</span>
+                <input
+                  accept="image/*"
+                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                  disabled={uploadingProof}
+                  onChange={(event) => uploadDonationProof(event.target.files?.[0])}
+                  type="file"
+                />
+              </label>
+              {uploadingProof ? (
+                <p className="text-sm font-medium text-emerald-700">Uploading proof...</p>
+              ) : null}
               <Button icon={Send} type="submit">
                 Submit Donation
               </Button>

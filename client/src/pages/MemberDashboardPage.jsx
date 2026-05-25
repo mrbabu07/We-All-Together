@@ -6,11 +6,13 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialPaymentForm = {
   method: '',
   month: new Date().toISOString().slice(0, 7),
   note: '',
+  proofImageUrl: '',
   senderPhone: '',
   transactionId: '',
 }
@@ -41,6 +43,7 @@ export default function MemberDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
+  const [uploadingProof, setUploadingProof] = useState(false)
   const [data, setData] = useState({
     activities: [],
     meetings: [],
@@ -125,6 +128,32 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const uploadPaymentProof = async (file) => {
+    if (!file) {
+      return
+    }
+
+    setUploadingProof(true)
+    setMessage('')
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/payment-proof', {
+        image,
+        name: `monthly-payment-${Date.now()}`,
+      })
+      setPaymentForm((current) => ({
+        ...current,
+        proofImageUrl: response.data.data.image.url,
+      }))
+      setMessage('Payment proof uploaded.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingProof(false)
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -179,8 +208,10 @@ export default function MemberDashboardPage() {
           onChange={(field, value) =>
             setPaymentForm((current) => ({ ...current, [field]: value }))
           }
+          onProofUpload={uploadPaymentProof}
           onSubmit={submitPayment}
           payments={data.payments}
+          uploadingProof={uploadingProof}
         />
       ) : null}
       {!loading && activeTab === 'updates' ? <Updates data={data} /> : null}
@@ -221,7 +252,7 @@ function Overview({ data, monthlyFee, stats }) {
   )
 }
 
-function Payments({ form, monthlyFee, onChange, onSubmit, payments }) {
+function Payments({ form, monthlyFee, onChange, onProofUpload, onSubmit, payments, uploadingProof }) {
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
@@ -266,6 +297,27 @@ function Payments({ form, monthlyFee, onChange, onSubmit, payments }) {
             textarea
             value={form.note}
           />
+          <Field
+            label="Payment Proof URL"
+            name="proofImageUrl"
+            onChange={(event) => onChange('proofImageUrl', event.target.value)}
+            value={form.proofImageUrl}
+          />
+          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+            <span>Upload Payment Proof</span>
+            <input
+              accept="image/*"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+              disabled={uploadingProof}
+              onChange={(event) => onProofUpload(event.target.files?.[0])}
+              type="file"
+            />
+          </label>
+          {uploadingProof ? (
+            <p className="md:col-span-2 text-sm font-medium text-emerald-700">
+              Uploading payment proof...
+            </p>
+          ) : null}
           <Button className="md:col-span-2" icon={Send} type="submit">
             Submit Payment
           </Button>
@@ -286,6 +338,16 @@ function Payments({ form, monthlyFee, onChange, onSubmit, payments }) {
                 <p className="mt-1 text-sm text-slate-600">
                   {money(payment.amount)} | {payment.method} | TX: {payment.transactionId}
                 </p>
+                {payment.proofImageUrl ? (
+                  <a
+                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    href={payment.proofImageUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View proof
+                  </a>
+                ) : null}
               </div>
               <Badge value={payment.status}>{payment.status}</Badge>
             </div>

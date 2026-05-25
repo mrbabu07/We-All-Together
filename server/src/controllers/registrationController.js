@@ -26,6 +26,7 @@ const registerMember = asyncHandler(async (req, res) => {
       transactionId: payload.payment.transactionId,
       senderPhone: payload.payment.senderPhone,
       note: payload.payment.note,
+      proofImageUrl: payload.payment.proofImageUrl,
       status: PAYMENT_STATUSES.PENDING,
       paidAt: new Date(),
     },

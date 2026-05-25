@@ -36,6 +36,11 @@ const donationSchema = new mongoose.Schema(
       maxlength: [300, 'Donation note cannot exceed 300 characters.'],
       default: '',
     },
+    proofImageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     status: {
       type: String,
       enum: Object.values(PAYMENT_STATUSES),

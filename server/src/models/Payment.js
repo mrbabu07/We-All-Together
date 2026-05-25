@@ -53,6 +53,11 @@ const paymentSchema = new mongoose.Schema(
       maxlength: [300, 'Payment note cannot exceed 300 characters.'],
       default: '',
     },
+    proofImageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     verifiedAt: {
       type: Date,
       default: null,

@@ -89,6 +89,11 @@ const userSchema = new mongoose.Schema(
         maxlength: [300, 'Payment note cannot exceed 300 characters.'],
         default: '',
       },
+      proofImageUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
       status: {
         type: String,
         enum: Object.values(PAYMENT_STATUSES),

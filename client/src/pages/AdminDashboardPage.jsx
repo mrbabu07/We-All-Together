@@ -18,6 +18,7 @@ import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
@@ -124,14 +125,6 @@ const getContentEditForm = (key, item) => {
     order: item.order || '',
   }
 }
-
-const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
 
 const tabLabels = [
   ['overview', 'Overview'],
@@ -477,6 +470,7 @@ export default function AdminDashboardPage() {
         senderPhone: item.senderPhone,
         status: item.status,
         transactionId: item.transactionId,
+        proofImageUrl: item.proofImageUrl || '',
       })),
     )
     setMessage(ok ? 'Payments CSV downloaded.' : 'No payments to export.')
@@ -493,6 +487,7 @@ export default function AdminDashboardPage() {
         phone: item.phone,
         status: item.status,
         transactionId: item.transactionId,
+        proofImageUrl: item.proofImageUrl || '',
       })),
     )
     setMessage(ok ? 'Donations CSV downloaded.' : 'No donations to export.')
@@ -694,6 +689,16 @@ function OverviewTab({
                   {item.registrationPayment?.method || 'N/A'} | TX:{' '}
                   {item.registrationPayment?.transactionId || 'N/A'}
                 </p>
+                {item.registrationPayment?.proofImageUrl ? (
+                  <a
+                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    href={item.registrationPayment.proofImageUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View registration payment proof
+                  </a>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
@@ -1306,6 +1311,16 @@ function VerificationList({ items, onReject, onVerify, title }) {
                 <p className="mt-1 text-sm text-slate-600">
                   {money(item.amount)} | {item.method} | TX: {item.transactionId}
                 </p>
+                {item.proofImageUrl ? (
+                  <a
+                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    href={item.proofImageUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View payment proof
+                  </a>
+                ) : null}
               </div>
               <Badge value={item.status}>{item.status}</Badge>
             </div>
