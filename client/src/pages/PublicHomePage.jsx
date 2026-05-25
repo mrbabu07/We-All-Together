@@ -27,6 +27,7 @@ import api, { getErrorMessage } from '../api/http'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Skeleton from '../components/ui/Skeleton'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useAppStore from '../store/appStore'
 
@@ -418,6 +419,7 @@ function HomepageNavbar({ orgName, user }) {
         </div>
 
         <div className="hidden items-center gap-3 lg:flex">
+          <ThemeToggle />
           <Link className="inline-flex min-h-11 items-center rounded-xl border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
             লগইন
           </Link>
@@ -466,6 +468,7 @@ function HomepageNavbar({ orgName, user }) {
               ))}
             </div>
             <div className="mt-8 grid gap-3">
+              <ThemeToggle className="w-full" showLabel />
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 text-sm font-semibold text-gray-800"
                 onClick={() => setMenuOpen(false)}

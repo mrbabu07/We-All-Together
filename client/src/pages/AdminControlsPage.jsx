@@ -319,6 +319,7 @@ export default function AdminControlsPage() {
       }
       setSettingsForm(nextSettings)
       setControls((current) => ({ ...current, settings: nextSettings }))
+      setPreviewAppearance(nextSettings.appearance || null)
       toast.success('সেটিংস সংরক্ষণ হয়েছে')
     } catch (error) {
       const errorMessage = getErrorMessage(error)

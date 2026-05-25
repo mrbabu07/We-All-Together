@@ -14,6 +14,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import GlobalSearchModal from '../components/admin/GlobalSearchModal'
 import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { useEffect, useState } from 'react'
@@ -164,6 +165,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
               <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
                 {language === 'bn' ? 'EN' : 'BN'}
               </Button>
+              <ThemeToggle />
               <Button as={Link} className="relative" icon={Bell} to="/notifications" variant="secondary">
                 <motion.span
                   animate={{ scale: [1, 1.25, 1] }}

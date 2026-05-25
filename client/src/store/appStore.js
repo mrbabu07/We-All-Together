@@ -6,6 +6,7 @@ const useAppStore = create(
     (set) => ({
       filterPresets: [],
       previewAppearance: null,
+      themePreference: null,
       removeFilterPreset: (name) =>
         set((state) => ({
           filterPresets: state.filterPresets.filter((preset) => preset.name !== name),
@@ -18,6 +19,7 @@ const useAppStore = create(
           ],
         })),
       setPreviewAppearance: (previewAppearance) => set({ previewAppearance }),
+      setThemePreference: (themePreference) => set({ themePreference }),
     }),
     {
       name: 'dargah-para-app-store',

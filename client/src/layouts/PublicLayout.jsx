@@ -1,6 +1,7 @@
 import { Languages, LogIn, UserPlus } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import Button from '../components/ui/Button'
+import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 
@@ -27,6 +28,7 @@ export default function PublicLayout() {
             <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
               {language === 'bn' ? 'EN' : 'BN'}
             </Button>
+            <ThemeToggle />
             {user ? (
               <Button as={Link} to={user.role === 'admin' ? '/admin' : '/member'}>
                 {user.role === 'admin' ? t.admin : t.member}
