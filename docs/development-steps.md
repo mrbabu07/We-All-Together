@@ -1,17 +1,66 @@
 # Development Steps
 
+Deployment is intentionally skipped for now.
+
+## Completed
+
 1. Project setup
+   - React client, Express server, workspaces, Tailwind, repo hygiene.
+
 2. Backend setup
+   - Express app, MongoDB connection, health route, global error handling.
+
 3. Auth system
+   - User model, bcrypt password hashing, JWT login, protected profile route, admin bootstrap.
+
 4. Registration and admin approval system
+   - Public registration, pending status, registration fee capture, admin approve/reject.
+
 5. Role-based access control
+   - `protect` middleware and reusable role authorization middleware.
+
 6. Financial system
-7. Notices, meetings, tours, activities, and rules
+   - Monthly fee settings, member payment submission, paid/unpaid tracking, expenses, donations, verification flows.
+
+7. Organization features
+   - Notices, meetings, tours, educational activities, rules, and member directory APIs.
+
 8. Frontend structure
+   - React Router, Axios API client, auth context, protected routes, shared layout, reusable UI components.
+
 9. Admin dashboard
+   - Pending approvals, finance settings, payment/donation verification, expense management, content management, member management.
+
 10. Member dashboard
+    - Private updates, rules, meetings, tours, activities, member directory, monthly payment, payment history.
+
 11. Public site
-12. Deployment
+    - Public homepage, public notices/meetings/tours/activities/rules, registration entry, donation submission.
 
-Each step should be tested and committed before moving to the next step.
+12. ImgBB image uploads
+    - Admin image upload endpoint, content image fields, image rendering on admin/member/public content.
 
+13. Admin management completion pass
+    - Edit/delete content, edit/delete expenses, edit/update users, public meetings and tours display.
+
+## Verification Command Set
+
+Run these before every push:
+
+```bash
+npm test
+npm run lint
+npm run build
+```
+
+## Local URLs
+
+```text
+Frontend: http://localhost:5173
+Backend:  http://localhost:5000
+Health:   http://localhost:5000/api/v1/health
+```
+
+## Current Main Branch
+
+Every completed step above has been committed and pushed to `main`.
