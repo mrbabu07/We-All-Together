@@ -1,4 +1,5 @@
 const mongoose = require('mongoose')
+const { PAYMENT_STATUSES } = require('../constants/paymentConstants')
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const { comparePassword, hashPassword } = require('../utils/passwordUtils')
 
@@ -60,6 +61,52 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    registrationPayment: {
+      amount: {
+        type: Number,
+        min: [0, 'Payment amount cannot be negative.'],
+        default: 0,
+      },
+      method: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      transactionId: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      senderPhone: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      note: {
+        type: String,
+        trim: true,
+        maxlength: [300, 'Payment note cannot exceed 300 characters.'],
+        default: '',
+      },
+      status: {
+        type: String,
+        enum: Object.values(PAYMENT_STATUSES),
+        default: PAYMENT_STATUSES.PENDING,
+      },
+      paidAt: {
+        type: Date,
+        default: null,
+      },
+      verifiedAt: {
+        type: Date,
+        default: null,
+      },
+      verifiedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+      },
     },
   },
   {
