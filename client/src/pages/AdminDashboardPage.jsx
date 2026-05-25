@@ -14,12 +14,14 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  Table2,
   UserCheck,
   UserRoundPlus,
   Vote,
   XCircle,
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
+import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -874,6 +876,7 @@ export default function AdminDashboardPage() {
             })
           }
           onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
+          onTabChange={changeTab}
           stats={stats}
         />
       ) : null}
@@ -983,8 +986,15 @@ function OverviewTab({
   onExportUsers,
   onReject,
   onRegistrationReceipt,
+  onTabChange,
   stats,
 }) {
+  const financeSnapshot = [
+    ['মোট আয়', money(stats.totalIncome)],
+    ['মোট ব্যয়', money(stats.totalExpense)],
+    ['নেট ব্যালেন্স', money(stats.balance)],
+  ]
+
   return (
     <div className="mt-6 grid gap-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1012,79 +1022,129 @@ function OverviewTab({
         />
       </div>
 
-      <Panel>
-        <SectionTitle icon={Download} title="Export Reports" />
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button icon={Download} onClick={onExportUsers} variant="secondary">
-            Users CSV
-          </Button>
-          <Button icon={Download} onClick={onExportPayments} variant="secondary">
-            Payments CSV
-          </Button>
-          <Button icon={Download} onClick={onExportDonations} variant="secondary">
-            Donations CSV
-          </Button>
-          <Button icon={Download} onClick={onExportExpenses} variant="secondary">
-            Expenses CSV
-          </Button>
-          <Button icon={DatabaseBackup} onClick={onExportBackup} variant="secondary">
-            Full Backup
-          </Button>
-        </div>
-      </Panel>
-
-      <Panel>
-        <SectionTitle icon={ClipboardList} title="Pending Registrations" />
-        <div className="mt-4 grid gap-3">
-          {data.pendingRegistrations.length === 0 ? <Empty text="No pending registrations." /> : null}
-          {data.pendingRegistrations.map((item) => (
-            <div
-              className="grid gap-3 rounded-md border border-gray-200 p-4 lg:grid-cols-[1fr_auto]"
-              key={item._id}
-            >
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold text-gray-950">{item.name}</h3>
-                  <Badge value={item.status}>{item.status}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-gray-600">
-                  {item.phone} | {item.address}
-                </p>
-                <p className="mt-1 text-sm text-gray-600">
-                  Registration payment: {money(item.registrationPayment?.amount)} via{' '}
-                  {item.registrationPayment?.method || 'N/A'} | TX:{' '}
-                  {item.registrationPayment?.transactionId || 'N/A'}
-                </p>
-                {item.registrationPayment?.proofImageUrl ? (
-                  <a
-                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
-                    href={item.registrationPayment.proofImageUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    View registration payment proof
-                  </a>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+        <Panel>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SectionTitle icon={ClipboardList} title="সাম্প্রতিক নিবন্ধন" />
+            <Badge value="pending">{data.pendingRegistrations.length} pending</Badge>
+          </div>
+          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['নাম', 'ফোন', 'পেমেন্ট', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      key={heading}
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {data.pendingRegistrations.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                      No pending registrations.
+                    </td>
+                  </tr>
                 ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  icon={FileText}
-                  onClick={() => onRegistrationReceipt(item._id)}
-                  variant="secondary"
+                {data.pendingRegistrations.slice(0, 6).map((item) => (
+                  <tr className="transition hover:bg-gray-50" key={item._id}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">{item.address}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {money(item.registrationPayment?.amount)} |{' '}
+                      {item.registrationPayment?.method || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge value={item.status}>{item.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          icon={FileText}
+                          onClick={() => onRegistrationReceipt(item._id)}
+                          variant="secondary"
+                        >
+                          Receipt
+                        </Button>
+                        <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
+                          Approve
+                        </Button>
+                        <Button
+                          icon={XCircle}
+                          onClick={() => onReject(item._id)}
+                          variant="danger"
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <div className="grid gap-6">
+          <Panel>
+            <SectionTitle icon={DollarSign} title="অর্থ সারাংশ" />
+            <div className="mt-4 grid gap-3">
+              {financeSnapshot.map(([label, value]) => (
+                <div
+                  className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  key={label}
                 >
-                  Receipt
-                </Button>
-                <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
-                  Approve
-                </Button>
-                <Button icon={XCircle} onClick={() => onReject(item._id)} variant="danger">
-                  Reject
-                </Button>
-              </div>
+                  <span className="text-sm font-medium text-gray-500">{label}</span>
+                  <span className="text-lg font-bold tracking-tight text-gray-900">{value}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </Panel>
+
+          <Panel>
+            <SectionTitle icon={FilePlus2} title="দ্রুত কাজ" />
+            <div className="mt-4 grid gap-3">
+              <Button icon={Bell} onClick={() => onTabChange('content')}>
+                নোটিশ দিন
+              </Button>
+              <Button icon={ClipboardList} onClick={() => onTabChange('content')} variant="secondary">
+                মিটিং যোগ করুন
+              </Button>
+              <Button icon={DollarSign} onClick={() => onTabChange('finance')} variant="secondary">
+                ব্যয় যোগ করুন
+              </Button>
+            </div>
+          </Panel>
+
+          <Panel>
+            <SectionTitle icon={Download} title="রিপোর্ট এক্সপোর্ট" />
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Button icon={Download} onClick={onExportUsers} variant="secondary">
+                Users
+              </Button>
+              <Button icon={Download} onClick={onExportPayments} variant="secondary">
+                Payments
+              </Button>
+              <Button icon={Download} onClick={onExportDonations} variant="secondary">
+                Donations
+              </Button>
+              <Button icon={DatabaseBackup} onClick={onExportBackup} variant="secondary">
+                Backup
+              </Button>
+              <Button className="sm:col-span-2" icon={Download} onClick={onExportExpenses} variant="secondary">
+                Expenses
+              </Button>
+            </div>
+          </Panel>
         </div>
-      </Panel>
+      </div>
     </div>
   )
 }
@@ -1125,6 +1185,7 @@ function FinanceTab({
       return totals
     }, {}),
   ).sort((left, right) => right[1] - left[1])
+  const [activeFinanceTab, setActiveFinanceTab] = useState('payments')
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1288,45 +1349,20 @@ function FinanceTab({
         </form>
       </Panel>
 
-      <Panel>
-        <SectionTitle icon={ClipboardList} title="Expense List" />
-        <div className="mt-4 grid gap-3">
-          {data.expenses.length === 0 ? <Empty text="No expenses added yet." /> : null}
-          {data.expenses.map((expense) => (
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-4"
-              key={expense._id}
-            >
-              <div>
-                <h3 className="font-semibold text-gray-950">{expense.title}</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {money(expense.amount)} | {expense.category}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button icon={Pencil} onClick={() => onEditExpense(expense)} variant="secondary">
-                  Edit
-                </Button>
-                <Button icon={Trash2} onClick={() => onDeleteExpense(expense._id)} variant="danger">
-                  Delete
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Panel>
-
-      <TwoColumnLists
-        leftItems={data.payments}
-        leftTitle="Member Payments"
-        onLeftReceipt={onPaymentReceipt}
-        onLeftReject={onPaymentReject}
-        onLeftVerify={onPaymentVerify}
-        onRightReceipt={onDonationReceipt}
-        onRightReject={onDonationReject}
-        onRightVerify={onDonationVerify}
-        rightItems={data.donations}
-        rightTitle="Donations"
+      <FinanceRecordsTabs
+        activeTab={activeFinanceTab}
+        donations={data.donations}
+        expenses={data.expenses}
+        onDonationReceipt={onDonationReceipt}
+        onDonationReject={onDonationReject}
+        onDonationVerify={onDonationVerify}
+        onEditExpense={onEditExpense}
+        onDeleteExpense={onDeleteExpense}
+        onPaymentReceipt={onPaymentReceipt}
+        onPaymentReject={onPaymentReject}
+        onPaymentVerify={onPaymentVerify}
+        payments={data.payments}
+        setActiveTab={setActiveFinanceTab}
       />
     </div>
   )
@@ -1972,6 +2008,8 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   const [editingUserId, setEditingUserId] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [viewMode, setViewMode] = useState('grid')
   const [memberForm, setMemberForm] = useState({
     address: '',
     birthCertificateUrl: '',
@@ -2048,13 +2086,16 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   }
 
   const normalizedQuery = query.trim().toLowerCase()
-  const visibleUsers = normalizedQuery
-    ? users.filter((item) =>
-        [item.name, item.phone, item.address, item.role, item.status]
+  const visibleUsers = users.filter((item) => {
+    const matchesStatus = statusFilter ? item.status === statusFilter : true
+    const matchesQuery = normalizedQuery
+      ? [item.name, item.phone, item.address, item.role, item.status]
           .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
-      )
-    : users
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+      : true
+
+    return matchesStatus && matchesQuery
+  })
 
   return (
     <div className="mt-6 grid gap-6">
@@ -2151,68 +2192,131 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
       ) : null}
 
       <Panel>
-        <SectionTitle icon={ClipboardList} title="Users and Members" />
-        <Field
-          className="mt-4"
-          label="Search Users"
-          name="memberSearch"
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Name, phone, address, role, status"
-          value={query}
-        />
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-gray-600">
-                <th className="py-3 pr-4">Name</th>
-                <th className="py-3 pr-4">Phone</th>
-                <th className="py-3 pr-4">Role</th>
-                <th className="py-3 pr-4">Status</th>
-                <th className="py-3 pr-4">Address</th>
-                <th className="py-3 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleUsers.map((item) => (
-                <tr className="border-b border-gray-100" key={item._id}>
-                  <td className="py-3 pr-4 font-medium text-gray-950">
-                    <div className="flex items-center gap-2">
-                      {item.profilePhotoUrl ? (
-                        <img
-                          alt=""
-                          className="h-9 w-9 rounded-md object-cover"
-                          src={item.profilePhotoUrl}
-                        />
-                      ) : (
-                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-xs font-bold text-indigo-800">
-                          {item.name?.slice(0, 1) || 'U'}
-                        </span>
-                      )}
-                      <span>{item.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 text-gray-600">{item.phone}</td>
-                  <td className="py-3 pr-4 text-gray-600">{item.role}</td>
-                  <td className="py-3 pr-4">
-                    <Badge value={item.status}>{item.status}</Badge>
-                  </td>
-                  <td className="py-3 pr-4 text-gray-600">{item.address}</td>
-                  <td className="py-3 pr-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
-                        Edit
-                      </Button>
-                      <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle icon={ClipboardList} title="সদস্য ব্যবস্থাপনা" />
+          <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+            <button
+              className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
+                viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-600'
+              }`}
+              onClick={() => setViewMode('grid')}
+              type="button"
+            >
+              Grid
+            </button>
+            <button
+              className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${
+                viewMode === 'table' ? 'bg-indigo-600 text-white' : 'text-gray-600'
+              }`}
+              onClick={() => setViewMode('table')}
+              type="button"
+            >
+              Table
+            </button>
+          </div>
         </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <Field
+            className="min-w-64 flex-1"
+            label="সদস্য খুঁজুন"
+            name="memberSearch"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="নাম, ফোন, ঠিকানা, ভূমিকা"
+            value={query}
+          />
+          <SelectField
+            className="min-w-48"
+            label="স্ট্যাটাস"
+            name="memberStatusFilter"
+            onChange={(event) => setStatusFilter(event.target.value)}
+            value={statusFilter}
+          >
+            <option value="">সব</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </SelectField>
+        </div>
+
+        {viewMode === 'grid' ? (
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visibleUsers.map((item) => (
+              <div
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
+                key={item._id}
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar name={item.name} src={item.profilePhotoUrl} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
+                      <Badge value={item.status}>{item.status}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">{item.phone}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.address}</p>
+                    <p className="mt-2 text-xs font-semibold uppercase text-indigo-600">
+                      {item.role}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
+                    Edit
+                  </Button>
+                  <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  {['নাম', 'ফোন', 'ভূমিকা', 'স্ট্যাটাস', 'ঠিকানা', 'অ্যাকশন'].map((heading) => (
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+                      key={heading}
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visibleUsers.map((item) => (
+                  <tr className="transition hover:bg-gray-50" key={item._id}>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={item.name} src={item.profilePhotoUrl} size="sm" />
+                        <span>{item.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{item.role}</td>
+                    <td className="px-4 py-3">
+                      <Badge value={item.status}>{item.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{item.address}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
+                          Edit
+                        </Button>
+                        <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+          {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
       </Panel>
     </div>
   )
@@ -2362,44 +2466,161 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
   )
 }
 
-function TwoColumnLists({
-  leftItems,
-  leftTitle,
-  onLeftReceipt,
-  onLeftReject,
-  onLeftVerify,
-  onRightReceipt,
-  onRightReject,
-  onRightVerify,
-  rightItems,
-  rightTitle,
+function FinanceRecordsTabs({
+  activeTab,
+  donations,
+  expenses,
+  onDeleteExpense,
+  onDonationReceipt,
+  onDonationReject,
+  onDonationVerify,
+  onEditExpense,
+  onPaymentReceipt,
+  onPaymentReject,
+  onPaymentVerify,
+  payments,
+  setActiveTab,
 }) {
+  const tabs = [
+    ['payments', 'মাসিক ফি'],
+    ['donations', 'দান'],
+    ['expenses', 'ব্যয়'],
+  ]
+
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <VerificationList
-        items={leftItems}
-        onReceipt={onLeftReceipt}
-        onReject={onLeftReject}
-        onVerify={onLeftVerify}
-        title={leftTitle}
+    <Panel>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle icon={Table2} title="অর্থ রেকর্ড" />
+        <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+          {tabs.map(([key, label]) => (
+            <button
+              className={`min-h-11 rounded-lg px-4 text-sm font-semibold transition ${
+                activeTab === key ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600'
+              }`}
+              key={key}
+              onClick={() => setActiveTab(key)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        {activeTab === 'payments' ? (
+          <VerificationList
+            items={payments}
+            onReceipt={onPaymentReceipt}
+            onReject={onPaymentReject}
+            onVerify={onPaymentVerify}
+            title="মাসিক ফি"
+          />
+        ) : null}
+        {activeTab === 'donations' ? (
+          <VerificationList
+            items={donations}
+            onReceipt={onDonationReceipt}
+            onReject={onDonationReject}
+            onVerify={onDonationVerify}
+            title="দান"
+          />
+        ) : null}
+        {activeTab === 'expenses' ? (
+          <ExpenseRecordsTable
+            expenses={expenses}
+            onDeleteExpense={onDeleteExpense}
+            onEditExpense={onEditExpense}
+          />
+        ) : null}
+      </div>
+    </Panel>
+  )
+}
+
+function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLowerCase()
+  const visibleExpenses = normalizedQuery
+    ? expenses.filter((expense) =>
+        [expense.title, expense.category, expense.note]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
+      )
+    : expenses
+
+  return (
+    <div>
+      <Field
+        label="ব্যয় খুঁজুন"
+        name="expenseSearch"
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="শিরোনাম, ক্যাটাগরি, নোট"
+        value={query}
       />
-      <VerificationList
-        items={rightItems}
-        onReceipt={onRightReceipt}
-        onReject={onRightReject}
-        onVerify={onRightVerify}
-        title={rightTitle}
-      />
+      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              {['শিরোনাম', 'ক্যাটাগরি', 'তারিখ', 'পরিমাণ', 'অ্যাকশন'].map((heading) => (
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+                  key={heading}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {visibleExpenses.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                  No expenses found.
+                </td>
+              </tr>
+            ) : null}
+            {visibleExpenses.map((expense) => (
+              <tr className="transition hover:bg-gray-50" key={expense._id}>
+                <td className="px-4 py-3 font-semibold text-gray-900">{expense.title}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{expense.category}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{toReadableDate(expense.date)}</td>
+                <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                  {money(expense.amount)}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Button icon={Pencil} onClick={() => onEditExpense(expense)} variant="secondary">
+                      Edit
+                    </Button>
+                    <Button icon={Trash2} onClick={() => onDeleteExpense(expense._id)} variant="danger">
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3">
+          <Button disabled variant="secondary">পূর্ববর্তী</Button>
+          <Button disabled variant="secondary">পরবর্তী</Button>
+        </div>
+      </div>
     </div>
   )
 }
 
 function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
   const normalizedQuery = query.trim().toLowerCase()
-  const visibleItems = normalizedQuery
-    ? items.filter((item) =>
-        [
+  const pageSize = 6
+  const visibleItems = items.filter((item) => {
+    const matchesStatus = statusFilter ? item.status === statusFilter : true
+    const matchesQuery = normalizedQuery
+      ? [
           item.user?.name,
           item.user?.phone,
           item.donorName,
@@ -2410,67 +2631,127 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
           item.month,
         ]
           .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalizedQuery)),
-      )
-    : items
+          .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+      : true
+
+    return matchesStatus && matchesQuery
+  })
+  const pageCount = Math.max(Math.ceil(visibleItems.length / pageSize), 1)
+  const currentPage = Math.min(page, pageCount)
+  const pagedItems = visibleItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   return (
-    <Panel>
-      <SectionTitle icon={CheckCircle2} title={title} />
-      <Field
-        className="mt-4"
-        label={`Search ${title}`}
-        name={`${title}-search`}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Name, phone, transaction, status"
-        value={query}
-      />
-      <div className="mt-4 grid gap-3">
-        {visibleItems.length === 0 ? <Empty text={`No ${title.toLowerCase()} found.`} /> : null}
-        {visibleItems.map((item) => (
-          <div className="rounded-md border border-gray-200 p-4" key={item._id}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-gray-950">
-                  {item.user?.name || item.donorName || item.transactionId}
-                </h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {money(item.amount)} | {item.method} | TX: {item.transactionId}
-                </p>
-                {item.proofImageUrl ? (
-                  <a
-                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
-                    href={item.proofImageUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    View payment proof
-                  </a>
-                ) : null}
-              </div>
-              <Badge value={item.status}>{item.status}</Badge>
-            </div>
-            {item.status === 'pending' ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button icon={CheckCircle2} onClick={() => onVerify(item._id)}>
-                  Verify
-                </Button>
-                <Button icon={XCircle} onClick={() => onReject(item._id)} variant="danger">
-                  Reject
-                </Button>
-              </div>
-            ) : null}
-            {item.status !== 'pending' ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button icon={FileText} onClick={() => onReceipt(item._id)} variant="secondary">
-                  Receipt
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        ))}
+    <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <Field
+          className="min-w-64 flex-1"
+          label={`${title} খুঁজুন`}
+          name={`${title}-search`}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setPage(1)
+          }}
+          placeholder="নাম, ফোন, ট্রানজেকশন, স্ট্যাটাস"
+          value={query}
+        />
+        <SelectField
+          className="min-w-48"
+          label="স্ট্যাটাস"
+          name={`${title}-status`}
+          onChange={(event) => {
+            setStatusFilter(event.target.value)
+            setPage(1)
+          }}
+          value={statusFilter}
+        >
+          <option value="">সব</option>
+          <option value="pending">Pending</option>
+          <option value="verified">Verified</option>
+          <option value="rejected">Rejected</option>
+        </SelectField>
       </div>
-    </Panel>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              {['নাম', 'পরিমাণ', 'মাধ্যম', 'ট্রানজেকশন', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+                  key={heading}
+                >
+                  {heading}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {pagedItems.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
+                  No {title.toLowerCase()} found.
+                </td>
+              </tr>
+            ) : null}
+            {pagedItems.map((item) => (
+              <tr className="transition hover:bg-gray-50" key={item._id}>
+                <td className="px-4 py-3">
+                  <p className="font-semibold text-gray-900">
+                    {item.user?.name || item.donorName || item.transactionId}
+                  </p>
+                  <p className="text-xs text-gray-500">{item.user?.phone || item.phone}</p>
+                </td>
+                <td className="px-4 py-3 text-sm font-bold text-gray-900">{money(item.amount)}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{item.method}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{item.transactionId}</td>
+                <td className="px-4 py-3">
+                  <Badge value={item.status}>{item.status}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {item.status === 'pending' ? (
+                      <>
+                        <Button icon={CheckCircle2} onClick={() => onVerify(item._id)}>
+                          Verify
+                        </Button>
+                        <Button icon={XCircle} onClick={() => onReject(item._id)} variant="danger">
+                          Reject
+                        </Button>
+                      </>
+                    ) : (
+                      <Button icon={FileText} onClick={() => onReceipt(item._id)} variant="secondary">
+                        Receipt
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3">
+          <p className="text-sm text-gray-500">
+            Page {currentPage} of {pageCount}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              disabled={currentPage === 1}
+              onClick={() => setPage((value) => Math.max(value - 1, 1))}
+              variant="secondary"
+            >
+              পূর্ববর্তী
+            </Button>
+            <Button
+              disabled={currentPage === pageCount}
+              onClick={() => setPage((value) => Math.min(value + 1, pageCount))}
+              variant="secondary"
+            >
+              পরবর্তী
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

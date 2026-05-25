@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  Bell,
   BookOpen,
   CalendarDays,
   CreditCard,
@@ -485,7 +486,13 @@ export default function MemberDashboardPage() {
       ) : null}
 
       {!loading && activeTab === 'overview' ? (
-        <Overview data={data} monthlyFee={data.settings.monthlyFee} stats={stats} user={user} />
+        <Overview
+          data={data}
+          monthlyFee={data.settings.monthlyFee}
+          onPay={() => changeTab('payments')}
+          stats={stats}
+          user={user}
+        />
       ) : null}
       {!loading && activeTab === 'payments' ? (
         <Payments
@@ -551,9 +558,18 @@ export default function MemberDashboardPage() {
   )
 }
 
-function Overview({ data, monthlyFee, stats, user }) {
+function Overview({ data, monthlyFee, onPay, stats, user }) {
   const currentMonth = new Date().toISOString().slice(0, 7)
   const currentPayment = data.payments.find((payment) => payment.month === currentMonth)
+  const upcomingEvents = [...data.meetings, ...data.tours]
+    .map((item) => ({
+      ...item,
+      eventDate: item.meetingDate || item.startDate,
+      type: item.meetingDate ? 'মিটিং' : 'ভ্রমণ',
+    }))
+    .filter((item) => item.eventDate)
+    .sort((left, right) => new Date(left.eventDate) - new Date(right.eventDate))
+    .slice(0, 5)
 
   return (
     <div className="mt-6 grid gap-6">
@@ -584,6 +600,11 @@ function Overview({ data, monthlyFee, stats, user }) {
           <Badge value={currentPayment?.status === 'verified' ? 'verified' : 'pending'}>
             {currentPayment?.status === 'verified' ? 'পরিশোধিত' : 'অপরিশোধিত'}
           </Badge>
+          {currentPayment?.status !== 'verified' ? (
+            <Button icon={CreditCard} onClick={onPay}>
+              ফি দিন
+            </Button>
+          ) : null}
         </div>
       </Panel>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -595,22 +616,46 @@ function Overview({ data, monthlyFee, stats, user }) {
         <Stat label="Gallery Photos" value={stats.gallery} />
       </div>
       <Panel>
-        <SectionTitle icon={CalendarDays} title="Next Meeting" />
-        {data.meetings[0] ? (
-          <div className="mt-4 rounded-md border border-gray-200 p-4">
-            <h3 className="font-semibold text-gray-950">{data.meetings[0].title}</h3>
-            <p className="mt-1 text-sm text-gray-600">{formatDate(data.meetings[0].meetingDate)}</p>
-            <p className="mt-1 text-sm text-gray-600">{data.meetings[0].location}</p>
-          </div>
-        ) : (
-          <Empty text="No meeting updates yet." />
-        )}
+        <SectionTitle icon={Bell} title="সাম্প্রতিক নোটিশ" />
+        <div className="mt-4 grid gap-3">
+          {data.notices.slice(0, 4).map((notice) => (
+            <article className="rounded-xl border border-gray-200 bg-gray-50 p-4" key={notice._id}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-gray-900">{notice.title}</h3>
+                <Badge value={notice.audience}>{notice.audience}</Badge>
+              </div>
+              <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-500">
+                {notice.body}
+              </p>
+            </article>
+          ))}
+          {data.notices.length === 0 ? <Empty text="No notices yet." /> : null}
+        </div>
       </Panel>
       <Panel>
-        <SectionTitle icon={CalendarDays} title="Active Tours and Activities" />
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <MiniList items={data.tours.slice(0, 4)} title="Tours" />
-          <MiniList items={data.activities.slice(0, 4)} title="Activities" />
+        <SectionTitle icon={CalendarDays} title="আসন্ন ইভেন্ট" />
+        <div className="mt-5 grid gap-4">
+          {upcomingEvents.length === 0 ? <Empty text="No upcoming events." /> : null}
+          {upcomingEvents.map((item) => (
+            <div className="grid grid-cols-[auto_1fr] gap-4" key={`${item.type}-${item._id}`}>
+              <div className="flex flex-col items-center">
+                <span className="h-3 w-3 rounded-full bg-indigo-600" />
+                <span className="h-full min-h-12 w-px bg-gray-200" />
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge value="planned">{item.type}</Badge>
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    {formatDate(item.eventDate)}
+                  </p>
+                </div>
+                <h3 className="mt-2 font-semibold text-gray-900">{item.title}</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {item.location || item.destination || item.details}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </Panel>
     </div>
@@ -1195,22 +1240,6 @@ function RsvpActions({ item, onRsvp, user }) {
           >
             {status.replace('_', ' ')}
           </Button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function MiniList({ items, title }) {
-  return (
-    <div className="rounded-md border border-gray-200 p-4">
-      <h3 className="font-semibold text-gray-950">{title}</h3>
-      <div className="mt-3 grid gap-2">
-        {items.length === 0 ? <Empty text={`No ${title.toLowerCase()} yet.`} /> : null}
-        {items.map((item) => (
-          <p className="text-sm text-gray-600" key={item._id}>
-            {item.title}
-          </p>
         ))}
       </div>
     </div>
