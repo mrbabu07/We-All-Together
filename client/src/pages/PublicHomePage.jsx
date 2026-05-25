@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { HeartHandshake, LogIn, Send, UserPlus } from 'lucide-react'
+import { BookOpen, Heart, HeartHandshake, Image, LogIn, MessageCircle, Send, UserPlus } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import heroImage from '../assets/community-hero.png'
 import Badge from '../components/ui/Badge'
@@ -38,7 +38,9 @@ export default function PublicHomePage() {
   const [uploadingProof, setUploadingProof] = useState(false)
   const [data, setData] = useState({
     activities: [],
+    blogs: [],
     donations: [],
+    gallery: [],
     meetings: [],
     notices: [],
     rules: [],
@@ -59,6 +61,8 @@ export default function PublicHomePage() {
         activitiesResponse,
         rulesResponse,
         donationsResponse,
+        blogsResponse,
+        galleryResponse,
       ] =
         await Promise.all([
           api.get('/settings/public'),
@@ -68,11 +72,15 @@ export default function PublicHomePage() {
           api.get('/activities/public'),
           api.get('/rules/public'),
           api.get('/donations/verified'),
+          api.get('/blogs/public'),
+          api.get('/gallery/public'),
         ])
 
       setData({
         activities: activitiesResponse.data.data.items,
+        blogs: blogsResponse.data.data.blogs,
         donations: donationsResponse.data.data.donations,
+        gallery: galleryResponse.data.data.items,
         meetings: meetingsResponse.data.data.items,
         notices: noticesResponse.data.data.items,
         rules: rulesResponse.data.data.items,
@@ -190,6 +198,8 @@ export default function PublicHomePage() {
 
           {loading ? <p className="text-sm text-slate-600">Loading public updates...</p> : null}
 
+          <PublicGallery items={data.gallery} />
+          <PublicBlogs blogs={data.blogs} />
           <PublicList items={data.notices} textKey="body" title="Public Notices" />
           <PublicList items={data.meetings} textKey="agenda" title="Public Meetings" />
           <PublicList items={data.tours} textKey="details" title="Public Tours" />
@@ -347,6 +357,76 @@ function PublicList({ items, textKey, title }) {
                 {formatDate(item.activityDate || item.meetingDate || item.startDate)}
               </p>
             ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function PublicGallery({ items }) {
+  return (
+    <section>
+      <div className="flex items-center gap-2">
+        <Image aria-hidden="true" className="h-5 w-5 text-emerald-700" />
+        <h2 className="text-xl font-bold text-slate-950">Gallery</h2>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {items.length === 0 ? (
+          <p className="rounded-md bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+            No gallery photos yet.
+          </p>
+        ) : null}
+        {items.slice(0, 6).map((item) => (
+          <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" key={item._id}>
+            <img alt="" className="h-44 w-full object-cover" src={item.imageUrl} />
+            <div className="p-4">
+              <h3 className="font-semibold text-slate-950">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+                {item.createdBy?.name || 'Member'}
+              </p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function PublicBlogs({ blogs }) {
+  return (
+    <section>
+      <div className="flex items-center gap-2">
+        <BookOpen aria-hidden="true" className="h-5 w-5 text-emerald-700" />
+        <h2 className="text-xl font-bold text-slate-950">Community Blogs</h2>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {blogs.length === 0 ? (
+          <p className="rounded-md bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+            No blogs published yet.
+          </p>
+        ) : null}
+        {blogs.slice(0, 4).map((blog) => (
+          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={blog._id}>
+            {blog.imageUrl ? (
+              <img alt="" className="mb-4 h-40 w-full rounded-md object-cover" src={blog.imageUrl} />
+            ) : null}
+            <h3 className="font-semibold text-slate-950">{blog.title}</h3>
+            <p className="mt-1 text-xs font-semibold uppercase text-emerald-700">
+              {blog.createdBy?.name || 'Member'} | {formatDate(blog.createdAt)}
+            </p>
+            <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-600">{blog.body}</p>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1">
+                <Heart aria-hidden="true" className="h-4 w-4 text-rose-700" />
+                {blog.likes?.length || 0} likes
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <MessageCircle aria-hidden="true" className="h-4 w-4 text-emerald-700" />
+                {blog.comments?.length || 0} comments
+              </span>
+            </div>
           </article>
         ))}
       </div>

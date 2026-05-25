@@ -1,7 +1,9 @@
 const Activity = require('../models/Activity')
 const AuditLog = require('../models/AuditLog')
+const Blog = require('../models/Blog')
 const Donation = require('../models/Donation')
 const Expense = require('../models/Expense')
+const GalleryItem = require('../models/GalleryItem')
 const Meeting = require('../models/Meeting')
 const Notice = require('../models/Notice')
 const Notification = require('../models/Notification')
@@ -17,8 +19,10 @@ const exportBackup = asyncHandler(async (req, res) => {
   const [
     activities,
     auditLogs,
+    blogs,
     donations,
     expenses,
+    galleryItems,
     meetings,
     notices,
     notifications,
@@ -30,8 +34,10 @@ const exportBackup = asyncHandler(async (req, res) => {
   ] = await Promise.all([
     Activity.find().lean(),
     AuditLog.find().lean(),
+    Blog.find().lean(),
     Donation.find().lean(),
     Expense.find().lean(),
+    GalleryItem.find().lean(),
     Meeting.find().lean(),
     Notice.find().lean(),
     Notification.find().lean(),
@@ -47,7 +53,7 @@ const exportBackup = asyncHandler(async (req, res) => {
     actor: req.user,
     entityType: 'Backup',
     metadata: {
-      collections: 12,
+      collections: 14,
     },
   })
 
@@ -62,8 +68,10 @@ const exportBackup = asyncHandler(async (req, res) => {
       collections: {
         activities,
         auditLogs,
+        blogs,
         donations,
         expenses,
+        galleryItems,
         meetings,
         notices,
         notifications,

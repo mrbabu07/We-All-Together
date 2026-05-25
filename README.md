@@ -14,6 +14,7 @@ A MERN organization management system for member registration, admin approval, f
 - Audit logs, admin JSON backup export, member notifications, printable receipts, and profile document uploads
 - Searchable admin/member lists, confirmation dialogs, finance summaries, and Bengali/English navigation toggle
 - Meeting attendance/minutes, tour participant cost tracking, and admin password reset
+- Public/member gallery and member-created blogs with likes and comments
 
 ## Tech Stack
 
@@ -68,7 +69,7 @@ Seed sample dashboard data:
 npm run seed
 ```
 
-The seed command adds demo members, pending registrations, finance records, donations, expenses, notices, meetings, tours, activities, rules, notifications, and audit logs. Demo member phones are `01710000001` to `01710000006`; their password is `Member@123`.
+The seed command adds demo members, pending registrations, finance records, donations, expenses, notices, meetings, tours, activities, rules, gallery photos, blogs, notifications, and audit logs. Demo member phones are `01710000001` to `01710000006`; their password is `Member@123`.
 
 Environment variables must be created from the example files. Never commit real credentials.
 

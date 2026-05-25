@@ -5,8 +5,10 @@ const { PAYMENT_STATUSES, PAYMENT_TYPES } = require('../src/constants/paymentCon
 const { USER_ROLES, USER_STATUSES } = require('../src/constants/userConstants')
 const Activity = require('../src/models/Activity')
 const AuditLog = require('../src/models/AuditLog')
+const Blog = require('../src/models/Blog')
 const Donation = require('../src/models/Donation')
 const Expense = require('../src/models/Expense')
+const GalleryItem = require('../src/models/GalleryItem')
 const Meeting = require('../src/models/Meeting')
 const Notice = require('../src/models/Notice')
 const Notification = require('../src/models/Notification')
@@ -53,6 +55,17 @@ const contentTitles = {
     'Seed: Clean village campaign',
     'Seed: Computer literacy evening',
   ],
+  blogs: [
+    'Seed: Why monthly transparency matters',
+    'Seed: A member story from the coaching program',
+    'Seed: Preparing for the Sylhet tour',
+  ],
+  gallery: [
+    'Seed: Community meeting photo',
+    'Seed: Student support materials',
+    'Seed: Clean village campaign photo',
+    'Seed: Donation handover moment',
+  ],
   meetings: [
     'Seed: Weekly finance review',
     'Seed: Eid program planning',
@@ -81,8 +94,10 @@ const removePreviousSeedData = async () => {
   await Promise.all([
     Activity.deleteMany({ title: { $in: contentTitles.activities } }),
     AuditLog.deleteMany({ action: /^seed\./ }),
+    Blog.deleteMany({ title: { $in: contentTitles.blogs } }),
     Donation.deleteMany({ transactionId: /^SEED-DON-/ }),
     Expense.deleteMany({ title: /^Seed:/ }),
+    GalleryItem.deleteMany({ title: { $in: contentTitles.gallery } }),
     Meeting.deleteMany({ title: { $in: contentTitles.meetings } }),
     Notice.deleteMany({ title: { $in: contentTitles.notices } }),
     Notification.deleteMany({
@@ -619,6 +634,81 @@ const seedContent = async (admin, members) => {
       description: 'Donation submissions are visible only after admin verification.',
       order: 3,
       title: contentTitles.rules[2],
+    },
+  ])
+
+  await Blog.create([
+    {
+      audience: AUDIENCES.PUBLIC,
+      body: 'Every verified payment, donation, and expense should be easy for members to review. This sample blog shows how members can write updates for the whole village.',
+      comments: [
+        {
+          body: 'Good reminder for everyone.',
+          user: members[1]._id,
+        },
+        {
+          body: 'The finance summary is now easier to understand.',
+          user: members[2]._id,
+        },
+      ],
+      createdBy: members[0]._id,
+      imageUrl: image('blog-transparency'),
+      likes: members.slice(1, 5).map((member) => ({ user: member._id })),
+      title: contentTitles.blogs[0],
+    },
+    {
+      audience: AUDIENCES.PUBLIC,
+      body: 'The coaching program helped several students prepare with regular practice sessions. Members can use blogs to share these progress stories.',
+      comments: [
+        {
+          body: 'Please continue this program next month.',
+          user: members[4]._id,
+        },
+      ],
+      createdBy: members[2]._id,
+      imageUrl: image('blog-coaching'),
+      likes: members.slice(0, 3).map((member) => ({ user: member._id })),
+      title: contentTitles.blogs[1],
+    },
+    {
+      audience: AUDIENCES.MEMBERS,
+      body: 'Tour participants should confirm their seats and update payment status before the final planning meeting.',
+      comments: [],
+      createdBy: members[3]._id,
+      imageUrl: image('blog-tour'),
+      likes: members.slice(0, 2).map((member) => ({ user: member._id })),
+      title: contentTitles.blogs[2],
+    },
+  ])
+
+  await GalleryItem.create([
+    {
+      audience: AUDIENCES.PUBLIC,
+      createdBy: members[0]._id,
+      description: 'Members reviewing the latest finance and activity plan.',
+      imageUrl: image('gallery-meeting'),
+      title: contentTitles.gallery[0],
+    },
+    {
+      audience: AUDIENCES.PUBLIC,
+      createdBy: members[1]._id,
+      description: 'Books and notebooks prepared for student support.',
+      imageUrl: image('gallery-materials'),
+      title: contentTitles.gallery[1],
+    },
+    {
+      audience: AUDIENCES.PUBLIC,
+      createdBy: members[2]._id,
+      description: 'Youth volunteers after the clean village campaign.',
+      imageUrl: image('gallery-clean'),
+      title: contentTitles.gallery[2],
+    },
+    {
+      audience: AUDIENCES.MEMBERS,
+      createdBy: members[3]._id,
+      description: 'Internal record photo from a donation handover.',
+      imageUrl: image('gallery-donation'),
+      title: contentTitles.gallery[3],
     },
   ])
 }

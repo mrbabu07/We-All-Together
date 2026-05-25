@@ -15,6 +15,8 @@ POST /registrations
 POST /donations
 GET  /donations/verified
 POST /uploads/payment-proof
+GET  /blogs/public
+GET  /gallery/public
 GET  /notices/public
 GET  /meetings/public
 GET  /tours/public
@@ -68,6 +70,15 @@ GET    /receipts/registrations/:id
 PATCH  /members/:id/password
 PATCH  /meetings/:id/attendance
 PATCH  /tours/:id/participants
+
+GET    /blogs/members
+DELETE /blogs/:id
+DELETE /blogs/:id/comments/:commentId
+PATCH  /blogs/:id
+
+GET    /gallery/members
+DELETE /gallery/:id
+PATCH  /gallery/:id
 
 GET    /expenses
 POST   /expenses
@@ -124,6 +135,15 @@ GET  /meetings/members
 GET  /tours/members
 GET  /activities/members
 GET  /rules/members
+GET  /blogs/members
+POST /blogs
+POST /blogs/:id/like
+POST /blogs/:id/comments
+DELETE /blogs/:id
+DELETE /blogs/:id/comments/:commentId
+GET  /gallery/members
+POST /gallery
+DELETE /gallery/:id
 GET  /notifications/my
 PATCH /notifications/:id/read
 PATCH /notifications/my/read-all

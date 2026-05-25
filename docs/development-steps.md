@@ -55,6 +55,9 @@ Deployment is intentionally skipped for now.
 17. Demo seed data
     - Repeatable seed script for visual testing across members, registrations, payments, donations, expenses, content, meetings, tours, notifications, and audit logs.
 
+18. Gallery and blog community features
+    - Public/member gallery, member-created blogs, likes, comments, moderation controls, and seeded sample posts/photos.
+
 ## Verification Command Set
 
 Run these before every push:
