@@ -21,7 +21,11 @@ const initialForm = {
 
 export default function RegisterPage() {
   const [form, setForm] = useState(initialForm)
-  const [registrationFee, setRegistrationFee] = useState(0)
+  const [paymentSettings, setPaymentSettings] = useState({
+    donationNumber: '',
+    donationProvider: '',
+    registrationFee: 0,
+  })
   const [message, setMessage] = useState('')
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
@@ -29,7 +33,12 @@ export default function RegisterPage() {
 
   useEffect(() => {
     api.get('/settings/public').then((response) => {
-      setRegistrationFee(response.data.data.settings.registrationFee || 0)
+      const settings = response.data.data.settings || {}
+      setPaymentSettings({
+        donationNumber: settings.donationNumber || '',
+        donationProvider: settings.donationProvider || '',
+        registrationFee: settings.registrationFee || 0,
+      })
     })
   }, [])
 
@@ -108,7 +117,7 @@ export default function RegisterPage() {
             <p className="mt-1 text-sm text-gray-500">ব্যক্তিগত তথ্য → পেমেন্ট তথ্য → জমা দিন</p>
           </div>
           <span className="rounded-full bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700">
-            Fee: Tk {registrationFee}
+            Fee: Tk {paymentSettings.registrationFee}
           </span>
         </div>
         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -153,11 +162,28 @@ export default function RegisterPage() {
             </>
           ) : (
             <>
+              <div className="md:col-span-2 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <p className="text-sm font-semibold text-indigo-700">Registration payment</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <PaymentInfo label="Amount" value={`Tk ${paymentSettings.registrationFee}`} />
+                  <PaymentInfo
+                    label="Send to"
+                    value={paymentSettings.donationNumber || 'Admin has not set a number yet'}
+                  />
+                  <PaymentInfo
+                    label="Method"
+                    value={paymentSettings.donationProvider || 'bKash / Nagad'}
+                  />
+                </div>
+                <p className="mt-3 text-sm text-indigo-800">
+                  Send the registration fee to this number, then enter your transaction ID and sender phone below.
+                </p>
+              </div>
               <Field
                 label="পেমেন্ট মাধ্যম"
                 name="paymentMethod"
                 onChange={handleChange}
-                placeholder="bKash or Nagad"
+                placeholder={paymentSettings.donationProvider || 'bKash or Nagad'}
                 required
                 value={form.paymentMethod}
               />
@@ -227,5 +253,14 @@ export default function RegisterPage() {
         </form>
       </Panel>
     </main>
+  )
+}
+
+function PaymentInfo({ label, value }) {
+  return (
+    <div className="rounded-lg bg-white px-4 py-3">
+      <p className="text-xs font-semibold uppercase text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-base font-bold text-gray-900">{value}</p>
+    </div>
   )
 }

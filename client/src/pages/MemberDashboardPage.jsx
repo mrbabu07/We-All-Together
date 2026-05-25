@@ -505,6 +505,7 @@ export default function MemberDashboardPage() {
           onReceiptDownload={downloadPaymentReceipt}
           onReceipt={printPaymentReceipt}
           onSubmit={submitPayment}
+          paymentSettings={data.settings}
           payments={data.payments}
           uploadingProof={uploadingProof}
         />
@@ -911,6 +912,7 @@ function Payments({
   onReceipt,
   onReceiptDownload,
   onSubmit,
+  paymentSettings,
   payments,
   uploadingProof,
 }) {
@@ -919,6 +921,23 @@ function Payments({
       <Panel>
         <SectionTitle icon={CreditCard} title="Pay Monthly Fee" />
         <p className="mt-2 text-sm text-gray-600">Current amount: {money(monthlyFee)}</p>
+        <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <p className="text-sm font-semibold text-indigo-700">Send monthly fee to</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <PaymentTargetInfo label="Amount" value={money(monthlyFee)} />
+            <PaymentTargetInfo
+              label="Number"
+              value={paymentSettings?.donationNumber || 'Admin has not set a number yet'}
+            />
+            <PaymentTargetInfo
+              label="Method"
+              value={paymentSettings?.donationProvider || 'bKash / Nagad'}
+            />
+          </div>
+          <p className="mt-3 text-sm text-indigo-800">
+            Pay to this admin-set number first, then submit your transaction details for verification.
+          </p>
+        </div>
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <Field
             label="Month"
@@ -932,7 +951,7 @@ function Payments({
             label="Payment Method"
             name="method"
             onChange={(event) => onChange('method', event.target.value)}
-            placeholder="bKash or Nagad"
+            placeholder={paymentSettings?.donationProvider || 'bKash or Nagad'}
             required
             value={form.method}
           />
@@ -1031,6 +1050,15 @@ function Payments({
           ))}
         </div>
       </Panel>
+    </div>
+  )
+}
+
+function PaymentTargetInfo({ label, value }) {
+  return (
+    <div className="rounded-lg bg-white px-4 py-3">
+      <p className="text-xs font-semibold uppercase text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-base font-bold text-gray-900">{value}</p>
     </div>
   )
 }
