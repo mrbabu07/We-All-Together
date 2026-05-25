@@ -1,5 +1,9 @@
 const asyncHandler = require('../utils/asyncHandler')
 const { getSettings } = require('../services/settingsService')
+const {
+  validateDonationNumber,
+  validateMonthlyFee,
+} = require('../validators/financeValidators')
 const { validateRegistrationFee } = require('../validators/registrationValidators')
 
 const getPublicSettings = asyncHandler(async (req, res) => {
@@ -11,6 +15,7 @@ const getPublicSettings = asyncHandler(async (req, res) => {
     data: {
       settings: {
         registrationFee: settings.registrationFee,
+        monthlyFee: settings.monthlyFee,
         donationNumber: settings.donationNumber,
         donationProvider: settings.donationProvider,
       },
@@ -34,7 +39,42 @@ const updateRegistrationFee = asyncHandler(async (req, res) => {
   })
 })
 
+const updateMonthlyFee = asyncHandler(async (req, res) => {
+  const payload = validateMonthlyFee(req.body)
+  const settings = await getSettings()
+
+  settings.monthlyFee = payload.monthlyFee
+  await settings.save()
+
+  res.status(200).json({
+    success: true,
+    message: 'Monthly fee updated successfully.',
+    data: {
+      settings,
+    },
+  })
+})
+
+const updateDonationNumber = asyncHandler(async (req, res) => {
+  const payload = validateDonationNumber(req.body)
+  const settings = await getSettings()
+
+  settings.donationNumber = payload.donationNumber
+  settings.donationProvider = payload.donationProvider
+  await settings.save()
+
+  res.status(200).json({
+    success: true,
+    message: 'Donation number updated successfully.',
+    data: {
+      settings,
+    },
+  })
+})
+
 module.exports = {
   getPublicSettings,
+  updateDonationNumber,
+  updateMonthlyFee,
   updateRegistrationFee,
 }
