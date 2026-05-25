@@ -1,0 +1,60 @@
+const mongoose = require('mongoose')
+const { AUDIENCES, ITEM_STATUSES } = require('../constants/contentConstants')
+
+const tourSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [140, 'Tour title cannot exceed 140 characters.'],
+    },
+    destination: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [160, 'Destination cannot exceed 160 characters.'],
+    },
+    startDate: {
+      type: Date,
+      required: true,
+    },
+    endDate: {
+      type: Date,
+      required: true,
+    },
+    budget: {
+      type: Number,
+      min: [0, 'Budget cannot be negative.'],
+      default: 0,
+    },
+    details: {
+      type: String,
+      trim: true,
+      maxlength: [2400, 'Tour details cannot exceed 2400 characters.'],
+      default: '',
+    },
+    audience: {
+      type: String,
+      enum: Object.values(AUDIENCES),
+      default: AUDIENCES.MEMBERS,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(ITEM_STATUSES),
+      default: ITEM_STATUSES.PLANNED,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  },
+)
+
+module.exports = mongoose.model('Tour', tourSchema)
