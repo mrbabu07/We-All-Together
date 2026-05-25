@@ -38,6 +38,7 @@ const bootstrapAdmin = asyncHandler(async (req, res) => {
   }
 
   const user = await User.create({
+    email: payload.email,
     name: payload.name,
     phone: payload.phone,
     address: payload.address,
@@ -52,10 +53,11 @@ const bootstrapAdmin = asyncHandler(async (req, res) => {
 
 const login = asyncHandler(async (req, res) => {
   const payload = validateLogin(req.body)
-  const user = await User.findOne({ phone: payload.phone }).select('+password')
+  const query = payload.email ? { email: payload.email } : { phone: payload.phone }
+  const user = await User.findOne(query).select('+password')
 
   if (!user || !(await user.comparePassword(payload.password))) {
-    throw new AppError('Invalid phone or password.', 401)
+    throw new AppError('Invalid email/phone or password.', 401)
   }
 
   if (user.status !== USER_STATUSES.APPROVED) {

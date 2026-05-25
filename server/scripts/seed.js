@@ -20,7 +20,8 @@ const Tour = require('../src/models/Tour')
 const User = require('../src/models/User')
 
 const demoPassword = process.env.SEED_USER_PASSWORD || 'Member@123'
-const demoAdminPassword = process.env.SEED_ADMIN_PASSWORD || 'DemoAdmin@123'
+const demoAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@gmail.com'
+const demoAdminPassword = process.env.SEED_ADMIN_PASSWORD || '123456'
 const adminPhone = process.env.SEED_ADMIN_PHONE || '01700000000'
 
 const image = (seed) => `https://picsum.photos/seed/dargah-${seed}/900/520`
@@ -119,16 +120,24 @@ const removePreviousSeedData = async () => {
 
 const findOrCreateAdmin = async () => {
   let admin =
-    (await User.findOne({ phone: adminPhone, role: USER_ROLES.ADMIN })) ||
+    (await User.findOne({ email: demoAdminEmail })) ||
+    (await User.findOne({ phone: adminPhone })) ||
     (await User.findOne({ role: USER_ROLES.ADMIN }))
 
   if (admin) {
+    admin.email = demoAdminEmail
+    admin.password = demoAdminPassword
+    admin.role = USER_ROLES.ADMIN
+    admin.status = USER_STATUSES.APPROVED
+    admin.approvedAt = admin.approvedAt || new Date()
+    await admin.save()
     return admin
   }
 
   admin = await User.create({
     address: 'Dargah Para central office',
     approvedAt: new Date(),
+    email: demoAdminEmail,
     name: 'Demo Admin',
     password: demoAdminPassword,
     phone: adminPhone,
@@ -854,7 +863,9 @@ const run = async () => {
     await seedNotificationsAndAudit(admin, members)
 
     console.log('Seed data inserted successfully.')
+    console.log(`Admin email: ${admin.email}`)
     console.log(`Admin phone: ${admin.phone}`)
+    console.log(`Admin password: ${demoAdminPassword}`)
     console.log(`Demo member password: ${demoPassword}`)
     console.log('Demo member phones: 01710000001 to 01710000006')
   } catch (error) {

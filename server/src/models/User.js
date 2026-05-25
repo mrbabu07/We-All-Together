@@ -20,6 +20,15 @@ const userSchema = new mongoose.Schema(
       minlength: [7, 'Phone must be at least 7 characters.'],
       maxlength: [20, 'Phone cannot exceed 20 characters.'],
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      maxlength: [120, 'Email cannot exceed 120 characters.'],
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email must be valid.'],
+    },
     address: {
       type: String,
       trim: true,

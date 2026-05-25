@@ -1,6 +1,8 @@
 const AppError = require('../utils/appError')
 const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const requireString = (body, fieldName, label = fieldName) => {
   const value = body[fieldName]
 
@@ -21,8 +23,52 @@ const requirePhone = (body, fieldName, label = fieldName) => {
   return phone
 }
 
+const normalizeEmail = (email) => email.trim().toLowerCase()
+
+const optionalEmail = (body) => {
+  if (typeof body.email !== 'string' || body.email.trim() === '') {
+    return undefined
+  }
+
+  const email = normalizeEmail(body.email)
+
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new AppError('Email must be valid.', 400)
+  }
+
+  return email
+}
+
+const requireLoginIdentifier = (body) => {
+  const rawIdentifier = body.identifier || body.email || body.phone
+
+  if (typeof rawIdentifier !== 'string' || rawIdentifier.trim() === '') {
+    throw new AppError('Email or phone is required.', 400)
+  }
+
+  const identifier = rawIdentifier.trim()
+
+  if (identifier.includes('@')) {
+    const email = normalizeEmail(identifier)
+
+    if (!EMAIL_PATTERN.test(email)) {
+      throw new AppError('Email must be valid.', 400)
+    }
+
+    return { email }
+  }
+
+  const phone = normalizeBangladeshiPhone(identifier)
+
+  if (!isBangladeshiPhone(phone)) {
+    throw new AppError('Phone must use Bangladeshi format like 017XXXXXXXX.', 400)
+  }
+
+  return { phone }
+}
+
 const validateLogin = (body) => ({
-  phone: requirePhone(body, 'phone', 'Phone'),
+  ...requireLoginIdentifier(body),
   password: requireString(body, 'password', 'Password'),
 })
 
@@ -34,6 +80,7 @@ const validateBootstrapAdmin = (body) => {
   }
 
   return {
+    email: optionalEmail(body),
     name: requireString(body, 'name', 'Name'),
     phone: requirePhone(body, 'phone', 'Phone'),
     address: typeof body.address === 'string' ? body.address.trim() : '',

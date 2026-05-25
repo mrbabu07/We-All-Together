@@ -87,7 +87,7 @@ Seed sample dashboard data:
 npm run seed
 ```
 
-The seed command adds demo members, pending registrations, finance records, donations, expenses, notices, meetings, tours, activities, rules, gallery photos, blogs, notifications, and audit logs. Demo member phones are `01710000001` to `01710000006`; their password is `Member@123`.
+The seed command adds demo members, pending registrations, finance records, donations, expenses, notices, meetings, tours, activities, rules, gallery photos, blogs, notifications, and audit logs. Demo admin login is `admin@gmail.com` with password `123456`; phone login still works with `01700000000`. Demo member phones are `01710000001` to `01710000006`; their password is `Member@123`.
 
 Environment variables must be created from the example files. Never commit real credentials.
 
@@ -104,6 +104,9 @@ JWT_ACCESS_SECRET=replace_with_a_long_random_secret
 JWT_ACCESS_EXPIRES_IN=7d
 IMGBB_API_KEY=your_imgbb_api_key
 ADMIN_BOOTSTRAP_SECRET=replace_with_a_temporary_admin_setup_secret
+SEED_ADMIN_EMAIL=admin@gmail.com
+SEED_ADMIN_PASSWORD=123456
+SEED_ADMIN_PHONE=01700000000
 TWILIO_ACCOUNT_SID=optional_twilio_account_sid
 TWILIO_AUTH_TOKEN=optional_twilio_auth_token
 TWILIO_SMS_FROM=optional_twilio_sms_sender

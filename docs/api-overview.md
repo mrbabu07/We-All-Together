@@ -37,6 +37,8 @@ PATCH /auth/change-password
 POST /uploads/profile-document
 ```
 
+`POST /auth/login` accepts `identifier` as either an email address or a Bangladeshi phone number.
+
 ## Admin Routes
 
 ```text

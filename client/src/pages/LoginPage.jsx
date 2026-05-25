@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { login } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ phone: '', password: '' })
+  const [form, setForm] = useState({ identifier: '', password: '' })
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -37,7 +37,7 @@ export default function LoginPage() {
     }
 
     const target = result.user.role === 'admin' ? '/admin' : location.state?.from?.pathname || '/member'
-    toast.success('লগইন সফল হয়েছে')
+    toast.success('লগইন সফল হয়েছে')
     navigate(target, { replace: true })
   }
 
@@ -50,11 +50,20 @@ export default function LoginPage() {
         <h1 className="text-center text-2xl font-semibold tracking-tight text-gray-900">
           লগইন করুন
         </h1>
-        <p className="mt-2 text-center text-sm text-gray-500">সদস্য বা অ্যাডমিন অ্যাকাউন্টে প্রবেশ</p>
+        <p className="mt-2 text-center text-sm text-gray-500">
+          সদস্য বা অ্যাডমিন অ্যাকাউন্টে প্রবেশ করুন
+        </p>
         <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-          <Field label="ফোন নম্বর" name="phone" onChange={handleChange} required value={form.phone} />
           <Field
-            label="পাসওয়ার্ড"
+            label="ইমেইল বা ফোন নম্বর"
+            name="identifier"
+            onChange={handleChange}
+            placeholder="admin@gmail.com"
+            required
+            value={form.identifier}
+          />
+          <Field
+            label="পাসওয়ার্ড"
             name="password"
             onChange={handleChange}
             required

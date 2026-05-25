@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const {
   validateAdminPasswordReset,
   validateChangePassword,
+  validateLogin,
   validateProfileUpdate,
 } = require('../src/validators/authValidators')
 
@@ -41,4 +42,23 @@ test('validateAdminPasswordReset accepts a new password', () => {
   })
 
   assert.equal(payload.newPassword, 'Member@123')
+})
+
+test('validateLogin accepts an email identifier', () => {
+  const payload = validateLogin({
+    identifier: ' Admin@Gmail.com ',
+    password: '123456',
+  })
+
+  assert.equal(payload.email, 'admin@gmail.com')
+  assert.equal(payload.password, '123456')
+})
+
+test('validateLogin keeps phone login compatible', () => {
+  const payload = validateLogin({
+    identifier: '01700000000',
+    password: '123456',
+  })
+
+  assert.equal(payload.phone, '01700000000')
 })
