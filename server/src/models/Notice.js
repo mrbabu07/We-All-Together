@@ -25,6 +25,76 @@ const noticeSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    category: {
+      type: String,
+      trim: true,
+      default: 'General',
+      index: true,
+    },
+    richBody: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    scheduledFor: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    readReceipts: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        readAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    reactions: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        type: {
+          type: String,
+          enum: ['like', 'love'],
+          default: 'like',
+        },
+        reactedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    comments: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        body: {
+          type: String,
+          trim: true,
+          maxlength: [500, 'Comment cannot exceed 500 characters.'],
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     imageUrl: {
       type: String,
       trim: true,

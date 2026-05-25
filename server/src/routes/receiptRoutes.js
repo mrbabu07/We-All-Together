@@ -14,13 +14,13 @@ const router = express.Router()
 router.get(
   '/payments/:id',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER),
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   getPaymentReceipt,
 )
 router.get(
   '/registrations/:id',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER),
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   getRegistrationReceipt,
 )
 router.get('/donations/:id', protect, authorize(USER_ROLES.ADMIN), getDonationReceipt)

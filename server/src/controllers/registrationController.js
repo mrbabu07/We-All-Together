@@ -15,6 +15,10 @@ const registerMember = asyncHandler(async (req, res) => {
   const payload = validateRegistration(req.body)
   const settings = await getSettings()
 
+  if (settings.siteSettings?.registrationEnabled === false) {
+    throw new AppError('New registrations are currently disabled.', 403)
+  }
+
   const user = await User.create({
     name: payload.name,
     phone: payload.phone,

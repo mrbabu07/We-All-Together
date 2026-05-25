@@ -16,11 +16,26 @@ router.get('/public', getPublicGalleryItems)
 router.get(
   '/members',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER),
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   getMemberGalleryItems,
 )
-router.post('/', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), createGalleryItem)
-router.patch('/:id', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), updateGalleryItem)
-router.delete('/:id', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), deleteGalleryItem)
+router.post(
+  '/',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  createGalleryItem,
+)
+router.patch(
+  '/:id',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  updateGalleryItem,
+)
+router.delete(
+  '/:id',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  deleteGalleryItem,
+)
 
 module.exports = router

@@ -38,6 +38,7 @@ const validateBlogComment = (body) => ({
 })
 
 const validateGalleryItem = (body) => ({
+  album: optionalString(body, 'album') || 'General',
   audience: readAudience(body),
   description: optionalString(body, 'description'),
   imageUrl: requireString(body, 'imageUrl', 'Image URL'),

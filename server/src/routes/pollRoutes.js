@@ -6,9 +6,24 @@ const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
 
-router.get('/', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), pollController.getPolls)
+router.get(
+  '/',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  pollController.getPolls,
+)
 router.post('/', protect, authorize(USER_ROLES.ADMIN), pollController.createPoll)
-router.get('/:id', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), pollController.getPoll)
-router.post('/:id/vote', protect, authorize(USER_ROLES.MEMBER), pollController.votePoll)
+router.get(
+  '/:id',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  pollController.getPoll,
+)
+router.post(
+  '/:id/vote',
+  protect,
+  authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  pollController.votePoll,
+)
 
 module.exports = router

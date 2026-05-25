@@ -5,6 +5,7 @@ import {
   Home,
   LayoutDashboard,
   Settings,
+  SlidersHorizontal,
   Users,
 } from 'lucide-react'
 import DashboardShell from './DashboardShell'
@@ -15,6 +16,7 @@ export default function AdminLayout() {
     { icon: BarChart3, label: 'অর্থ ব্যবস্থাপনা', to: '/admin?tab=finance' },
     { icon: ClipboardList, label: 'কনটেন্ট', to: '/admin?tab=content' },
     { icon: Users, label: 'সদস্য', to: '/admin?tab=members' },
+    { icon: SlidersHorizontal, label: 'কন্ট্রোল', to: '/admin/controls' },
     { icon: Bell, label: 'লগ ও বার্তা', to: '/admin?tab=logs' },
     { icon: Settings, label: 'অ্যাকাউন্ট', to: '/account' },
   ]
@@ -26,7 +28,7 @@ export default function AdminLayout() {
         { icon: BarChart3, label: 'অর্থ', to: '/admin?tab=finance' },
         { icon: ClipboardList, label: 'নোটিশ', to: '/admin?tab=content' },
         { icon: Users, label: 'সদস্য', to: '/admin?tab=members' },
-        { icon: Settings, label: 'প্রোফাইল', to: '/account' },
+        { icon: SlidersHorizontal, label: 'কন্ট্রোল', to: '/admin/controls' },
       ]}
       navItems={navItems}
       title="অ্যাডমিন ড্যাশবোর্ড"

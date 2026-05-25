@@ -3,10 +3,17 @@ const Donation = require('../models/Donation')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
+const { getSettings } = require('../services/settingsService')
 const { validateDonation } = require('../validators/financeValidators')
 
 const submitDonation = asyncHandler(async (req, res) => {
   const payload = validateDonation(req.body)
+  const settings = await getSettings()
+
+  if (settings.siteSettings?.publicDonationsEnabled === false) {
+    throw new AppError('Public donations are currently disabled.', 403)
+  }
+
   const donation = new Donation(payload)
   donation.receiptNumber = `DON-${donation._id}`
   donation.receiptGeneratedAt = new Date()

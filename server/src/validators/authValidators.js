@@ -46,8 +46,32 @@ const validateProfileUpdate = (body) => ({
   address: typeof body.address === 'string' ? body.address.trim() : '',
   birthCertificateUrl:
     typeof body.birthCertificateUrl === 'string' ? body.birthCertificateUrl.trim() : '',
+  emergencyContact: {
+    name:
+      typeof body.emergencyContact?.name === 'string' ? body.emergencyContact.name.trim() : '',
+    phone:
+      typeof body.emergencyContact?.phone === 'string'
+        ? normalizeBangladeshiPhone(body.emergencyContact.phone)
+        : '',
+    relation:
+      typeof body.emergencyContact?.relation === 'string'
+        ? body.emergencyContact.relation.trim()
+        : '',
+  },
   name: requireString(body, 'name', 'Name'),
   nidImageUrl: typeof body.nidImageUrl === 'string' ? body.nidImageUrl.trim() : '',
+  notificationPreferences:
+    typeof body.notificationPreferences === 'object' && body.notificationPreferences
+      ? {
+          fees: body.notificationPreferences.fees !== false,
+          meetings: body.notificationPreferences.meetings !== false,
+          notices: body.notificationPreferences.notices !== false,
+          sms: body.notificationPreferences.sms !== false,
+          tours: body.notificationPreferences.tours !== false,
+          whatsapp: body.notificationPreferences.whatsapp === true,
+        }
+      : undefined,
+  passportImageUrl: typeof body.passportImageUrl === 'string' ? body.passportImageUrl.trim() : '',
   phone: requirePhone(body, 'phone', 'Phone'),
   profilePhotoUrl: typeof body.profilePhotoUrl === 'string' ? body.profilePhotoUrl.trim() : '',
 })

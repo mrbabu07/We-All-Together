@@ -74,8 +74,13 @@ const validateNotice = (body) => ({
   title: requireString(body, 'title', 'Title'),
   body: requireString(body, 'body', 'Body'),
   audience: readAudience(body, AUDIENCES.PUBLIC),
+  archivedAt: body.archivedAt ? new Date(body.archivedAt) : null,
+  category: optionalString(body, 'category') || 'General',
+  expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
   imageUrl: optionalString(body, 'imageUrl'),
   pinned: Boolean(body.pinned),
+  richBody: optionalString(body, 'richBody'),
+  scheduledFor: body.scheduledFor ? new Date(body.scheduledFor) : null,
 })
 
 const validateMeeting = (body) => ({
@@ -84,7 +89,20 @@ const validateMeeting = (body) => ({
   meetingDate: readDate(body, 'meetingDate', 'Meeting date'),
   location: requireString(body, 'location', 'Location'),
   audience: readAudience(body, AUDIENCES.MEMBERS),
+  agendaItems: Array.isArray(body.agendaItems)
+    ? body.agendaItems.map((item, index) => ({
+        completed: Boolean(item.completed),
+        order: Number(item.order ?? index),
+        title: typeof item.title === 'string' ? item.title.trim() : '',
+      }))
+    : [],
+  attendanceMode: {
+    active: ['qr', 'otp'].includes(body.attendanceMode),
+    otp: body.attendanceMode === 'otp' ? optionalString(body, 'attendanceOtp') : '',
+    qrCodeDataUrl: optionalString(body, 'attendanceQrCodeDataUrl'),
+  },
   imageUrl: optionalString(body, 'imageUrl'),
+  minutesRichText: optionalString(body, 'minutesRichText'),
 })
 
 const validateMeetingAttendance = (body) => {
@@ -127,7 +145,11 @@ const validateTour = (body) => {
     details: optionalString(body, 'details'),
     audience: readAudience(body, AUDIENCES.MEMBERS),
     imageUrl: optionalString(body, 'imageUrl'),
+    registrationOpen:
+      body.registrationOpen === undefined ? true : Boolean(body.registrationOpen),
+    seatCapacity: readNumber(body, 'seatCapacity', 'Seat capacity'),
     status: readStatus(body),
+    tourFee: readNumber(body, 'tourFee', 'Tour fee'),
   }
 }
 

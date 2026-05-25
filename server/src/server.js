@@ -1,6 +1,9 @@
 const app = require('./app')
 const connectDB = require('./config/db')
 const env = require('./config/env')
+const { Server } = require('socket.io')
+const { registerSocketHandlers } = require('./sockets')
+const { startAutoBackupJob } = require('./jobs/backupJobs')
 const { startMonthlyFeeReminderScheduler } = require('./services/messageNotificationService')
 
 let server
@@ -13,9 +16,17 @@ const startServer = async () => {
     server = app.listen(env.port, () => {
       console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`)
     })
+    const io = new Server(server, {
+      cors: {
+        origin: env.clientUrl,
+        credentials: true,
+      },
+    })
+    registerSocketHandlers(io)
 
     if (env.nodeEnv !== 'test') {
       startMonthlyFeeReminderScheduler()
+      startAutoBackupJob()
     }
   } catch (error) {
     console.error(`Server failed to start: ${error.message}`)

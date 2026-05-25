@@ -1,0 +1,1856 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import ReactQuill from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
+import { HexColorPicker } from 'react-colorful'
+import toast from 'react-hot-toast'
+import {
+  Archive,
+  Bell,
+  CheckCircle2,
+  DatabaseBackup,
+  Download,
+  Eye,
+  FileDown,
+  FileInput,
+  GalleryHorizontalEnd,
+  Lock,
+  Palette,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UserCog,
+  WalletCards,
+  XCircle,
+} from 'lucide-react'
+import api, { getErrorMessage } from '../api/http'
+import useAppStore from '../store/appStore'
+import { downloadCsv } from '../utils/csvExport'
+import { readFileAsDataUrl } from '../utils/fileUtils'
+import Avatar from '../components/ui/Avatar'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Field from '../components/ui/Field'
+import Panel from '../components/ui/Panel'
+import SelectField from '../components/ui/SelectField'
+import Skeleton from '../components/ui/Skeleton'
+
+const defaultSettings = {
+  appearance: {
+    colorMode: 'light',
+    customCss: '',
+    fontSize: 'normal',
+    heroImageUrl: '',
+    primaryColor: '#4F46E5',
+  },
+  contentControls: {
+    meetingTemplates: [],
+    noticeCategories: [],
+  },
+  financeControls: {
+    fiscalYearStartMonth: 1,
+    lateFeeAmount: 0,
+    lateFeeEnabled: false,
+    monthlyFeeDueDate: 10,
+  },
+  monthlyFee: 0,
+  notificationSettings: {
+    smsFeeReminderEnabled: false,
+    smsGloballyEnabled: false,
+    smsMeetingEnabled: false,
+    smsNoticeEnabled: false,
+    whatsappFeeReminderEnabled: false,
+    whatsappMeetingEnabled: false,
+    whatsappNoticeEnabled: false,
+  },
+  registrationFee: 0,
+  securityControls: {
+    adminIpWhitelist: [],
+    autoBackupSchedule: 'off',
+    twoFactorRequiredForAdmins: false,
+  },
+  siteSettings: {
+    address: '',
+    contactNumber: '',
+    facebookUrl: '',
+    logoUrl: '',
+    maintenanceMode: false,
+    orgName: 'Dargah Para OIkko Porishod',
+    publicDonationsEnabled: true,
+    registrationEnabled: true,
+    tagline: '',
+    welcomeMessage: '',
+    whatsappGroupUrl: '',
+    youtubeUrl: '',
+  },
+}
+
+const tabs = [
+  { icon: ShieldCheck, key: 'site', label: 'সাইট সেটিংস' },
+  { icon: UserCog, key: 'members', label: 'সদস্য নিয়ন্ত্রণ' },
+  { icon: WalletCards, key: 'finance', label: 'ফাইন্যান্স' },
+  { icon: GalleryHorizontalEnd, key: 'content', label: 'কনটেন্ট' },
+  { icon: Bell, key: 'notifications', label: 'নোটিফিকেশন' },
+  { icon: Palette, key: 'appearance', label: 'অ্যাপ ডিজাইন' },
+  { icon: Lock, key: 'security', label: 'সিকিউরিটি' },
+]
+
+const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+const toDate = (value) => (value ? new Date(value).toLocaleString('en-BD') : 'N/A')
+
+const parseCsv = (text) => {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length) {
+    return { headers: [], rows: [] }
+  }
+
+  const headers = lines[0].split(',').map((item) => item.trim())
+  const rows = lines.slice(1).map((line) => {
+    const values = line.split(',').map((item) => item.trim())
+    return headers.reduce((row, header, index) => ({ ...row, [header]: values[index] || '' }), {})
+  })
+
+  return { headers, rows }
+}
+
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+export default function AdminControlsPage() {
+  const { setPreviewAppearance } = useAppStore()
+  const [activeTab, setActiveTab] = useState('site')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [controls, setControls] = useState({
+    donations: [],
+    gallery: [],
+    blogs: [],
+    meetings: [],
+    notices: [],
+    notifications: [],
+    payments: [],
+    recentActivity: [],
+    rules: [],
+    settings: defaultSettings,
+    tours: [],
+    users: [],
+  })
+  const [settingsForm, setSettingsForm] = useState(defaultSettings)
+  const [memberFilter, setMemberFilter] = useState({ query: '', role: '', status: '' })
+  const [csvImport, setCsvImport] = useState({
+    headers: [],
+    mapping: { address: '', name: '', phone: '', role: '', status: '' },
+    rows: [],
+  })
+  const [passwordReset, setPasswordReset] = useState({ newPassword: '', userId: '' })
+  const [activityUser, setActivityUser] = useState(null)
+  const [manualFeeForm, setManualFeeForm] = useState({
+    amount: '',
+    method: 'Manual',
+    month: new Date().toISOString().slice(0, 7),
+    transactionId: '',
+    userId: '',
+  })
+  const [waiveForm, setWaiveForm] = useState({
+    month: new Date().toISOString().slice(0, 7),
+    reason: '',
+    userId: '',
+  })
+  const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
+  const [announcementForm, setAnnouncementForm] = useState({
+    channel: 'sms',
+    link: '/member',
+    message: '',
+    role: '',
+    title: '',
+    type: 'announcement',
+  })
+
+  const loadControls = useCallback(async () => {
+    setLoading(true)
+    setMessage('')
+
+    try {
+      const [
+        controlsResponse,
+        donationsResponse,
+        notificationsResponse,
+        blogsResponse,
+        noticesResponse,
+        meetingsResponse,
+        toursResponse,
+        galleryResponse,
+        rulesResponse,
+        paymentsResponse,
+      ] = await Promise.all([
+        api.get('/admin-controls'),
+        api.get('/donations'),
+        api.get('/notifications'),
+        api.get('/blogs/members'),
+        api.get('/notices/members'),
+        api.get('/meetings/members'),
+        api.get('/tours/members'),
+        api.get('/gallery/members'),
+        api.get('/rules/members'),
+        api.get('/payments'),
+      ])
+      const settings = {
+        ...defaultSettings,
+        ...controlsResponse.data.data.settings,
+        appearance: {
+          ...defaultSettings.appearance,
+          ...controlsResponse.data.data.settings?.appearance,
+        },
+        contentControls: {
+          ...defaultSettings.contentControls,
+          ...controlsResponse.data.data.settings?.contentControls,
+        },
+        financeControls: {
+          ...defaultSettings.financeControls,
+          ...controlsResponse.data.data.settings?.financeControls,
+        },
+        notificationSettings: {
+          ...defaultSettings.notificationSettings,
+          ...controlsResponse.data.data.settings?.notificationSettings,
+        },
+        securityControls: {
+          ...defaultSettings.securityControls,
+          ...controlsResponse.data.data.settings?.securityControls,
+        },
+        siteSettings: {
+          ...defaultSettings.siteSettings,
+          ...controlsResponse.data.data.settings?.siteSettings,
+        },
+      }
+
+      setControls({
+        blogs: blogsResponse.data.data.blogs,
+        donations: donationsResponse.data.data.donations,
+        gallery: galleryResponse.data.data.items,
+        meetings: meetingsResponse.data.data.items,
+        notices: noticesResponse.data.data.items,
+        notifications: notificationsResponse.data.data.notifications,
+        payments: paymentsResponse.data.data.payments,
+        recentActivity: controlsResponse.data.data.recentActivity,
+        rules: rulesResponse.data.data.items,
+        settings,
+        tours: toursResponse.data.data.items,
+        users: controlsResponse.data.data.users,
+      })
+      setSettingsForm(settings)
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadControls, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadControls])
+
+  const approvedMembers = useMemo(
+    () =>
+      controls.users.filter(
+        (user) => user.status === 'approved' && ['member', 'moderator', 'admin'].includes(user.role),
+      ),
+    [controls.users],
+  )
+
+  const filteredMembers = useMemo(() => {
+    const query = memberFilter.query.trim().toLowerCase()
+
+    return controls.users.filter((user) => {
+      const matchesQuery = query
+        ? [user.name, user.phone, user.address].filter(Boolean).some((value) =>
+            String(value).toLowerCase().includes(query),
+          )
+        : true
+      const matchesStatus = memberFilter.status ? user.status === memberFilter.status : true
+      const matchesRole = memberFilter.role ? user.role === memberFilter.role : true
+
+      return matchesQuery && matchesStatus && matchesRole
+    })
+  }, [controls.users, memberFilter])
+
+  const updateSettingsField = (section, field, value) => {
+    if (field === undefined) {
+      setSettingsForm((current) => ({
+        ...current,
+        [section]: value,
+      }))
+      return
+    }
+
+    setSettingsForm((current) => ({
+      ...current,
+      [section]: {
+        ...current[section],
+        [field]: value,
+      },
+    }))
+  }
+
+  const saveSettings = async () => {
+    setSaving(true)
+    setMessage('')
+
+    try {
+      const response = await api.patch('/admin-controls', settingsForm)
+      const nextSettings = {
+        ...settingsForm,
+        ...response.data.data.settings,
+      }
+      setSettingsForm(nextSettings)
+      setControls((current) => ({ ...current, settings: nextSettings }))
+      toast.success('সেটিংস সংরক্ষণ হয়েছে')
+    } catch (error) {
+      const errorMessage = getErrorMessage(error)
+      setMessage(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const uploadSettingImage = async (section, field, file) => {
+    if (!file) {
+      return
+    }
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/image', {
+        image,
+        name: `${field}-${Date.now()}`,
+      })
+      updateSettingsField(section, field, response.data.data.image.url)
+      toast.success('ছবি আপলোড হয়েছে')
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
+
+  const runAction = async (action, successMessage) => {
+    try {
+      setMessage('')
+      await action()
+      toast.success(successMessage)
+      await loadControls()
+    } catch (error) {
+      const errorMessage = getErrorMessage(error)
+      setMessage(errorMessage)
+      toast.error(errorMessage)
+    }
+  }
+
+  const requestConfirm = (config) => setConfirmDialog(config)
+  const closeConfirm = () => setConfirmDialog(null)
+  const confirmSelected = async () => {
+    const action = confirmDialog?.action
+    setConfirmDialog(null)
+    if (action) {
+      await action()
+    }
+  }
+
+  const exportMembersCsv = () => {
+    const ok = downloadCsv(
+      'members.csv',
+      filteredMembers.map((user) => ({
+        address: user.address || '',
+        joined: user.createdAt || '',
+        lastLogin: user.lastLoginAt || '',
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+      })),
+    )
+    toast[ok ? 'success' : 'error'](ok ? 'CSV ডাউনলোড হয়েছে' : 'রপ্তানির জন্য ডাটা নেই')
+  }
+
+  const exportMembersPdf = async () => {
+    const response = await api.get('/admin-controls/members-report.pdf', {
+      params: {
+        role: memberFilter.role || undefined,
+        status: memberFilter.status || undefined,
+      },
+      responseType: 'blob',
+    })
+    downloadBlob(response.data, 'member-report.pdf')
+  }
+
+  const exportFinancePdf = async () => {
+    const response = await api.get('/admin-controls/finance-report.pdf', {
+      responseType: 'blob',
+    })
+    downloadBlob(response.data, 'finance-report.pdf')
+  }
+
+  const handleCsvFile = (file) => {
+    if (!file) {
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const parsed = parseCsv(String(reader.result || ''))
+      setCsvImport({
+        headers: parsed.headers,
+        mapping: {
+          address: parsed.headers.find((item) => /address/i.test(item)) || '',
+          name: parsed.headers.find((item) => /name/i.test(item)) || '',
+          phone: parsed.headers.find((item) => /phone|mobile/i.test(item)) || '',
+          role: parsed.headers.find((item) => /role/i.test(item)) || '',
+          status: parsed.headers.find((item) => /status/i.test(item)) || '',
+        },
+        rows: parsed.rows,
+      })
+    }
+    reader.readAsText(file)
+  }
+
+  const importMembers = async () => {
+    const members = csvImport.rows.map((row) => ({
+      address: row[csvImport.mapping.address] || '',
+      name: row[csvImport.mapping.name] || '',
+      phone: row[csvImport.mapping.phone] || '',
+      role: row[csvImport.mapping.role] || 'member',
+      status: row[csvImport.mapping.status] || 'approved',
+    }))
+
+    await runAction(async () => {
+      await api.post('/admin-controls/members/import', { members })
+      setCsvImport({
+        headers: [],
+        mapping: { address: '', name: '', phone: '', role: '', status: '' },
+        rows: [],
+      })
+    }, 'CSV ইমপোর্ট সম্পন্ন হয়েছে')
+  }
+
+  const previewAppearance = () => {
+    setPreviewAppearance(settingsForm.appearance)
+    window.open('/', '_blank', 'noopener,noreferrer')
+  }
+
+  if (loading) {
+    return (
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <Panel>
+          <Skeleton rows={8} />
+        </Panel>
+      </main>
+    )
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase text-indigo-700">Control Panel</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            অ্যাডমিন কন্ট্রোল প্যানেল
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            সাইট, সদস্য, অর্থ, কনটেন্ট, নোটিফিকেশন ও নিরাপত্তা এক জায়গা থেকে নিয়ন্ত্রণ করুন।
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button icon={RefreshCw} onClick={loadControls} variant="secondary">
+            রিফ্রেশ
+          </Button>
+          <Button icon={Save} loading={saving} onClick={saveSettings}>
+            সব সেটিংস সেভ
+          </Button>
+        </div>
+      </div>
+
+      {message ? (
+        <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {message}
+        </p>
+      ) : null}
+
+      <div className="mt-6 flex gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const active = activeTab === tab.key
+
+          return (
+            <button
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
+                active ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              type="button"
+            >
+              <Icon aria-hidden="true" className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === 'site' ? (
+        <SiteSettingsTab
+          form={settingsForm}
+          onChange={updateSettingsField}
+          onSave={saveSettings}
+          onUpload={uploadSettingImage}
+          saving={saving}
+        />
+      ) : null}
+      {activeTab === 'members' ? (
+        <MemberControlsTab
+          activityUser={activityUser}
+          csvImport={csvImport}
+          filter={memberFilter}
+          filteredMembers={filteredMembers}
+          members={approvedMembers}
+          onActivity={async (user) => {
+            const response = await api.get(`/members/${user._id}/activity`)
+            setActivityUser({ ...user, activity: response.data.data })
+          }}
+          onBulkApprove={() =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.post('/admin-controls/members/bulk-approve'),
+                  'সব pending সদস্য approve হয়েছে',
+                ),
+              message: 'সব pending আবেদন approve করতে চান?',
+              title: 'Bulk approve',
+            })
+          }
+          onBulkReject={(reason) =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.post('/admin-controls/members/bulk-reject', { reason }),
+                  'সব pending সদস্য reject হয়েছে',
+                ),
+              message: 'সব pending আবেদন reject করতে চান?',
+              title: 'Bulk reject',
+              variant: 'danger',
+            })
+          }
+          onDelete={(user) =>
+            requestConfirm({
+              action: () =>
+                runAction(() => api.delete(`/members/${user._id}`), 'সদস্য soft delete হয়েছে'),
+              message: `${user.name} কে soft delete করা হবে। ডাটা ৩০ দিনের জন্য রাখা থাকবে।`,
+              title: 'সদস্য delete?',
+              variant: 'danger',
+            })
+          }
+          onExportCsv={exportMembersCsv}
+          onExportPdf={() => runAction(exportMembersPdf, 'PDF ডাউনলোড হয়েছে')}
+          onFile={handleCsvFile}
+          onFilter={setMemberFilter}
+          onImport={importMembers}
+          onMapping={(mapping) => setCsvImport((current) => ({ ...current, mapping }))}
+          onPasswordReset={(event) => {
+            event.preventDefault()
+            runAction(
+              () =>
+                api.patch(`/members/${passwordReset.userId}/password`, {
+                  newPassword: passwordReset.newPassword,
+                }),
+              'পাসওয়ার্ড reset হয়েছে',
+            )
+          }}
+          onRole={(user, role) =>
+            runAction(() => api.patch(`/members/${user._id}/access`, { role }), 'Role updated')
+          }
+          onStatus={(user, status) =>
+            runAction(() => api.patch(`/members/${user._id}/access`, { status }), 'Status updated')
+          }
+          onSuspend={(user) =>
+            runAction(
+              () =>
+                api.patch(`/admin-controls/members/${user._id}/suspension`, {
+                  reason: user.suspendedAt ? '' : 'Suspended by admin control panel',
+                  suspended: !user.suspendedAt,
+                }),
+              user.suspendedAt ? 'Suspension removed' : 'Member suspended',
+            )
+          }
+          passwordReset={passwordReset}
+          setPasswordReset={setPasswordReset}
+        />
+      ) : null}
+      {activeTab === 'finance' ? (
+        <FinanceControlsTab
+          donations={controls.donations}
+          form={settingsForm}
+          manualFeeForm={manualFeeForm}
+          members={approvedMembers}
+          onChange={updateSettingsField}
+          onDonationStatus={(donation, action) =>
+            runAction(() => api.patch(`/donations/${donation._id}/${action}`), 'Donation updated')
+          }
+          onExportFinance={() => runAction(exportFinancePdf, 'Finance PDF downloaded')}
+          onManualFee={(event) => {
+            event.preventDefault()
+            runAction(
+              () => api.post('/admin-controls/finance/manual-fee', manualFeeForm),
+              'Manual fee saved',
+            )
+          }}
+          onSave={saveSettings}
+          onWaive={(event) => {
+            event.preventDefault()
+            runAction(() => api.post('/admin-controls/finance/waive-fee', waiveForm), 'Fee waived')
+          }}
+          saving={saving}
+          setManualFeeForm={setManualFeeForm}
+          setWaiveForm={setWaiveForm}
+          waiveForm={waiveForm}
+        />
+      ) : null}
+      {activeTab === 'content' ? (
+        <ContentControlsTab
+          archiveForm={archiveForm}
+          blogs={controls.blogs}
+          form={settingsForm}
+          gallery={controls.gallery}
+          meetings={controls.meetings}
+          notices={controls.notices}
+          onArchive={(event) => {
+            event.preventDefault()
+            runAction(() => api.post('/notices/archive-bulk', archiveForm), 'Notices archived')
+          }}
+          onArchiveChange={setArchiveForm}
+          onBlogModerate={(blog, status) =>
+            runAction(
+              () => api.patch(`/blogs/${blog._id}/moderation`, { status }),
+              'Blog moderation updated',
+            )
+          }
+          onCategoryAdd={(category) => {
+            if (!category.trim()) return
+            updateSettingsField('contentControls', 'noticeCategories', [
+              ...(settingsForm.contentControls.noticeCategories || []),
+              category.trim(),
+            ])
+          }}
+          onCategoryRemove={(category) =>
+            updateSettingsField(
+              'contentControls',
+              'noticeCategories',
+              settingsForm.contentControls.noticeCategories.filter((item) => item !== category),
+            )
+          }
+          onGalleryMove={(item, album) =>
+            runAction(
+              () =>
+                api.patch(`/gallery/${item._id}`, {
+                  ...item,
+                  album,
+                }),
+              'Gallery album updated',
+            )
+          }
+          onNoticePin={(notice) =>
+            runAction(
+              () =>
+                api.patch(`/notices/${notice._id}`, {
+                  ...notice,
+                  pinned: !notice.pinned,
+                }),
+              'Notice updated',
+            )
+          }
+          onSave={saveSettings}
+          onTemplateAdd={(template) =>
+            updateSettingsField('contentControls', 'meetingTemplates', [
+              ...(settingsForm.contentControls.meetingTemplates || []),
+              template,
+            ])
+          }
+          rules={controls.rules}
+          saving={saving}
+        />
+      ) : null}
+      {activeTab === 'notifications' ? (
+        <NotificationControlsTab
+          form={settingsForm}
+          notifications={controls.notifications}
+          onAnnouncement={(event) => {
+            event.preventDefault()
+            runAction(
+              () => api.post('/notifications/send', announcementForm),
+              'Announcement processed',
+            )
+          }}
+          onAnnouncementChange={(field, value) =>
+            setAnnouncementForm((current) => ({ ...current, [field]: value }))
+          }
+          onChange={updateSettingsField}
+          onSave={saveSettings}
+          saving={saving}
+          announcementForm={announcementForm}
+        />
+      ) : null}
+      {activeTab === 'appearance' ? (
+        <AppearanceTab
+          form={settingsForm}
+          onChange={updateSettingsField}
+          onPreview={previewAppearance}
+          onSave={saveSettings}
+          onUpload={uploadSettingImage}
+          saving={saving}
+        />
+      ) : null}
+      {activeTab === 'security' ? (
+        <SecurityTab
+          form={settingsForm}
+          onBackup={() =>
+            runAction(async () => {
+              const response = await api.get('/backup')
+              const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+                type: 'application/json',
+              })
+              downloadBlob(blob, 'dargah-backup.json')
+            }, 'Backup downloaded')
+          }
+          onChange={updateSettingsField}
+          onSave={saveSettings}
+          presence={controls.presence}
+          recentActivity={controls.recentActivity}
+          saving={saving}
+          users={controls.users}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        confirmLabel={confirmDialog?.confirmLabel || 'Confirm'}
+        message={confirmDialog?.message}
+        onCancel={closeConfirm}
+        onConfirm={confirmSelected}
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title}
+        variant={confirmDialog?.variant}
+      />
+    </main>
+  )
+}
+
+function Toggle({ checked, label, onChange }) {
+  return (
+    <label className="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-2">
+      <span className="text-sm font-semibold text-gray-700">{label}</span>
+      <input
+        checked={checked}
+        className="h-5 w-5 accent-indigo-600"
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+    </label>
+  )
+}
+
+function FileUploadButton({ label, onUpload }) {
+  return (
+    <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+      <Upload aria-hidden="true" className="h-4 w-4" />
+      {label}
+      <input
+        accept="image/*"
+        className="sr-only"
+        onChange={(event) => onUpload(event.target.files?.[0])}
+        type="file"
+      />
+    </label>
+  )
+}
+
+function SectionTitle({ icon: Icon, title }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <Icon aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <h2 className="text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
+    </div>
+  )
+}
+
+function SiteSettingsTab({ form, onChange, onSave, onUpload, saving }) {
+  return (
+    <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_380px]">
+      <Panel>
+        <SectionTitle icon={ShieldCheck} title="সাইট সেটিংস" />
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field
+            label="সংগঠনের নাম"
+            name="orgName"
+            onChange={(event) => onChange('siteSettings', 'orgName', event.target.value)}
+            value={form.siteSettings.orgName}
+          />
+          <Field
+            label="ট্যাগলাইন"
+            name="tagline"
+            onChange={(event) => onChange('siteSettings', 'tagline', event.target.value)}
+            value={form.siteSettings.tagline}
+          />
+          <Field
+            label="যোগাযোগ নম্বর"
+            name="contactNumber"
+            onChange={(event) => onChange('siteSettings', 'contactNumber', event.target.value)}
+            value={form.siteSettings.contactNumber}
+          />
+          <Field
+            label="ঠিকানা"
+            name="address"
+            onChange={(event) => onChange('siteSettings', 'address', event.target.value)}
+            value={form.siteSettings.address}
+          />
+          <Field
+            label="রেজিস্ট্রেশন ফি"
+            name="registrationFee"
+            onChange={(event) =>
+              onChange('registrationFee', undefined, Number(event.target.value || 0))
+            }
+            type="number"
+            value={form.registrationFee}
+          />
+          <Field
+            label="মাসিক ফি"
+            name="monthlyFee"
+            onChange={(event) => onChange('monthlyFee', undefined, Number(event.target.value || 0))}
+            type="number"
+            value={form.monthlyFee}
+          />
+          <Field
+            label="Facebook link"
+            name="facebookUrl"
+            onChange={(event) => onChange('siteSettings', 'facebookUrl', event.target.value)}
+            value={form.siteSettings.facebookUrl}
+          />
+          <Field
+            label="YouTube link"
+            name="youtubeUrl"
+            onChange={(event) => onChange('siteSettings', 'youtubeUrl', event.target.value)}
+            value={form.siteSettings.youtubeUrl}
+          />
+          <Field
+            label="WhatsApp group"
+            name="whatsappGroupUrl"
+            onChange={(event) => onChange('siteSettings', 'whatsappGroupUrl', event.target.value)}
+            value={form.siteSettings.whatsappGroupUrl}
+          />
+          <Field
+            label="লোগো URL"
+            name="logoUrl"
+            onChange={(event) => onChange('siteSettings', 'logoUrl', event.target.value)}
+            value={form.siteSettings.logoUrl}
+          />
+          <div className="flex items-end">
+            <FileUploadButton
+              label="লোগো আপলোড"
+              onUpload={(file) => onUpload('siteSettings', 'logoUrl', file)}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+              <span>সদস্য ড্যাশবোর্ড welcome message</span>
+              <ReactQuill
+                onChange={(value) => onChange('siteSettings', 'welcomeMessage', value)}
+                theme="snow"
+                value={form.siteSettings.welcomeMessage}
+              />
+            </label>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            সাইট সেটিংস সেভ
+          </Button>
+        </div>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={ShieldCheck} title="সাইট টগল" />
+        <div className="mt-5 grid gap-3">
+          <Toggle
+            checked={form.siteSettings.registrationEnabled}
+            label="নতুন নিবন্ধন চালু"
+            onChange={(value) => onChange('siteSettings', 'registrationEnabled', value)}
+          />
+          <Toggle
+            checked={form.siteSettings.publicDonationsEnabled}
+            label="পাবলিক দান চালু"
+            onChange={(value) => onChange('siteSettings', 'publicDonationsEnabled', value)}
+          />
+          <Toggle
+            checked={form.siteSettings.maintenanceMode}
+            label="Maintenance mode"
+            onChange={(value) => onChange('siteSettings', 'maintenanceMode', value)}
+          />
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+function MemberControlsTab({
+  activityUser,
+  csvImport,
+  filter,
+  filteredMembers,
+  members,
+  onActivity,
+  onBulkApprove,
+  onBulkReject,
+  onDelete,
+  onExportCsv,
+  onExportPdf,
+  onFile,
+  onFilter,
+  onImport,
+  onMapping,
+  onPasswordReset,
+  onRole,
+  onStatus,
+  onSuspend,
+  passwordReset,
+  setPasswordReset,
+}) {
+  const [rejectReason, setRejectReason] = useState('')
+
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={UserCog} title="সদস্য নিয়ন্ত্রণ" />
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button icon={CheckCircle2} onClick={onBulkApprove}>
+            Bulk approve pending
+          </Button>
+          <Field
+            className="min-w-72"
+            label="Reject reason"
+            name="rejectReason"
+            onChange={(event) => setRejectReason(event.target.value)}
+            value={rejectReason}
+          />
+          <Button icon={XCircle} onClick={() => onBulkReject(rejectReason)} variant="danger">
+            Bulk reject
+          </Button>
+          <Button icon={Download} onClick={onExportCsv} variant="secondary">
+            CSV export
+          </Button>
+          <Button icon={FileDown} onClick={onExportPdf} variant="secondary">
+            PDF export
+          </Button>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <Field
+            label="সদস্য খুঁজুন"
+            name="memberSearch"
+            onChange={(event) => onFilter({ ...filter, query: event.target.value })}
+            value={filter.query}
+          />
+          <SelectField
+            label="Status"
+            name="status"
+            onChange={(event) => onFilter({ ...filter, status: event.target.value })}
+            value={filter.status}
+          >
+            <option value="">সব</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="rejected">Rejected</option>
+          </SelectField>
+          <SelectField
+            label="Role"
+            name="role"
+            onChange={(event) => onFilter({ ...filter, role: event.target.value })}
+            value={filter.role}
+          >
+            <option value="">সব</option>
+            <option value="member">Member</option>
+            <option value="moderator">Moderator</option>
+            <option value="admin">Admin</option>
+          </SelectField>
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={FileInput} title="CSV Import with field mapping" />
+        <div className="mt-5 grid gap-4">
+          <input
+            accept=".csv,text/csv"
+            className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700"
+            onChange={(event) => onFile(event.target.files?.[0])}
+            type="file"
+          />
+          {csvImport.headers.length ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-5">
+                {['name', 'phone', 'address', 'role', 'status'].map((field) => (
+                  <SelectField
+                    key={field}
+                    label={field}
+                    name={field}
+                    onChange={(event) =>
+                      onMapping({ ...csvImport.mapping, [field]: event.target.value })
+                    }
+                    value={csvImport.mapping[field]}
+                  >
+                    <option value="">Skip</option>
+                    {csvImport.headers.map((header) => (
+                      <option key={header} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </SelectField>
+                ))}
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <tbody className="divide-y divide-gray-100">
+                    {csvImport.rows.slice(0, 4).map((row, index) => (
+                      <tr key={index}>
+                        {csvImport.headers.map((header) => (
+                          <td className="px-3 py-2 text-gray-600" key={header}>
+                            {row[header]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Button icon={Upload} onClick={onImport}>
+                Import {csvImport.rows.length} rows
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={UserCog} title="সদস্য তালিকা ও action" />
+        <div className="mt-5 grid gap-3">
+          {filteredMembers.map((user) => (
+            <div className="grid gap-3 rounded-xl border border-gray-200 p-4 lg:grid-cols-[1fr_auto]" key={user._id}>
+              <div className="flex gap-3">
+                <Avatar name={user.name} src={user.profilePhotoUrl} />
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-gray-900">{user.name}</h3>
+                    <Badge value={user.status}>{user.status}</Badge>
+                    <Badge value="default">{user.role}</Badge>
+                    {user.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {user.phone} | {user.address || 'No address'} | Last login {toDate(user.lastLoginAt)}
+                  </p>
+                  {activityUser?._id === user._id ? (
+                    <p className="mt-2 text-sm text-indigo-700">
+                      Payments {activityUser.activity.paymentCount}, Events{' '}
+                      {activityUser.activity.attendedCount}, Blogs {activityUser.activity.blogCount},
+                      Donations {activityUser.activity.donationCount}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <SelectField
+                  label="Role"
+                  name={`role-${user._id}`}
+                  onChange={(event) => onRole(user, event.target.value)}
+                  value={user.role}
+                >
+                  <option value="member">Member</option>
+                  <option value="moderator">Moderator</option>
+                  <option value="admin">Admin</option>
+                </SelectField>
+                <SelectField
+                  label="Status"
+                  name={`status-${user._id}`}
+                  onChange={(event) => onStatus(user, event.target.value)}
+                  value={user.status}
+                >
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
+                </SelectField>
+                <Button onClick={() => onActivity(user)} variant="secondary">
+                  Activity
+                </Button>
+                <Button onClick={() => onSuspend(user)} variant="secondary">
+                  {user.suspendedAt ? 'Unsuspend' : 'Suspend'}
+                </Button>
+                <Button icon={Trash2} onClick={() => onDelete(user)} variant="danger">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={Lock} title="পাসওয়ার্ড reset" />
+        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={onPasswordReset}>
+          <SelectField
+            label="Member"
+            name="resetMember"
+            onChange={(event) =>
+              setPasswordReset((current) => ({ ...current, userId: event.target.value }))
+            }
+            required
+            value={passwordReset.userId}
+          >
+            <option value="">Select member</option>
+            {members.map((user) => (
+              <option key={user._id} value={user._id}>
+                {user.name} | {user.phone}
+              </option>
+            ))}
+          </SelectField>
+          <Field
+            label="Temporary password"
+            name="newPassword"
+            onChange={(event) =>
+              setPasswordReset((current) => ({ ...current, newPassword: event.target.value }))
+            }
+            required
+            type="password"
+            value={passwordReset.newPassword}
+          />
+          <div className="flex items-end">
+            <Button icon={Lock} type="submit">
+              Reset password
+            </Button>
+          </div>
+        </form>
+      </Panel>
+    </div>
+  )
+}
+
+function FinanceControlsTab({
+  donations,
+  form,
+  manualFeeForm,
+  members,
+  onChange,
+  onDonationStatus,
+  onExportFinance,
+  onManualFee,
+  onSave,
+  onWaive,
+  saving,
+  setManualFeeForm,
+  setWaiveForm,
+  waiveForm,
+}) {
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={WalletCards} title="Finance controls" />
+        <div className="mt-5 grid gap-4 md:grid-cols-4">
+          <SelectField
+            label="Monthly fee due date"
+            name="monthlyFeeDueDate"
+            onChange={(event) =>
+              onChange('financeControls', 'monthlyFeeDueDate', Number(event.target.value))
+            }
+            value={form.financeControls.monthlyFeeDueDate}
+          >
+            <option value={1}>1st</option>
+            <option value={5}>5th</option>
+            <option value={10}>10th</option>
+          </SelectField>
+          <Field
+            label="Late fee amount"
+            name="lateFeeAmount"
+            onChange={(event) =>
+              onChange('financeControls', 'lateFeeAmount', Number(event.target.value || 0))
+            }
+            type="number"
+            value={form.financeControls.lateFeeAmount}
+          />
+          <SelectField
+            label="Fiscal year start"
+            name="fiscalYearStartMonth"
+            onChange={(event) =>
+              onChange('financeControls', 'fiscalYearStartMonth', Number(event.target.value))
+            }
+            value={form.financeControls.fiscalYearStartMonth}
+          >
+            {Array.from({ length: 12 }).map((_, index) => (
+              <option key={index + 1} value={index + 1}>
+                Month {index + 1}
+              </option>
+            ))}
+          </SelectField>
+          <Toggle
+            checked={form.financeControls.lateFeeEnabled}
+            label="Late fee চালু"
+            onChange={(value) => onChange('financeControls', 'lateFeeEnabled', value)}
+          />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            Finance settings save
+          </Button>
+          <Button icon={FileDown} onClick={onExportFinance} variant="secondary">
+            Full finance PDF
+          </Button>
+        </div>
+      </Panel>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel>
+          <SectionTitle icon={WalletCards} title="Manual fee entry" />
+          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onManualFee}>
+            <MemberSelect
+              members={members}
+              onChange={(value) =>
+                setManualFeeForm((current) => ({ ...current, userId: value }))
+              }
+              value={manualFeeForm.userId}
+            />
+            <Field
+              label="Month"
+              name="manualMonth"
+              onChange={(event) =>
+                setManualFeeForm((current) => ({ ...current, month: event.target.value }))
+              }
+              type="month"
+              value={manualFeeForm.month}
+            />
+            <Field
+              label="Amount"
+              name="manualAmount"
+              onChange={(event) =>
+                setManualFeeForm((current) => ({ ...current, amount: event.target.value }))
+              }
+              type="number"
+              value={manualFeeForm.amount}
+            />
+            <Field
+              label="Transaction ID"
+              name="manualTransaction"
+              onChange={(event) =>
+                setManualFeeForm((current) => ({
+                  ...current,
+                  transactionId: event.target.value,
+                }))
+              }
+              value={manualFeeForm.transactionId}
+            />
+            <Button className="md:col-span-2" type="submit">
+              Save manual fee
+            </Button>
+          </form>
+        </Panel>
+        <Panel>
+          <SectionTitle icon={WalletCards} title="Fee waive" />
+          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onWaive}>
+            <MemberSelect
+              members={members}
+              onChange={(value) => setWaiveForm((current) => ({ ...current, userId: value }))}
+              value={waiveForm.userId}
+            />
+            <Field
+              label="Month"
+              name="waiveMonth"
+              onChange={(event) => setWaiveForm((current) => ({ ...current, month: event.target.value }))}
+              type="month"
+              value={waiveForm.month}
+            />
+            <Field
+              className="md:col-span-2"
+              label="Reason"
+              name="waiveReason"
+              onChange={(event) =>
+                setWaiveForm((current) => ({ ...current, reason: event.target.value }))
+              }
+              textarea
+              value={waiveForm.reason}
+            />
+            <Button className="md:col-span-2" type="submit" variant="secondary">
+              Waive fee
+            </Button>
+          </form>
+        </Panel>
+      </div>
+
+      <Panel>
+        <SectionTitle icon={WalletCards} title="Donation verification" />
+        <div className="mt-5 grid gap-3">
+          {donations.slice(0, 12).map((donation) => (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={donation._id}>
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {donation.donorName} | {money(donation.amount)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {donation.method} | {donation.transactionId} | {donation.phone}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge value={donation.status}>{donation.status}</Badge>
+                <Button onClick={() => onDonationStatus(donation, 'verify')}>Verify</Button>
+                <Button onClick={() => onDonationStatus(donation, 'reject')} variant="danger">
+                  Reject
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+function MemberSelect({ members, onChange, value }) {
+  return (
+    <SelectField
+      label="Member"
+      name="memberId"
+      onChange={(event) => onChange(event.target.value)}
+      required
+      value={value}
+    >
+      <option value="">Select member</option>
+      {members.map((member) => (
+        <option key={member._id} value={member._id}>
+          {member.name} | {member.phone}
+        </option>
+      ))}
+    </SelectField>
+  )
+}
+
+function ContentControlsTab({
+  archiveForm,
+  blogs,
+  form,
+  gallery,
+  meetings,
+  notices,
+  onArchive,
+  onArchiveChange,
+  onBlogModerate,
+  onCategoryAdd,
+  onCategoryRemove,
+  onGalleryMove,
+  onNoticePin,
+  onSave,
+  onTemplateAdd,
+  rules,
+  saving,
+}) {
+  const [category, setCategory] = useState('')
+  const [template, setTemplate] = useState({ agenda: '', title: '' })
+  const [albumDrafts, setAlbumDrafts] = useState({})
+
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={GalleryHorizontalEnd} title="Notice categories and pin/archive" />
+        <div className="mt-5 flex flex-wrap gap-2">
+          {(form.contentControls.noticeCategories || []).map((item) => (
+            <button
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-indigo-50 px-4 text-sm font-semibold text-indigo-700"
+              key={item}
+              onClick={() => onCategoryRemove(item)}
+              type="button"
+            >
+              {item}
+              <XCircle aria-hidden="true" className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto]">
+          <Field
+            label="নতুন category"
+            name="noticeCategory"
+            onChange={(event) => setCategory(event.target.value)}
+            value={category}
+          />
+          <div className="flex items-end">
+            <Button
+              onClick={() => {
+                onCategoryAdd(category)
+                setCategory('')
+              }}
+            >
+              Add
+            </Button>
+          </div>
+        </div>
+        <form className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto]" onSubmit={onArchive}>
+          <Field
+            label="Archive from"
+            name="archiveFrom"
+            onChange={(event) => onArchiveChange({ ...archiveForm, from: event.target.value })}
+            type="date"
+            value={archiveForm.from}
+          />
+          <Field
+            label="Archive to"
+            name="archiveTo"
+            onChange={(event) => onArchiveChange({ ...archiveForm, to: event.target.value })}
+            type="date"
+            value={archiveForm.to}
+          />
+          <div className="flex items-end">
+            <Button icon={Archive} type="submit" variant="secondary">
+              Bulk archive
+            </Button>
+          </div>
+        </form>
+        <div className="mt-5 grid gap-3">
+          {notices.slice(0, 8).map((notice) => (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={notice._id}>
+              <div>
+                <p className="font-semibold text-gray-900">{notice.title}</p>
+                <p className="text-sm text-gray-500">
+                  Read: {notice.readReceipts?.length || 0} | Reactions:{' '}
+                  {notice.reactions?.length || 0} | Comments: {notice.comments?.length || 0}
+                </p>
+              </div>
+              <Button onClick={() => onNoticePin(notice)} variant="secondary">
+                {notice.pinned ? 'Unpin' : 'Pin'}
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            Save content settings
+          </Button>
+        </div>
+      </Panel>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel>
+          <SectionTitle icon={GalleryHorizontalEnd} title="Meeting templates" />
+          <div className="mt-5 grid gap-4">
+            <Field
+              label="Template title"
+              name="templateTitle"
+              onChange={(event) => setTemplate((current) => ({ ...current, title: event.target.value }))}
+              value={template.title}
+            />
+            <Field
+              label="Agenda"
+              name="templateAgenda"
+              onChange={(event) => setTemplate((current) => ({ ...current, agenda: event.target.value }))}
+              textarea
+              value={template.agenda}
+            />
+            <Button
+              onClick={() => {
+                onTemplateAdd(template)
+                setTemplate({ agenda: '', title: '' })
+              }}
+            >
+              Save template
+            </Button>
+            {(form.contentControls.meetingTemplates || []).map((item, index) => (
+              <div className="rounded-lg bg-gray-50 p-3" key={`${item.title}-${index}`}>
+                <p className="font-semibold text-gray-900">{item.title}</p>
+                <p className="text-sm text-gray-500">{item.agenda}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTitle icon={GalleryHorizontalEnd} title="Blog moderation" />
+          <div className="mt-5 grid gap-3">
+            {blogs.slice(0, 10).map((blog) => (
+              <div className="rounded-xl border border-gray-200 p-4" key={blog._id}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">{blog.title}</p>
+                    <p className="text-sm text-gray-500">By {blog.createdBy?.name || 'Member'}</p>
+                  </div>
+                  <Badge value={blog.moderationStatus || 'approved'}>
+                    {blog.moderationStatus || 'approved'}
+                  </Badge>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button onClick={() => onBlogModerate(blog, 'approved')}>Approve</Button>
+                  <Button onClick={() => onBlogModerate(blog, 'rejected')} variant="danger">
+                    Reject
+                  </Button>
+                  <Button onClick={() => onBlogModerate(blog, 'pending')} variant="secondary">
+                    Pending
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel>
+          <SectionTitle icon={GalleryHorizontalEnd} title="Gallery albums" />
+          <div className="mt-5 grid gap-3">
+            {gallery.slice(0, 8).map((item) => (
+              <div className="grid gap-3 rounded-xl border border-gray-200 p-4 md:grid-cols-[72px_1fr_auto]" key={item._id}>
+                <img alt="" className="h-16 w-16 rounded-lg object-cover" src={item.imageUrl} />
+                <div>
+                  <p className="font-semibold text-gray-900">{item.title}</p>
+                  <p className="text-sm text-gray-500">Album: {item.album || 'General'}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Field
+                    label="Album"
+                    name={`album-${item._id}`}
+                    onChange={(event) =>
+                      setAlbumDrafts((current) => ({ ...current, [item._id]: event.target.value }))
+                    }
+                    value={albumDrafts[item._id] ?? item.album ?? 'General'}
+                  />
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => onGalleryMove(item, albumDrafts[item._id] || item.album || 'General')}
+                      variant="secondary"
+                    >
+                      Move
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTitle icon={GalleryHorizontalEnd} title="Rules version history" />
+          <div className="mt-5 grid gap-3">
+            {rules.map((rule) => (
+              <div className="rounded-xl border border-gray-200 p-4" key={rule._id}>
+                <p className="font-semibold text-gray-900">{rule.title}</p>
+                <p className="text-sm text-gray-500">
+                  Version {rule.version || 1} | History {rule.versionHistory?.length || 0}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+      <Panel>
+        <SectionTitle icon={GalleryHorizontalEnd} title="Meeting agenda/action status" />
+        <div className="mt-5 grid gap-3">
+          {meetings.slice(0, 6).map((meeting) => (
+            <div className="rounded-xl border border-gray-200 p-4" key={meeting._id}>
+              <p className="font-semibold text-gray-900">{meeting.title}</p>
+              <p className="text-sm text-gray-500">
+                Agenda items {meeting.agendaItems?.length || 0} | Action items{' '}
+                {meeting.actionItems?.length || 0} | Attendance mode{' '}
+                {meeting.attendanceMode?.active ? 'active' : 'closed'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+function NotificationControlsTab({
+  announcementForm,
+  form,
+  notifications,
+  onAnnouncement,
+  onAnnouncementChange,
+  onChange,
+  onSave,
+  saving,
+}) {
+  const triggers = [
+    ['smsNoticeEnabled', 'নতুন নোটিশ'],
+    ['smsMeetingEnabled', 'মিটিং রিমাইন্ডার'],
+    ['smsFeeReminderEnabled', 'মাসিক ফি রিমাইন্ডার'],
+    ['whatsappNoticeEnabled', 'WhatsApp notice'],
+    ['whatsappMeetingEnabled', 'WhatsApp meeting'],
+    ['whatsappFeeReminderEnabled', 'WhatsApp fee'],
+  ]
+
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={Bell} title="Notification triggers" />
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Toggle
+            checked={form.notificationSettings.smsGloballyEnabled}
+            label="SMS globally enabled"
+            onChange={(value) => onChange('notificationSettings', 'smsGloballyEnabled', value)}
+          />
+          {triggers.map(([field, label]) => (
+            <Toggle
+              checked={Boolean(form.notificationSettings[field])}
+              key={field}
+              label={label}
+              onChange={(value) => onChange('notificationSettings', field, value)}
+            />
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            Save notification settings
+          </Button>
+        </div>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={Bell} title="Custom announcement" />
+        <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onAnnouncement}>
+          <Field
+            label="Title"
+            name="announcementTitle"
+            onChange={(event) => onAnnouncementChange('title', event.target.value)}
+            required
+            value={announcementForm.title}
+          />
+          <SelectField
+            label="Recipients"
+            name="announcementRole"
+            onChange={(event) => onAnnouncementChange('role', event.target.value)}
+            value={announcementForm.role}
+          >
+            <option value="">All approved</option>
+            <option value="member">Members</option>
+            <option value="pending">Pending</option>
+            <option value="admin">Admins</option>
+          </SelectField>
+          <SelectField
+            label="Channel"
+            name="announcementChannel"
+            onChange={(event) => onAnnouncementChange('channel', event.target.value)}
+            value={announcementForm.channel}
+          >
+            <option value="sms">SMS</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="both">Both</option>
+          </SelectField>
+          <Field
+            label="Schedule note"
+            name="schedule"
+            onChange={() => {}}
+            placeholder="Now. Cron scheduling uses server jobs."
+            value=""
+          />
+          <Field
+            className="md:col-span-2"
+            label="Message"
+            name="announcementMessage"
+            onChange={(event) => onAnnouncementChange('message', event.target.value)}
+            required
+            textarea
+            value={announcementForm.message}
+          />
+          <Button className="md:col-span-2" icon={Bell} type="submit">
+            Send now
+          </Button>
+        </form>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={Bell} title="Notification history and SMS balance" />
+        <p className="mt-4 rounded-lg bg-indigo-50 p-3 text-sm font-semibold text-indigo-700">
+          SMS balance: Gateway API credentials configured হলে এখানে live balance দেখানো যাবে।
+        </p>
+        <div className="mt-4 grid gap-3">
+          {notifications.slice(0, 12).map((notification) => (
+            <div className="rounded-xl border border-gray-200 p-4" key={notification._id}>
+              <p className="font-semibold text-gray-900">{notification.title}</p>
+              <p className="text-sm text-gray-500">
+                {notification.user?.name || 'All'} | {toDate(notification.createdAt)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+function AppearanceTab({ form, onChange, onPreview, onSave, onUpload, saving }) {
+  return (
+    <div className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
+      <Panel>
+        <SectionTitle icon={Palette} title="Accent color" />
+        <div className="mt-5">
+          <HexColorPicker
+            color={form.appearance.primaryColor}
+            onChange={(value) => onChange('appearance', 'primaryColor', value)}
+          />
+          <Field
+            className="mt-4"
+            label="Primary color"
+            name="primaryColor"
+            onChange={(event) => onChange('appearance', 'primaryColor', event.target.value)}
+            value={form.appearance.primaryColor}
+          />
+        </div>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={Palette} title="Appearance controls" />
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <SelectField
+            label="Dark mode"
+            name="colorMode"
+            onChange={(event) => onChange('appearance', 'colorMode', event.target.value)}
+            value={form.appearance.colorMode}
+          >
+            <option value="light">Force light</option>
+            <option value="dark">Force dark</option>
+            <option value="system">Follow system</option>
+          </SelectField>
+          <SelectField
+            label="Font size"
+            name="fontSize"
+            onChange={(event) => onChange('appearance', 'fontSize', event.target.value)}
+            value={form.appearance.fontSize}
+          >
+            <option value="normal">Normal</option>
+            <option value="large">Large</option>
+            <option value="extra-large">Extra Large</option>
+          </SelectField>
+          <Field
+            label="Homepage hero image URL"
+            name="heroImageUrl"
+            onChange={(event) => onChange('appearance', 'heroImageUrl', event.target.value)}
+            value={form.appearance.heroImageUrl}
+          />
+          <div className="flex items-end">
+            <FileUploadButton
+              label="Hero image upload"
+              onUpload={(file) => onUpload('appearance', 'heroImageUrl', file)}
+            />
+          </div>
+          <Field
+            className="md:col-span-2"
+            label="Custom CSS"
+            name="customCss"
+            onChange={(event) => onChange('appearance', 'customCss', event.target.value)}
+            textarea
+            value={form.appearance.customCss}
+          />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button icon={Eye} onClick={onPreview} variant="secondary">
+            Preview
+          </Button>
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            Save appearance
+          </Button>
+        </div>
+      </Panel>
+    </div>
+  )
+}
+
+function SecurityTab({ form, onBackup, onChange, onSave, recentActivity, saving, users }) {
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={Lock} title="Security controls" />
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <SelectField
+            label="Auto backup schedule"
+            name="autoBackupSchedule"
+            onChange={(event) =>
+              onChange('securityControls', 'autoBackupSchedule', event.target.value)
+            }
+            value={form.securityControls.autoBackupSchedule}
+          >
+            <option value="off">Off</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </SelectField>
+          <Toggle
+            checked={form.securityControls.twoFactorRequiredForAdmins}
+            label="Admin 2FA required"
+            onChange={(value) =>
+              onChange('securityControls', 'twoFactorRequiredForAdmins', value)
+            }
+          />
+          <Field
+            label="IP whitelist"
+            name="adminIpWhitelist"
+            onChange={(event) =>
+              onChange(
+                'securityControls',
+                'adminIpWhitelist',
+                event.target.value
+                  .split(',')
+                  .map((item) => item.trim())
+                  .filter(Boolean),
+              )
+            }
+            placeholder="Comma separated"
+            value={(form.securityControls.adminIpWhitelist || []).join(', ')}
+          />
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button icon={DatabaseBackup} onClick={onBackup} variant="secondary">
+            Manual JSON backup
+          </Button>
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            Save security
+          </Button>
+        </div>
+      </Panel>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Panel>
+          <SectionTitle icon={Lock} title="Active sessions / last login" />
+          <div className="mt-5 grid gap-3">
+            {users.slice(0, 12).map((user) => (
+              <div className="flex items-center justify-between rounded-xl border border-gray-200 p-4" key={user._id}>
+                <div>
+                  <p className="font-semibold text-gray-900">{user.name}</p>
+                  <p className="text-sm text-gray-500">
+                    IP {user.lastLoginIp || 'N/A'} | {toDate(user.lastLoginAt)}
+                  </p>
+                </div>
+                <Badge value={user.status}>{user.status}</Badge>
+              </div>
+            ))}
+          </div>
+        </Panel>
+        <Panel>
+          <SectionTitle icon={Lock} title="Audit/Admin activity log" />
+          <div className="mt-5 grid gap-3">
+            {recentActivity.map((log) => (
+              <div className="rounded-xl border border-gray-200 p-4" key={log._id}>
+                <p className="font-semibold text-gray-900">{log.action}</p>
+                <p className="text-sm text-gray-500">
+                  {log.actor?.name || 'System'} | {toDate(log.createdAt)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
+    </div>
+  )
+}

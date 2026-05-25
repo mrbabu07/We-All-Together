@@ -3,6 +3,7 @@
 
 :root {
   color-scheme: light;
+  --color-primary: #4f46e5;
 }
 
 * {
@@ -37,4 +38,68 @@ button {
 
 button:disabled {
   cursor: not-allowed;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-ripple {
+  animation: ripple 520ms ease-out forwards;
+}
+
+.animate-shimmer::after {
+  animation: shimmer 1.4s infinite;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.72), transparent);
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.animate-shake {
+  animation: shake 340ms ease-in-out;
+}
+
+.ql-toolbar.ql-snow,
+.ql-container.ql-snow {
+  border-color: #e5e7eb;
+}
+
+.ql-toolbar.ql-snow {
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.ql-container.ql-snow {
+  border-radius: 0 0 0.75rem 0.75rem;
+  min-height: 160px;
 }

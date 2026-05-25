@@ -28,7 +28,158 @@ const organizationSettingSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    siteSettings: {
+      orgName: {
+        type: String,
+        trim: true,
+        default: 'Dargah Para OIkko Porishod',
+      },
+      logoUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      tagline: {
+        type: String,
+        trim: true,
+        default: 'ঐক্য, সেবা ও স্বচ্ছতা',
+      },
+      address: {
+        type: String,
+        trim: true,
+        default: 'Dargah Para, Bangladesh',
+      },
+      contactNumber: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      welcomeMessage: {
+        type: String,
+        trim: true,
+        default: 'স্বাগতম। আপনার সদস্য ড্যাশবোর্ড থেকে সব আপডেট দেখুন।',
+      },
+      facebookUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      youtubeUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      whatsappGroupUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      registrationEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      publicDonationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      maintenanceMode: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    financeControls: {
+      monthlyFeeDueDate: {
+        type: Number,
+        enum: [1, 5, 10],
+        default: 10,
+      },
+      lateFeeAmount: {
+        type: Number,
+        min: [0, 'Late fee cannot be negative.'],
+        default: 0,
+      },
+      lateFeeEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      fiscalYearStartMonth: {
+        type: Number,
+        min: 1,
+        max: 12,
+        default: 1,
+      },
+    },
+    contentControls: {
+      noticeCategories: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      meetingTemplates: [
+        {
+          title: {
+            type: String,
+            trim: true,
+            default: '',
+          },
+          agenda: {
+            type: String,
+            trim: true,
+            default: '',
+          },
+        },
+      ],
+    },
+    appearance: {
+      primaryColor: {
+        type: String,
+        trim: true,
+        default: '#4F46E5',
+      },
+      colorMode: {
+        type: String,
+        enum: ['light', 'dark', 'system'],
+        default: 'light',
+      },
+      fontSize: {
+        type: String,
+        enum: ['normal', 'large', 'extra-large'],
+        default: 'normal',
+      },
+      heroImageUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      customCss: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+    },
+    securityControls: {
+      autoBackupSchedule: {
+        type: String,
+        enum: ['off', 'daily', 'weekly'],
+        default: 'off',
+      },
+      twoFactorRequiredForAdmins: {
+        type: Boolean,
+        default: false,
+      },
+      adminIpWhitelist: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+    },
     notificationSettings: {
+      smsGloballyEnabled: {
+        type: Boolean,
+        default: false,
+      },
       smsNoticeEnabled: {
         type: Boolean,
         default: false,

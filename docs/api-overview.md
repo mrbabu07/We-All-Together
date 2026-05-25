@@ -69,6 +69,18 @@ PATCH  /donations/:id/reject
 GET    /audit-logs
 GET    /backup
 GET    /finance/analytics
+GET    /admin-controls
+PATCH  /admin-controls
+GET    /admin-controls/widgets
+GET    /admin-controls/search?q=query
+GET    /admin-controls/finance-report.pdf
+GET    /admin-controls/members-report.pdf
+POST   /admin-controls/members/import
+POST   /admin-controls/members/bulk-approve
+POST   /admin-controls/members/bulk-reject
+PATCH  /admin-controls/members/:id/suspension
+POST   /admin-controls/finance/manual-fee
+POST   /admin-controls/finance/waive-fee
 GET    /notifications
 POST   /notifications/broadcast
 POST   /notifications/send
@@ -78,9 +90,11 @@ GET    /receipts/registrations/:id
 GET    /receipts/:id
 PATCH  /members/:id/password
 PATCH  /meetings/:id/attendance
+PATCH  /meetings/:id/advanced
 GET    /meetings/:id/rsvp
 PATCH  /tours/:id/participants
 GET    /tours/:id/rsvp
+PATCH  /blogs/:id/moderation
 
 GET    /blogs/members
 DELETE /blogs/:id
@@ -109,6 +123,10 @@ GET    /notices/members
 POST   /notices
 PATCH  /notices/:id
 DELETE /notices/:id
+POST   /notices/archive-bulk
+POST   /notices/:id/read
+POST   /notices/:id/reactions
+POST   /notices/:id/comments
 
 GET    /meetings/public
 GET    /meetings/members
@@ -149,6 +167,8 @@ GET  /meetings/members
 POST /meetings/:id/rsvp
 GET  /tours/members
 POST /tours/:id/rsvp
+POST /tours/:id/register
+POST /tours/:id/feedback
 GET  /activities/members
 GET  /rules/members
 GET  /blogs/members
@@ -163,6 +183,9 @@ DELETE /gallery/:id
 GET  /notifications/my
 PATCH /notifications/:id/read
 PATCH /notifications/my/read-all
+GET  /members/my-data
+GET  /members/my-activity
+POST /members/delete-request
 GET  /receipts/payments/:id
 GET  /receipts/registrations/:id
 GET  /receipts/:id

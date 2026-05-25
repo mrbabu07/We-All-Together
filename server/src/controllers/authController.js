@@ -62,6 +62,14 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError('Your account is not approved yet.', 403)
   }
 
+  if (user.suspendedAt) {
+    throw new AppError(user.suspensionReason || 'Your account is suspended.', 403)
+  }
+
+  user.lastLoginAt = new Date()
+  user.lastLoginIp = req.ip || ''
+  await user.save()
+
   sendAuthResponse(res, user)
 })
 
@@ -89,6 +97,16 @@ const updateMe = asyncHandler(async (req, res) => {
   user.profilePhotoUrl = payload.profilePhotoUrl
   user.nidImageUrl = payload.nidImageUrl
   user.birthCertificateUrl = payload.birthCertificateUrl
+  user.passportImageUrl = payload.passportImageUrl
+  if (payload.emergencyContact) {
+    user.emergencyContact = payload.emergencyContact
+  }
+  if (payload.notificationPreferences) {
+    user.notificationPreferences = {
+      ...user.notificationPreferences,
+      ...payload.notificationPreferences,
+    }
+  }
   await user.save()
 
   res.status(200).json({

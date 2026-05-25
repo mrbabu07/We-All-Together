@@ -10,7 +10,7 @@ const createContentRoutes = (controller) => {
   router.get(
     '/members',
     protect,
-    authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER),
+    authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
     controller.getMemberItems,
   )
   router.post('/', protect, authorize(USER_ROLES.ADMIN), controller.createItem)

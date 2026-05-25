@@ -1,19 +1,22 @@
 import { Dialog, DialogPanel, Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
+import { motion } from 'framer-motion'
 import {
   Bell,
   ChevronDown,
   Languages,
   LogOut,
   Menu as MenuIcon,
+  Search,
   Sparkles,
   X,
 } from 'lucide-react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import GlobalSearchModal from '../components/admin/GlobalSearchModal'
 import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const isActiveRoute = (location, to) => {
   const [pathname, search = ''] = to.split('?')
@@ -52,17 +55,22 @@ function SidebarContent({ navItems, onNavigate, user }) {
 
           return (
             <Link
-              className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
-                active
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              className={`relative flex min-h-11 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium transition ${
+                active ? 'text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
               key={item.to}
               onClick={onNavigate}
               to={item.to}
             >
-              <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />
-              <span className="hidden truncate lg:block">{item.label}</span>
+              {active ? (
+                <motion.span
+                  className="absolute inset-0 rounded-lg bg-indigo-600"
+                  layoutId="sidebar-active-indicator"
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                />
+              ) : null}
+              <Icon aria-hidden="true" className="relative z-10 h-5 w-5 shrink-0" />
+              <span className="relative z-10 hidden truncate lg:block">{item.label}</span>
             </Link>
           )
         })}
@@ -89,6 +97,19 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
   const { language, toggleLanguage } = useLanguage()
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    const handleKeydown = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => window.removeEventListener('keydown', handleKeydown)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 text-gray-900 md:pb-0">
@@ -136,11 +157,19 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button icon={Search} onClick={() => setSearchOpen(true)} variant="secondary">
+                <span className="hidden sm:inline">সার্চ</span>
+                <span className="sm:hidden">খুঁজুন</span>
+              </Button>
               <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
                 {language === 'bn' ? 'EN' : 'BN'}
               </Button>
               <Button as={Link} className="relative" icon={Bell} to="/notifications" variant="secondary">
-                <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+                <motion.span
+                  animate={{ scale: [1, 1.25, 1] }}
+                  className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500"
+                  transition={{ duration: 0.4 }}
+                />
               </Button>
               <Menu as="div" className="relative">
                 <MenuButton className="flex min-h-11 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -187,13 +216,21 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                 key={item.to}
                 to={item.to}
               >
-                <Icon aria-hidden="true" className="h-5 w-5" />
+                <motion.span whileTap={{ scale: 1.18, y: -2 }}>
+                  <Icon aria-hidden="true" className="h-5 w-5" />
+                </motion.span>
                 <span>{item.label}</span>
               </Link>
             )
           })}
         </div>
       </nav>
+
+      <GlobalSearchModal
+        onClose={() => setSearchOpen(false)}
+        open={searchOpen}
+        user={user}
+      />
     </div>
   )
 }

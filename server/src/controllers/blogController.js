@@ -227,6 +227,47 @@ const deleteBlogComment = asyncHandler(async (req, res) => {
   })
 })
 
+const moderateBlog = asyncHandler(async (req, res) => {
+  const status = ['approved', 'rejected', 'pending'].includes(req.body.status)
+    ? req.body.status
+    : ''
+  const blog = await Blog.findById(req.params.id)
+
+  if (!blog) {
+    throw new AppError('Blog not found.', 404)
+  }
+  if (!status) {
+    throw new AppError('Moderation status is invalid.', 400)
+  }
+
+  blog.moderationStatus = status
+  blog.moderationNote = typeof req.body.note === 'string' ? req.body.note.trim() : ''
+  blog.moderatedAt = new Date()
+  blog.moderatedBy = req.user._id
+  await blog.save()
+
+  await recordAuditLog({
+    action: 'blog.moderate',
+    actor: req.user,
+    entityId: blog._id,
+    entityType: 'Blog',
+    metadata: {
+      status,
+      title: blog.title,
+    },
+  })
+
+  const populatedBlog = await populateBlog(Blog.findById(blog._id))
+
+  res.status(200).json({
+    success: true,
+    message: 'Blog moderation updated successfully.',
+    data: {
+      blog: populatedBlog,
+    },
+  })
+})
+
 module.exports = {
   addBlogComment,
   createBlog,
@@ -234,6 +275,7 @@ module.exports = {
   deleteBlogComment,
   getMemberBlogs,
   getPublicBlogs,
+  moderateBlog,
   toggleBlogLike,
   updateBlog,
 }

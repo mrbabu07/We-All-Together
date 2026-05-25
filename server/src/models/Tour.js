@@ -51,6 +51,58 @@ const tourSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    tourFee: {
+      type: Number,
+      min: [0, 'Tour fee cannot be negative.'],
+      default: 0,
+    },
+    seatCapacity: {
+      type: Number,
+      min: [0, 'Seat capacity cannot be negative.'],
+      default: 0,
+    },
+    registrationOpen: {
+      type: Boolean,
+      default: false,
+    },
+    waitlist: [
+      {
+        member: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        joinedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    feedback: [
+      {
+        member: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        rating: {
+          type: Number,
+          min: 1,
+          max: 5,
+        },
+        comment: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    albumCreated: {
+      type: Boolean,
+      default: false,
+    },
     participants: [
       {
         member: {

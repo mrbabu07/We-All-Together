@@ -8,6 +8,8 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import useAuth from '../hooks/useAuth'
+import useAppStore from '../store/appStore'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialDonationForm = {
@@ -33,6 +35,8 @@ const formatDate = (value) => {
 }
 
 export default function PublicHomePage() {
+  const { user } = useAuth()
+  const { previewAppearance } = useAppStore()
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [donationForm, setDonationForm] = useState(initialDonationForm)
@@ -153,13 +157,31 @@ export default function PublicHomePage() {
     (sum, donation) => sum + Number(donation.amount || 0),
     0,
   )
+  const appearance = previewAppearance || data.settings.appearance || {}
+  const siteSettings = data.settings.siteSettings || {}
+  const heroBackground = appearance.heroImageUrl || heroImage
+
+  if (siteSettings.maintenanceMode && user?.role !== 'admin') {
+    return (
+      <main className="grid min-h-[calc(100vh-65px)] place-items-center bg-gray-50 px-4 py-10">
+        <Panel className="max-w-xl text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+            সাইট maintenance চলছে
+          </h1>
+          <p className="mt-3 text-sm text-gray-500">
+            আমরা কিছু আপডেট করছি। কিছুক্ষণ পরে আবার চেষ্টা করুন।
+          </p>
+        </Panel>
+      </main>
+    )
+  }
 
   return (
     <main className="bg-gray-50 text-gray-900">
       <section
         className="relative min-h-[72vh] overflow-hidden bg-cover bg-center"
         style={{
-          backgroundImage: `linear-gradient(90deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.30)), url(${heroImage})`,
+          backgroundImage: `linear-gradient(90deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.30)), url(${heroBackground})`,
         }}
       >
         <div className="mx-auto flex min-h-[72vh] max-w-7xl items-center px-4 py-14 sm:px-6">

@@ -17,10 +17,15 @@ const router = express.Router()
 router.post(
   '/monthly',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER),
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   submitMonthlyPayment,
 )
-router.get('/my', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), getMyPayments)
+router.get(
+  '/my',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  getMyPayments,
+)
 router.get('/', protect, authorize(USER_ROLES.ADMIN), getAllPayments)
 router.get('/monthly-status', protect, authorize(USER_ROLES.ADMIN), getMonthlyPaymentStatus)
 router.get('/:id', protect, authorize(USER_ROLES.ADMIN), getPaymentById)

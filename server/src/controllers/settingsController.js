@@ -21,6 +21,8 @@ const getPublicSettings = asyncHandler(async (req, res) => {
         monthlyFee: settings.monthlyFee,
         donationNumber: settings.donationNumber,
         donationProvider: settings.donationProvider,
+        appearance: settings.appearance,
+        siteSettings: settings.siteSettings,
         notificationSettings: {
           smsFeeReminderEnabled: Boolean(notificationSettings.smsFeeReminderEnabled),
           smsMeetingEnabled: Boolean(notificationSettings.smsMeetingEnabled),

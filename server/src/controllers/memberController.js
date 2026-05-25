@@ -1,5 +1,10 @@
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const User = require('../models/User')
+const Blog = require('../models/Blog')
+const Donation = require('../models/Donation')
+const Meeting = require('../models/Meeting')
+const Payment = require('../models/Payment')
+const Tour = require('../models/Tour')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
@@ -48,6 +53,7 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
     'profilePhotoUrl',
     'nidImageUrl',
     'birthCertificateUrl',
+    'passportImageUrl',
   ]
   allowedFields.forEach((field) => {
     if (typeof req.body[field] === 'string' && req.body[field].trim()) {
@@ -157,7 +163,8 @@ const deleteUser = asyncHandler(async (req, res) => {
     throw new AppError('User not found.', 404)
   }
 
-  await user.deleteOne()
+  user.softDeletedAt = new Date()
+  await user.save()
   await recordAuditLog({
     action: 'member.delete',
     actor: req.user,
@@ -172,9 +179,77 @@ const deleteUser = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: 'User deleted successfully.',
+    message: 'User soft deleted successfully.',
     data: {
       id: req.params.id,
+    },
+  })
+})
+
+const requestAccountDeletion = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id)
+
+  if (!user) {
+    throw new AppError('User not found.', 404)
+  }
+
+  user.deleteRequestedAt = new Date()
+  user.deleteRequestReason = typeof req.body.reason === 'string' ? req.body.reason.trim() : ''
+  await user.save()
+  await recordAuditLog({
+    action: 'member.delete.request',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Delete account request submitted successfully.',
+    data: { user },
+  })
+})
+
+const getMyData = asyncHandler(async (req, res) => {
+  const [payments, blogs, meetings, tours, donations] = await Promise.all([
+    Payment.find({ user: req.user._id }),
+    Blog.find({ createdBy: req.user._id }),
+    Meeting.find({ 'attendance.member': req.user._id }),
+    Tour.find({ 'participants.member': req.user._id }),
+    Donation.find({ phone: req.user.phone }),
+  ])
+
+  res.status(200).json({
+    success: true,
+    message: 'Member data export loaded successfully.',
+    data: {
+      blogs,
+      donations,
+      meetings,
+      payments,
+      profile: req.user,
+      tours,
+    },
+  })
+})
+
+const getMemberActivitySummary = asyncHandler(async (req, res) => {
+  const userId = req.params.id || req.user._id
+  const [paymentCount, attendedCount, blogCount, donationCount] = await Promise.all([
+    Payment.countDocuments({ user: userId, status: 'verified' }),
+    Meeting.countDocuments({ attendance: { $elemMatch: { member: userId, status: 'present' } } }),
+    Blog.countDocuments({ createdBy: userId }),
+    Donation.countDocuments({ phone: req.user.phone, status: 'verified' }),
+  ])
+
+  res.status(200).json({
+    success: true,
+    message: 'Member activity summary loaded successfully.',
+    data: {
+      attendedCount,
+      blogCount,
+      donationCount,
+      paymentCount,
     },
   })
 })
@@ -222,6 +297,9 @@ module.exports = {
   deleteUser,
   getAllUsers,
   getApprovedMembers,
+  getMemberActivitySummary,
+  getMyData,
+  requestAccountDeletion,
   resetUserPassword,
   updateUserAccess,
   updateMemberProfile,

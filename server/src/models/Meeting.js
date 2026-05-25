@@ -42,6 +42,67 @@ const meetingSchema = new mongoose.Schema(
       maxlength: [3000, 'Meeting minutes cannot exceed 3000 characters.'],
       default: '',
     },
+    minutesRichText: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    agendaItems: [
+      {
+        title: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        details: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        order: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
+    actionItems: [
+      {
+        title: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        assignedTo: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          default: null,
+        },
+        completed: {
+          type: Boolean,
+          default: false,
+        },
+        dueDate: {
+          type: Date,
+          default: null,
+        },
+      },
+    ],
+    attendanceMode: {
+      active: {
+        type: Boolean,
+        default: false,
+      },
+      otp: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      qrCodeDataUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+    },
     attendance: [
       {
         member: {

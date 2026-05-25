@@ -1,48 +1,71 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import PublicHomePage from './pages/PublicHomePage'
-import AdminDashboardPage from './pages/AdminDashboardPage'
-import MemberDashboardPage from './pages/MemberDashboardPage'
-import AccountPage from './pages/AccountPage'
-import NotificationsPage from './pages/NotificationsPage'
-import VerifyPaymentPage from './pages/VerifyPaymentPage'
-import NotFoundPage from './pages/NotFoundPage'
+import { lazy, Suspense } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import PageTransition from './components/ui/PageTransition'
+import Skeleton from './components/ui/Skeleton'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRoute from './routes/RoleRoute'
-import AdminLayout from './layouts/AdminLayout'
-import AuthenticatedLayout from './layouts/AuthenticatedLayout'
-import MemberLayout from './layouts/MemberLayout'
-import PublicLayout from './layouts/PublicLayout'
+
+const AccountPage = lazy(() => import('./pages/AccountPage'))
+const AdminControlsPage = lazy(() => import('./pages/AdminControlsPage'))
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
+const AuthenticatedLayout = lazy(() => import('./layouts/AuthenticatedLayout'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const MemberDashboardPage = lazy(() => import('./pages/MemberDashboardPage'))
+const MemberLayout = lazy(() => import('./layouts/MemberLayout'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
+const PublicHomePage = lazy(() => import('./pages/PublicHomePage'))
+const PublicLayout = lazy(() => import('./layouts/PublicLayout'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const VerifyPaymentPage = lazy(() => import('./pages/VerifyPaymentPage'))
+
+const page = (element) => <PageTransition>{element}</PageTransition>
+
+function RouteFallback() {
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <Skeleton rows={5} />
+    </main>
+  )
+}
 
 function App() {
+  const location = useLocation()
+
   return (
-    <Routes>
-      <Route element={<PublicLayout />}>
-        <Route index element={<PublicHomePage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AuthenticatedLayout />}>
-          <Route path="account" element={<AccountPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-        </Route>
-        <Route element={<RoleRoute allowedRoles={['admin']} />}>
-          <Route element={<AdminLayout />}>
-            <Route path="admin" element={<AdminDashboardPage />} />
-            <Route path="verify/:paymentId" element={<VerifyPaymentPage />} />
+    <Suspense fallback={<RouteFallback />}>
+      <AnimatePresence mode="wait">
+        <Routes key={location.pathname + location.search} location={location}>
+          <Route element={<PublicLayout />}>
+            <Route index element={page(<PublicHomePage />)} />
+            <Route path="login" element={page(<LoginPage />)} />
+            <Route path="register" element={page(<RegisterPage />)} />
+            <Route path="*" element={page(<NotFoundPage />)} />
           </Route>
-        </Route>
-        <Route element={<RoleRoute allowedRoles={['admin', 'member']} />}>
-          <Route element={<MemberLayout />}>
-            <Route path="member" element={<MemberDashboardPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AuthenticatedLayout />}>
+              <Route path="account" element={page(<AccountPage />)} />
+              <Route path="notifications" element={page(<NotificationsPage />)} />
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin']} />}>
+              <Route element={<AdminLayout />}>
+                <Route path="admin" element={page(<AdminDashboardPage />)} />
+                <Route path="admin/controls" element={page(<AdminControlsPage />)} />
+                <Route path="verify/:paymentId" element={page(<VerifyPaymentPage />)} />
+              </Route>
+            </Route>
+            <Route element={<RoleRoute allowedRoles={['admin', 'member', 'moderator']} />}>
+              <Route element={<MemberLayout />}>
+                <Route path="member" element={page(<MemberDashboardPage />)} />
+              </Route>
+            </Route>
+            <Route path="dashboard" element={<Navigate to="/member" replace />} />
           </Route>
-        </Route>
-        <Route path="dashboard" element={<Navigate to="/member" replace />} />
-      </Route>
-    </Routes>
+        </Routes>
+      </AnimatePresence>
+    </Suspense>
   )
 }
 

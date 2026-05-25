@@ -58,6 +58,24 @@ const paymentSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    lateFeeAmount: {
+      type: Number,
+      min: [0, 'Late fee cannot be negative.'],
+      default: 0,
+    },
+    waived: {
+      type: Boolean,
+      default: false,
+    },
+    waivedReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    enteredByAdmin: {
+      type: Boolean,
+      default: false,
+    },
     receiptNumber: {
       type: String,
       trim: true,

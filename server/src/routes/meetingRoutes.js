@@ -12,7 +12,18 @@ router.patch(
   authorize(USER_ROLES.ADMIN),
   meetingController.updateAttendance,
 )
-router.post('/:id/rsvp', protect, authorize(USER_ROLES.MEMBER), meetingController.submitRsvp)
+router.patch(
+  '/:id/advanced',
+  protect,
+  authorize(USER_ROLES.ADMIN),
+  meetingController.updateAdvancedMeeting,
+)
+router.post(
+  '/:id/rsvp',
+  protect,
+  authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  meetingController.submitRsvp,
+)
 router.get('/:id/rsvp', protect, authorize(USER_ROLES.ADMIN), meetingController.getRsvps)
 
 module.exports = router

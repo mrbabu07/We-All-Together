@@ -22,6 +22,10 @@ A MERN organization management system for member registration, admin approval, f
 - Meeting poll system with one-vote-per-member voting and live admin result charts
 - Meeting and tour RSVP tracking with admin counts and member response buttons
 - Bengali-first navigation, mobile bottom nav, consistent status colors, 44px touch targets, and loading skeletons
+- Advanced admin control panel at `/admin/controls` for site, member, finance, content, notification, appearance, and security settings
+- Framer Motion route transitions, count-up stat cards, ripple buttons, animated modals, shimmer skeletons, global Ctrl+K search, and live dashboard widgets
+- Full member profile controls with emergency contact, notification preferences, data export print/PDF flow, delete request, and downloadable digital ID card
+- PWA support with manifest, service worker, offline fallback, cached notices/payment history, and connection-lost banner
 
 ## Tech Stack
 
@@ -36,6 +40,7 @@ A MERN organization management system for member registration, admin approval, f
 - QRCode payment verification
 - Twilio SMS/WhatsApp notifications
 - Headless UI, react-hot-toast, and Framer Motion for frontend interactions
+- Socket.IO presence updates, node-cron jobs, react-quill, react-colorful, browser image compression, Zustand, and PWA service worker assets
 
 ## Project Structure
 

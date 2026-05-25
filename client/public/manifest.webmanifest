@@ -1,0 +1,17 @@
+{
+  "name": "Dargah Para OIkko Porishod",
+  "short_name": "OIkko Porishod",
+  "description": "Village organization management system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F9FAFB",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

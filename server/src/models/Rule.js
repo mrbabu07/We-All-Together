@@ -31,6 +31,33 @@ const ruleSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    version: {
+      type: Number,
+      min: 1,
+      default: 1,
+    },
+    versionHistory: [
+      {
+        description: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        version: {
+          type: Number,
+          default: 1,
+        },
+        changedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        changedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          default: null,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

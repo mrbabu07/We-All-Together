@@ -26,6 +26,17 @@ const galleryItemSchema = new mongoose.Schema(
       default: AUDIENCES.PUBLIC,
       index: true,
     },
+    album: {
+      type: String,
+      trim: true,
+      default: 'General',
+      index: true,
+    },
+    tourId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tour',
+      default: null,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

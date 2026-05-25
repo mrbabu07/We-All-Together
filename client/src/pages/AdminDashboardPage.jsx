@@ -21,6 +21,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
+import DashboardWidgets from '../components/admin/DashboardWidgets'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -1021,6 +1022,8 @@ function OverviewTab({
           value={money(stats.overdueFees)}
         />
       </div>
+
+      <DashboardWidgets />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Panel>

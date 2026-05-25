@@ -41,6 +41,54 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    passportImageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    emergencyContact: {
+      name: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      phone: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      relation: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+    },
+    notificationPreferences: {
+      notices: {
+        type: Boolean,
+        default: true,
+      },
+      meetings: {
+        type: Boolean,
+        default: true,
+      },
+      fees: {
+        type: Boolean,
+        default: true,
+      },
+      tours: {
+        type: Boolean,
+        default: true,
+      },
+      sms: {
+        type: Boolean,
+        default: true,
+      },
+      whatsapp: {
+        type: Boolean,
+        default: false,
+      },
+    },
     password: {
       type: String,
       required: [true, 'Password is required.'],
@@ -76,6 +124,42 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    suspendedAt: {
+      type: Date,
+      default: null,
+    },
+    suspendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    suspensionReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    softDeletedAt: {
+      type: Date,
+      default: null,
+    },
+    deleteRequestedAt: {
+      type: Date,
+      default: null,
+    },
+    deleteRequestReason: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
+    lastLoginIp: {
+      type: String,
+      trim: true,
+      default: '',
     },
     registrationPayment: {
       amount: {

@@ -79,6 +79,9 @@ Deployment is intentionally skipped for now.
 25. Frontend redesign pass
     - Indigo/gray design system, Hind Siliguri and Inter fonts, reusable UI primitives, Headless UI dialogs/dropdowns, Framer Motion cards, toast notifications, dashboard sidebars/top bars, public homepage refresh, and multi-step registration.
 
+26. Advanced controls and PWA pass
+    - `/admin/controls` seven-tab control panel, site/finance/member/content/notification/appearance/security settings, CSV member import/export, PDF reports, blog moderation, gallery albums, notice interactions, dashboard widgets, Socket.IO presence, member profile data controls, PWA manifest/service worker, global search, route lazy loading, and advanced UI animations.
+
 ## Verification Command Set
 
 Run these before every push:
