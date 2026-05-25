@@ -81,8 +81,8 @@ const validateMonthlyFee = (body) => ({
 })
 
 const validateDonationNumber = (body) => ({
-  donationNumber: requireString(body, 'donationNumber', 'Donation number'),
-  donationProvider: requireString(body, 'donationProvider', 'Donation provider'),
+  donationNumber: optionalString(body, 'donationNumber'),
+  donationProvider: optionalString(body, 'donationProvider'),
 })
 
 module.exports = {
