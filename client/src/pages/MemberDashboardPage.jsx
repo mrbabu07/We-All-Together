@@ -17,6 +17,7 @@ import {
   Vote,
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
+import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
@@ -443,9 +444,9 @@ export default function MemberDashboardPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase text-emerald-700">Member</p>
-          <h1 className="text-2xl font-bold text-slate-950">Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="text-sm font-semibold uppercase text-indigo-700">Member</p>
+          <h1 className="text-2xl font-bold text-gray-950">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-600">
             {user?.name} | {user?.phone}
           </p>
         </div>
@@ -459,8 +460,8 @@ export default function MemberDashboardPage() {
           <button
             className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition ${
               activeTab === key
-                ? 'bg-emerald-700 text-white'
-                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'bg-indigo-700 text-white'
+                : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
             }`}
             key={key}
             onClick={() => changeTab(key)}
@@ -472,7 +473,7 @@ export default function MemberDashboardPage() {
       </div>
 
       {message ? (
-        <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        <p className="mt-4 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-800">
           {message}
         </p>
       ) : null}
@@ -484,7 +485,7 @@ export default function MemberDashboardPage() {
       ) : null}
 
       {!loading && activeTab === 'overview' ? (
-        <Overview data={data} monthlyFee={data.settings.monthlyFee} stats={stats} />
+        <Overview data={data} monthlyFee={data.settings.monthlyFee} stats={stats} user={user} />
       ) : null}
       {!loading && activeTab === 'payments' ? (
         <Payments
@@ -550,9 +551,41 @@ export default function MemberDashboardPage() {
   )
 }
 
-function Overview({ data, monthlyFee, stats }) {
+function Overview({ data, monthlyFee, stats, user }) {
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const currentPayment = data.payments.find((payment) => payment.month === currentMonth)
+
   return (
     <div className="mt-6 grid gap-6">
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar name={user?.name} src={user?.profilePhotoUrl} size="lg" />
+            <div>
+              <p className="text-sm font-semibold text-indigo-600">স্বাগতম</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+                {user?.name}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">{user?.phone}</p>
+            </div>
+          </div>
+          <Badge value={user?.status || 'approved'}>{user?.status || 'approved'}</Badge>
+        </div>
+      </Panel>
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-500">চলতি মাসের ফি</p>
+            <h3 className="mt-1 text-3xl font-bold tracking-tight text-gray-900">
+              {money(monthlyFee)}
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">{currentMonth}</p>
+          </div>
+          <Badge value={currentPayment?.status === 'verified' ? 'verified' : 'pending'}>
+            {currentPayment?.status === 'verified' ? 'পরিশোধিত' : 'অপরিশোধিত'}
+          </Badge>
+        </div>
+      </Panel>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat label="Monthly Fee" value={money(monthlyFee)} />
         <Stat label="Verified Payments" value={stats.verifiedPayments} />
@@ -564,10 +597,10 @@ function Overview({ data, monthlyFee, stats }) {
       <Panel>
         <SectionTitle icon={CalendarDays} title="Next Meeting" />
         {data.meetings[0] ? (
-          <div className="mt-4 rounded-md border border-slate-200 p-4">
-            <h3 className="font-semibold text-slate-950">{data.meetings[0].title}</h3>
-            <p className="mt-1 text-sm text-slate-600">{formatDate(data.meetings[0].meetingDate)}</p>
-            <p className="mt-1 text-sm text-slate-600">{data.meetings[0].location}</p>
+          <div className="mt-4 rounded-md border border-gray-200 p-4">
+            <h3 className="font-semibold text-gray-950">{data.meetings[0].title}</h3>
+            <p className="mt-1 text-sm text-gray-600">{formatDate(data.meetings[0].meetingDate)}</p>
+            <p className="mt-1 text-sm text-gray-600">{data.meetings[0].location}</p>
           </div>
         ) : (
           <Empty text="No meeting updates yet." />
@@ -586,7 +619,7 @@ function Overview({ data, monthlyFee, stats }) {
 
 function CommunityImageUpload({ label, onUpload, uploading }) {
   return (
-    <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+    <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50">
       <Upload aria-hidden="true" className="h-4 w-4" />
       <span>{uploading ? 'Uploading...' : label}</span>
       <input
@@ -672,17 +705,17 @@ function Blogs({
       <div className="grid gap-4 xl:grid-cols-2">
         {blogs.length === 0 ? <Empty text="No blogs yet." /> : null}
         {blogs.map((blog) => (
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={blog._id}>
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={blog._id}>
             {blog.imageUrl ? (
               <img alt="" className="mb-4 h-48 w-full rounded-md object-cover" src={blog.imageUrl} />
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-bold text-slate-950">{blog.title}</h3>
+                  <h3 className="font-bold text-gray-950">{blog.title}</h3>
                   <Badge value={blog.audience}>{blog.audience}</Badge>
                 </div>
-                <p className="mt-1 text-xs font-semibold uppercase text-slate-500">
+                <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
                   By {blog.createdBy?.name || 'Member'} | {formatDate(blog.createdAt)}
                 </p>
               </div>
@@ -692,28 +725,28 @@ function Blogs({
                 </Button>
               ) : null}
             </div>
-            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{blog.body}</p>
+            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">{blog.body}</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button icon={Heart} onClick={() => onLike(blog._id)} variant="secondary">
                 {hasLiked(blog) ? 'Liked' : 'Like'} ({blog.likes?.length || 0})
               </Button>
-              <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-600">
+              <span className="inline-flex items-center gap-1 text-sm font-semibold text-gray-600">
                 <MessageCircle aria-hidden="true" className="h-4 w-4" />
                 {blog.comments?.length || 0} comments
               </span>
             </div>
             <div className="mt-4 grid gap-3">
               {(blog.comments || []).slice(-4).map((comment) => (
-                <div className="rounded-md bg-slate-50 p-3" key={comment._id}>
+                <div className="rounded-md bg-gray-50 p-3" key={comment._id}>
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-950">
+                    <p className="text-sm font-semibold text-gray-950">
                       {comment.user?.name || 'Member'}
                     </p>
                     {(user?.role === 'admin' ||
                       comment.user?._id === user?._id ||
                       blog.createdBy?._id === user?._id) ? (
                       <button
-                        className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                        className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-semibold text-red-700 hover:bg-red-50 hover:text-red-800"
                         onClick={() => onCommentDelete(blog._id, comment._id)}
                         type="button"
                       >
@@ -721,7 +754,7 @@ function Blogs({
                       </button>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{comment.body}</p>
+                  <p className="mt-1 text-sm text-gray-600">{comment.body}</p>
                 </div>
               ))}
             </div>
@@ -801,15 +834,15 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {gallery.length === 0 ? <Empty text="No gallery photos yet." /> : null}
         {gallery.map((item) => (
-          <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" key={item._id}>
+          <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" key={item._id}>
             <img alt="" className="h-56 w-full object-cover" src={item.imageUrl} />
             <div className="grid gap-3 p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-bold text-slate-950">{item.title}</h3>
+                <h3 className="font-bold text-gray-950">{item.title}</h3>
                 <Badge value={item.audience}>{item.audience}</Badge>
               </div>
-              <p className="text-sm leading-6 text-slate-600">{item.description}</p>
-              <p className="text-xs font-semibold uppercase text-slate-500">
+              <p className="text-sm leading-6 text-gray-600">{item.description}</p>
+              <p className="text-xs font-semibold uppercase text-gray-500">
                 By {item.createdBy?.name || 'Member'} | {formatDate(item.createdAt)}
               </p>
               {canManage(item) ? (
@@ -840,7 +873,7 @@ function Payments({
     <div className="mt-6 grid gap-6">
       <Panel>
         <SectionTitle icon={CreditCard} title="Pay Monthly Fee" />
-        <p className="mt-2 text-sm text-slate-600">Current amount: {money(monthlyFee)}</p>
+        <p className="mt-2 text-sm text-gray-600">Current amount: {money(monthlyFee)}</p>
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <Field
             label="Month"
@@ -886,18 +919,18 @@ function Payments({
             onChange={(event) => onChange('proofImageUrl', event.target.value)}
             value={form.proofImageUrl}
           />
-          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700">
             <span>Upload Payment Proof</span>
             <input
               accept="image/*"
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+              className="min-h-11 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
               disabled={uploadingProof}
               onChange={(event) => onProofUpload(event.target.files?.[0])}
               type="file"
             />
           </label>
           {uploadingProof ? (
-            <p className="md:col-span-2 text-sm font-medium text-emerald-700">
+            <p className="md:col-span-2 text-sm font-medium text-indigo-700">
               Uploading payment proof...
             </p>
           ) : null}
@@ -913,17 +946,17 @@ function Payments({
           {payments.length === 0 ? <Empty text="No payments submitted yet." /> : null}
           {payments.map((payment) => (
             <div
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-4"
               key={payment._id}
             >
               <div>
-                <h3 className="font-semibold text-slate-950">{payment.month}</h3>
-                <p className="mt-1 text-sm text-slate-600">
+                <h3 className="font-semibold text-gray-950">{payment.month}</h3>
+                <p className="mt-1 text-sm text-gray-600">
                   {money(payment.amount)} | {payment.method} | TX: {payment.transactionId}
                 </p>
                 {payment.proofImageUrl ? (
                   <a
-                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
                     href={payment.proofImageUrl}
                     rel="noreferrer"
                     target="_blank"
@@ -995,8 +1028,8 @@ function Polls({ onVote, polls }) {
               {poll.isClosed ? 'Closed' : 'Open'}
             </Badge>
           </div>
-          <h3 className="mt-4 text-lg font-bold text-slate-950">{poll.question}</h3>
-          <p className="mt-1 text-sm text-slate-600">
+          <h3 className="mt-4 text-lg font-bold text-gray-950">{poll.question}</h3>
+          <p className="mt-1 text-sm text-gray-600">
             {poll.meetingId?.title || 'Meeting'} | Deadline {formatDate(poll.deadline)}
           </p>
           <div className="mt-4 grid gap-3">
@@ -1007,11 +1040,11 @@ function Polls({ onVote, polls }) {
               const disabled = poll.isClosed || poll.hasVoted
 
               return (
-                <div className="rounded-md border border-slate-200 p-3" key={option._id}>
+                <div className="rounded-md border border-gray-200 p-3" key={option._id}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-950">{option.text}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-semibold text-gray-950">{option.text}</p>
+                      <p className="text-sm text-gray-500">
                         {option.voteCount} votes | {percent}%
                       </p>
                     </div>
@@ -1022,9 +1055,9 @@ function Polls({ onVote, polls }) {
                       </Button>
                     ) : null}
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-emerald-700"
+                      className="h-full rounded-full bg-indigo-700"
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -1063,7 +1096,7 @@ function MemberDirectory({ members }) {
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visibleMembers.length === 0 ? <Empty text="No matching members found." /> : null}
         {visibleMembers.map((member) => (
-          <div className="flex gap-3 rounded-md border border-slate-200 p-4" key={member._id}>
+          <div className="flex gap-3 rounded-md border border-gray-200 p-4" key={member._id}>
             {member.profilePhotoUrl ? (
               <img
                 alt=""
@@ -1071,14 +1104,14 @@ function MemberDirectory({ members }) {
                 src={member.profilePhotoUrl}
               />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-emerald-50 text-sm font-bold text-emerald-800">
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-indigo-50 text-sm font-bold text-indigo-800">
                 {member.name?.slice(0, 1) || 'M'}
               </div>
             )}
             <div>
-              <h3 className="font-semibold text-slate-950">{member.name}</h3>
-              <p className="mt-1 text-sm text-slate-600">{member.phone}</p>
-              <p className="mt-1 text-sm text-slate-600">{member.address}</p>
+              <h3 className="font-semibold text-gray-950">{member.name}</h3>
+              <p className="mt-1 text-sm text-gray-600">{member.phone}</p>
+              <p className="mt-1 text-sm text-gray-600">{member.address}</p>
             </div>
           </div>
         ))}
@@ -1094,7 +1127,7 @@ function UpdateList({ items, onRsvp, rsvpEnabled = false, textKey, title, user }
       <div className="mt-4 grid gap-3">
         {items.length === 0 ? <Empty text={`No ${title.toLowerCase()} yet.`} /> : null}
         {items.map((item) => (
-          <div className="rounded-md border border-slate-200 p-4" key={item._id}>
+          <div className="rounded-md border border-gray-200 p-4" key={item._id}>
             {item.imageUrl ? (
               <img
                 alt=""
@@ -1103,23 +1136,23 @@ function UpdateList({ items, onRsvp, rsvpEnabled = false, textKey, title, user }
               />
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-slate-950">{item.title}</h3>
+              <h3 className="font-semibold text-gray-950">{item.title}</h3>
               {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item[textKey] || item.location}</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey] || item.location}</p>
             {item.minutes ? (
-              <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-600">
+              <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">
                 {item.minutes}
               </p>
             ) : null}
             {Array.isArray(item.attendance) && item.attendance.length ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
                 Attendance recorded: {item.attendance.length}
               </p>
             ) : null}
             {Array.isArray(item.participants) && item.participants.length ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
                 Participants: {item.participants.length} | Paid:{' '}
                 {money(item.participants.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0))}
               </p>
@@ -1147,8 +1180,8 @@ function RsvpActions({ item, onRsvp, user }) {
   )
 
   return (
-    <div className="mt-4 rounded-md bg-slate-50 p-3">
-      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-600">
+    <div className="mt-4 rounded-md bg-gray-50 p-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-600">
         <span>Going: {counts.going}</span>
         <span>Maybe: {counts.maybe}</span>
         <span>Not going: {counts.not_going}</span>
@@ -1170,12 +1203,12 @@ function RsvpActions({ item, onRsvp, user }) {
 
 function MiniList({ items, title }) {
   return (
-    <div className="rounded-md border border-slate-200 p-4">
-      <h3 className="font-semibold text-slate-950">{title}</h3>
+    <div className="rounded-md border border-gray-200 p-4">
+      <h3 className="font-semibold text-gray-950">{title}</h3>
       <div className="mt-3 grid gap-2">
         {items.length === 0 ? <Empty text={`No ${title.toLowerCase()} yet.`} /> : null}
         {items.map((item) => (
-          <p className="text-sm text-slate-600" key={item._id}>
+          <p className="text-sm text-gray-600" key={item._id}>
             {item.title}
           </p>
         ))}
@@ -1187,8 +1220,8 @@ function MiniList({ items, title }) {
 function Stat({ label, value }) {
   return (
     <Panel>
-      <p className="text-sm font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
+      <p className="text-sm font-semibold text-gray-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-gray-950">{value}</p>
     </Panel>
   )
 }
@@ -1196,12 +1229,14 @@ function Stat({ label, value }) {
 function SectionTitle({ icon: Icon, title }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon aria-hidden="true" className="h-5 w-5 text-emerald-700" />
-      <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <Icon aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <h2 className="text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
     </div>
   )
 }
 
 function Empty({ text }) {
-  return <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">{text}</p>
+  return <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">{text}</p>
 }

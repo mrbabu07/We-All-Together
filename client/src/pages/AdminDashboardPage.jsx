@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Bell,
   CheckCircle2,
   ClipboardList,
   DatabaseBackup,
   Download,
+  DollarSign,
   FileText,
   KeyRound,
   Pencil,
@@ -12,6 +14,8 @@ import {
   RefreshCw,
   Save,
   Trash2,
+  UserCheck,
+  UserRoundPlus,
   Vote,
   XCircle,
 } from 'lucide-react'
@@ -23,6 +27,7 @@ import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
+import StatCard from '../components/ui/StatCard'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
@@ -166,7 +171,9 @@ const tabLabels = [
 export default function AdminDashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const activeTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : 'overview'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [data, setData] = useState({
@@ -395,6 +402,10 @@ export default function AdminDashboardPage() {
         [field]: value,
       },
     }))
+  }
+
+  const changeTab = (tab) => {
+    setSearchParams(tab === 'overview' ? {} : { tab })
   }
 
   const saveExpense = async (event) => {
@@ -791,9 +802,9 @@ export default function AdminDashboardPage() {
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase text-emerald-700">Admin</p>
-          <h1 className="text-2xl font-bold text-slate-950">Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">Signed in as {user?.name}</p>
+          <p className="text-sm font-semibold uppercase text-indigo-700">Admin</p>
+          <h1 className="text-2xl font-bold text-gray-950">Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-600">Signed in as {user?.name}</p>
         </div>
         <Button icon={RefreshCw} onClick={loadDashboard} variant="secondary">
           Refresh
@@ -805,11 +816,11 @@ export default function AdminDashboardPage() {
           <button
             className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition ${
               activeTab === key
-                ? 'bg-emerald-700 text-white'
-                : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                ? 'bg-indigo-700 text-white'
+                : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
             }`}
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => changeTab(key)}
             type="button"
           >
             {t[key] || label}
@@ -818,7 +829,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {message ? (
-        <p className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        <p className="mt-4 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-800">
           {message}
         </p>
       ) : null}
@@ -977,10 +988,28 @@ function OverviewTab({
   return (
     <div className="mt-6 grid gap-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Total Members" value={stats.members} />
-        <Stat label="Pending Approvals" value={stats.pending} />
-        <Stat label="This Month Income" value={money(stats.thisMonthIncome)} />
-        <Stat label="Overdue Fees" value={`${money(stats.overdueFees)} (${stats.overdueCount})`} />
+        <StatCard icon={UserCheck} label="মোট সদস্য" trend="↑ active" value={stats.members} />
+        <StatCard
+          icon={UserRoundPlus}
+          label="অপেক্ষমাণ আবেদন"
+          tone="yellow"
+          trend="নতুন আবেদন"
+          value={stats.pending}
+        />
+        <StatCard
+          icon={DollarSign}
+          label="এই মাসের আয়"
+          tone="green"
+          trend="↑ মাসিক"
+          value={money(stats.thisMonthIncome)}
+        />
+        <StatCard
+          icon={XCircle}
+          label="বকেয়া ফি"
+          tone="red"
+          trend={`${stats.overdueCount} জন`}
+          value={money(stats.overdueFees)}
+        />
       </div>
 
       <Panel>
@@ -1010,25 +1039,25 @@ function OverviewTab({
           {data.pendingRegistrations.length === 0 ? <Empty text="No pending registrations." /> : null}
           {data.pendingRegistrations.map((item) => (
             <div
-              className="grid gap-3 rounded-md border border-slate-200 p-4 lg:grid-cols-[1fr_auto]"
+              className="grid gap-3 rounded-md border border-gray-200 p-4 lg:grid-cols-[1fr_auto]"
               key={item._id}
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold text-slate-950">{item.name}</h3>
+                  <h3 className="font-semibold text-gray-950">{item.name}</h3>
                   <Badge value={item.status}>{item.status}</Badge>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-gray-600">
                   {item.phone} | {item.address}
                 </p>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-gray-600">
                   Registration payment: {money(item.registrationPayment?.amount)} via{' '}
                   {item.registrationPayment?.method || 'N/A'} | TX:{' '}
                   {item.registrationPayment?.transactionId || 'N/A'}
                 </p>
                 {item.registrationPayment?.proofImageUrl ? (
                   <a
-                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
                     href={item.registrationPayment.proofImageUrl}
                     rel="noreferrer"
                     target="_blank"
@@ -1177,7 +1206,7 @@ function FinanceTab({
             onChange={(value) => onNotificationSettingChange('whatsappFeeReminderEnabled', value)}
           />
         </div>
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-gray-500">
           Twilio credentials must be configured on the server before SMS or WhatsApp messages are sent.
         </p>
       </Panel>
@@ -1265,12 +1294,12 @@ function FinanceTab({
           {data.expenses.length === 0 ? <Empty text="No expenses added yet." /> : null}
           {data.expenses.map((expense) => (
             <div
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-4"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-4"
               key={expense._id}
             >
               <div>
-                <h3 className="font-semibold text-slate-950">{expense.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">
+                <h3 className="font-semibold text-gray-950">{expense.title}</h3>
+                <p className="mt-1 text-sm text-gray-600">
                   {money(expense.amount)} | {expense.category}
                 </p>
               </div>
@@ -1305,10 +1334,10 @@ function FinanceTab({
 
 function ToggleField({ checked, label, onChange }) {
   return (
-    <label className="flex min-h-11 items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+    <label className="flex min-h-11 items-center gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
       <input
         checked={checked}
-        className="h-4 w-4 accent-emerald-700"
+        className="h-4 w-4 accent-indigo-700"
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
       />
@@ -1337,8 +1366,8 @@ function FinanceAnalytics({ analytics }) {
                 <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
                 <Tooltip formatter={(value) => money(value)} />
                 <Legend />
-                <Bar dataKey="income" fill="#047857" name="Income" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="#be123c" name="Expense" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" fill="#4F46E5" name="Income" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill="#EF4444" name="Expense" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -1362,7 +1391,7 @@ function FinanceAnalytics({ analytics }) {
                   activeDot={{ r: 6 }}
                   dataKey="donations"
                   name="Donations"
-                  stroke="#0891b2"
+                  stroke="#10B981"
                   strokeWidth={3}
                   type="monotone"
                 />
@@ -1382,10 +1411,10 @@ function FinanceAnalytics({ analytics }) {
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {overdueMembers.length === 0 ? <Empty text="No overdue members this month." /> : null}
           {overdueMembers.map((member) => (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3" key={member._id}>
-              <p className="font-semibold text-slate-950">{member.name}</p>
-              <p className="mt-1 text-sm text-slate-600">{member.phone}</p>
-              <p className="mt-1 text-sm text-slate-600">{member.address}</p>
+            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3" key={member._id}>
+              <p className="font-semibold text-gray-950">{member.name}</p>
+              <p className="mt-1 text-sm text-gray-600">{member.phone}</p>
+              <p className="mt-1 text-sm text-gray-600">{member.address}</p>
             </div>
           ))}
         </div>
@@ -1409,17 +1438,17 @@ function FinanceSummary({ expenseCategories, totalDonations, totalExpenses, tota
         <SummaryStat label="Balance" value={money(balance)} />
       </div>
       <div className="mt-5 grid gap-3">
-        <h3 className="text-sm font-bold uppercase text-slate-500">Expense Categories</h3>
+        <h3 className="text-sm font-bold uppercase text-gray-500">Expense Categories</h3>
         {expenseCategories.length === 0 ? <Empty text="No category data yet." /> : null}
         {expenseCategories.map(([category, amount]) => (
           <div className="grid gap-2" key={category}>
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-semibold text-slate-700">{category}</span>
-              <span className="font-bold text-slate-950">{money(amount)}</span>
+              <span className="font-semibold text-gray-700">{category}</span>
+              <span className="font-bold text-gray-950">{money(amount)}</span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
               <div
-                className="h-full rounded-full bg-emerald-700"
+                className="h-full rounded-full bg-indigo-700"
                 style={{ width: `${Math.max((amount / maxCategoryAmount) * 100, 4)}%` }}
               />
             </div>
@@ -1432,9 +1461,9 @@ function FinanceSummary({ expenseCategories, totalDonations, totalExpenses, tota
 
 function SummaryStat({ label, value }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-bold text-slate-950">{value}</p>
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
+      <p className="text-sm font-semibold text-gray-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-gray-950">{value}</p>
     </div>
   )
 }
@@ -1489,7 +1518,7 @@ function ContentTab({
             {data.content[config.key].length === 0 ? <Empty text={`No ${config.title.toLowerCase()}.`} /> : null}
             {data.content[config.key].map((item) => (
               <div
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-4"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-4"
                 key={item._id}
               >
                 <div>
@@ -1501,11 +1530,11 @@ function ContentTab({
                     />
                   ) : null}
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-slate-950">{item.title}</h3>
+                    <h3 className="font-semibold text-gray-950">{item.title}</h3>
                     {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
                     {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{item[config.main]}</p>
+                  <p className="mt-1 text-sm text-gray-600">{item[config.main]}</p>
                   {['meetings', 'tours'].includes(config.key) ? (
                     <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
                   ) : null}
@@ -1598,8 +1627,8 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
   }
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-      <h3 className="font-bold text-slate-950">Meeting Attendance</h3>
+    <div className="mt-5 rounded-md border border-gray-200 bg-gray-50 p-4">
+      <h3 className="font-bold text-gray-950">Meeting Attendance</h3>
       <form className="mt-4 grid gap-4" onSubmit={saveAttendance}>
         <SelectField
           label="Meeting"
@@ -1626,12 +1655,12 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
             <div className="grid gap-3">
               {members.map((member) => (
                 <div
-                  className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_160px_1fr]"
+                  className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[1fr_160px_1fr]"
                   key={member._id}
                 >
                   <div>
-                    <p className="font-semibold text-slate-950">{member.name}</p>
-                    <p className="text-sm text-slate-500">{member.phone}</p>
+                    <p className="font-semibold text-gray-950">{member.name}</p>
+                    <p className="text-sm text-gray-500">{member.phone}</p>
                   </div>
                   <SelectField
                     label="Status"
@@ -1666,7 +1695,7 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
 
 function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
       <SectionTitle icon={Vote} title="Meeting Polls" />
       <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
         <SelectField
@@ -1716,11 +1745,11 @@ function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {polls.length === 0 ? <Empty text="No polls created yet." /> : null}
         {polls.map((poll) => (
-          <div className="rounded-md border border-slate-200 bg-white p-4" key={poll._id}>
+          <div className="rounded-md border border-gray-200 bg-white p-4" key={poll._id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="font-semibold text-slate-950">{poll.question}</h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <h3 className="font-semibold text-gray-950">{poll.question}</h3>
+                <p className="mt-1 text-sm text-gray-500">
                   {poll.meetingId?.title || 'Meeting'} | Deadline {toReadableDate(poll.deadline)}
                 </p>
               </div>
@@ -1750,7 +1779,7 @@ function PollResultsChart({ poll }) {
           <XAxis dataKey="name" />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Bar dataKey="votes" fill="#047857" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="votes" fill="#4F46E5" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -1768,8 +1797,8 @@ function RsvpSummary({ members, rsvp }) {
   )
 
   return (
-    <div className="mt-3 rounded-md bg-slate-50 p-3">
-      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-slate-600">
+    <div className="mt-3 rounded-md bg-gray-50 p-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-600">
         <span>Going: {counts.going}</span>
         <span>Maybe: {counts.maybe}</span>
         <span>Not going: {counts.not_going}</span>
@@ -1788,7 +1817,7 @@ function RsvpSummary({ members, rsvp }) {
           })}
         </div>
       ) : (
-        <p className="mt-2 text-xs font-semibold text-slate-500">No RSVP responses yet.</p>
+        <p className="mt-2 text-xs font-semibold text-gray-500">No RSVP responses yet.</p>
       )}
     </div>
   )
@@ -1854,8 +1883,8 @@ function TourWorkflowPanel({ members, onSave, tours }) {
   )
 
   return (
-    <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-      <h3 className="font-bold text-slate-950">Tour Participants</h3>
+    <div className="mt-5 rounded-md border border-gray-200 bg-gray-50 p-4">
+      <h3 className="font-bold text-gray-950">Tour Participants</h3>
       <form className="mt-4 grid gap-4" onSubmit={saveParticipants}>
         <SelectField
           label="Tour"
@@ -1879,12 +1908,12 @@ function TourWorkflowPanel({ members, onSave, tours }) {
             <div className="grid gap-3">
               {members.map((member) => (
                 <div
-                  className="grid gap-3 rounded-md border border-slate-200 bg-white p-3 md:grid-cols-[1fr_150px_120px_120px_1fr]"
+                  className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[1fr_150px_120px_120px_1fr]"
                   key={member._id}
                 >
                   <div>
-                    <p className="font-semibold text-slate-950">{member.name}</p>
-                    <p className="text-sm text-slate-500">{member.phone}</p>
+                    <p className="font-semibold text-gray-950">{member.name}</p>
+                    <p className="text-sm text-gray-500">{member.phone}</p>
                   </div>
                   <SelectField
                     label="Status"
@@ -2099,7 +2128,7 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
               Cancel
             </Button>
           </form>
-          <div className="mt-5 grid gap-4 rounded-md border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto]">
+          <div className="mt-5 grid gap-4 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto]">
             <Field
               label="New Password"
               name="newPassword"
@@ -2134,7 +2163,7 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-600">
+              <tr className="border-b border-gray-200 text-gray-600">
                 <th className="py-3 pr-4">Name</th>
                 <th className="py-3 pr-4">Phone</th>
                 <th className="py-3 pr-4">Role</th>
@@ -2145,8 +2174,8 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
             </thead>
             <tbody>
               {visibleUsers.map((item) => (
-                <tr className="border-b border-slate-100" key={item._id}>
-                  <td className="py-3 pr-4 font-medium text-slate-950">
+                <tr className="border-b border-gray-100" key={item._id}>
+                  <td className="py-3 pr-4 font-medium text-gray-950">
                     <div className="flex items-center gap-2">
                       {item.profilePhotoUrl ? (
                         <img
@@ -2155,19 +2184,19 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                           src={item.profilePhotoUrl}
                         />
                       ) : (
-                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-50 text-xs font-bold text-emerald-800">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50 text-xs font-bold text-indigo-800">
                           {item.name?.slice(0, 1) || 'U'}
                         </span>
                       )}
                       <span>{item.name}</span>
                     </div>
                   </td>
-                  <td className="py-3 pr-4 text-slate-600">{item.phone}</td>
-                  <td className="py-3 pr-4 text-slate-600">{item.role}</td>
+                  <td className="py-3 pr-4 text-gray-600">{item.phone}</td>
+                  <td className="py-3 pr-4 text-gray-600">{item.role}</td>
                   <td className="py-3 pr-4">
                     <Badge value={item.status}>{item.status}</Badge>
                   </td>
-                  <td className="py-3 pr-4 text-slate-600">{item.address}</td>
+                  <td className="py-3 pr-4 text-gray-600">{item.address}</td>
                   <td className="py-3 pr-4">
                     <div className="flex flex-wrap gap-2">
                       <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
@@ -2198,17 +2227,17 @@ function ImageUploadControl({ form, itemKey, onChange, onImageUpload, uploading 
         onChange={(event) => onChange(itemKey, 'imageUrl', event.target.value)}
         value={form.imageUrl}
       />
-      <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+      <label className="grid gap-1.5 text-sm font-medium text-gray-700">
         <span>Upload Image</span>
         <input
           accept="image/*"
-          className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          className="min-h-11 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
           disabled={uploading}
           onChange={(event) => onImageUpload(itemKey, event.target.files?.[0])}
           type="file"
         />
       </label>
-      {uploading ? <p className="text-sm font-medium text-emerald-700">Uploading image...</p> : null}
+      {uploading ? <p className="text-sm font-medium text-indigo-700">Uploading image...</p> : null}
     </div>
   )
 }
@@ -2399,18 +2428,18 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
       <div className="mt-4 grid gap-3">
         {visibleItems.length === 0 ? <Empty text={`No ${title.toLowerCase()} found.`} /> : null}
         {visibleItems.map((item) => (
-          <div className="rounded-md border border-slate-200 p-4" key={item._id}>
+          <div className="rounded-md border border-gray-200 p-4" key={item._id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="font-semibold text-slate-950">
+                <h3 className="font-semibold text-gray-950">
                   {item.user?.name || item.donorName || item.transactionId}
                 </h3>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-gray-600">
                   {money(item.amount)} | {item.method} | TX: {item.transactionId}
                 </p>
                 {item.proofImageUrl ? (
                   <a
-                    className="mt-2 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
                     href={item.proofImageUrl}
                     rel="noreferrer"
                     target="_blank"
@@ -2535,7 +2564,7 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[840px] border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-600">
+              <tr className="border-b border-gray-200 text-gray-600">
                 <th className="py-3 pr-4">Date</th>
                 <th className="py-3 pr-4">Action</th>
                 <th className="py-3 pr-4">Actor</th>
@@ -2545,14 +2574,14 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
             </thead>
             <tbody>
               {visibleLogs.map((log) => (
-                <tr className="border-b border-slate-100" key={log._id}>
-                  <td className="py-3 pr-4 text-slate-600">{toReadableDate(log.createdAt)}</td>
-                  <td className="py-3 pr-4 font-medium text-slate-950">{log.action}</td>
-                  <td className="py-3 pr-4 text-slate-600">
+                <tr className="border-b border-gray-100" key={log._id}>
+                  <td className="py-3 pr-4 text-gray-600">{toReadableDate(log.createdAt)}</td>
+                  <td className="py-3 pr-4 font-medium text-gray-950">{log.action}</td>
+                  <td className="py-3 pr-4 text-gray-600">
                     {log.actor?.name || 'System'}
                   </td>
-                  <td className="py-3 pr-4 text-slate-600">{log.entityType}</td>
-                  <td className="py-3 pr-4 text-slate-600">
+                  <td className="py-3 pr-4 text-gray-600">{log.entityType}</td>
+                  <td className="py-3 pr-4 text-gray-600">
                     {Object.entries(log.metadata || {})
                       .slice(0, 3)
                       .map(([key, value]) => `${key}: ${value}`)
@@ -2571,12 +2600,12 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
 
 function MiniList({ items, title }) {
   return (
-    <div className="rounded-md border border-slate-200 p-4">
-      <h3 className="font-semibold text-slate-950">{title}</h3>
+    <div className="rounded-md border border-gray-200 p-4">
+      <h3 className="font-semibold text-gray-950">{title}</h3>
       <div className="mt-3 grid gap-2">
         {items.length === 0 ? <Empty text="No members." /> : null}
         {items.map((item) => (
-          <p className="text-sm text-slate-600" key={item._id}>
+          <p className="text-sm text-gray-600" key={item._id}>
             {item.name} | {item.phone}
           </p>
         ))}
@@ -2585,24 +2614,17 @@ function MiniList({ items, title }) {
   )
 }
 
-function Stat({ label, value }) {
-  return (
-    <Panel>
-      <p className="text-sm font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
-    </Panel>
-  )
-}
-
 function SectionTitle({ icon: Icon, title }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon aria-hidden="true" className="h-5 w-5 text-emerald-700" />
-      <h2 className="text-lg font-bold text-slate-950">{title}</h2>
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+        <Icon aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <h2 className="text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
     </div>
   )
 }
 
 function Empty({ text }) {
-  return <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">{text}</p>
+  return <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">{text}</p>
 }

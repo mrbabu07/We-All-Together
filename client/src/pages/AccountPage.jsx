@@ -113,22 +113,22 @@ export default function AccountPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <div>
-        <p className="text-sm font-semibold uppercase text-emerald-700">Account</p>
-        <h1 className="text-2xl font-bold text-slate-950">Profile and Password</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-sm font-semibold uppercase text-indigo-700">Account</p>
+        <h1 className="text-2xl font-bold text-gray-950">Profile and Password</h1>
+        <p className="mt-1 text-sm text-gray-600">
           Keep your contact information and password up to date.
         </p>
       </div>
 
       {message ? (
-        <p className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        <p className="mt-5 rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-800">
           {message}
         </p>
       ) : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel>
-          <h2 className="text-lg font-bold text-slate-950">Profile</h2>
+          <h2 className="text-lg font-bold text-gray-950">Profile</h2>
           <form className="mt-4 grid gap-4" onSubmit={saveProfile}>
             <Field
               label="Name"
@@ -182,7 +182,7 @@ export default function AccountPage() {
         </Panel>
 
         <Panel>
-          <h2 className="text-lg font-bold text-slate-950">Password</h2>
+          <h2 className="text-lg font-bold text-gray-950">Password</h2>
           <form className="mt-4 grid gap-4" onSubmit={changePassword}>
             <Field
               label="Current Password"
@@ -212,9 +212,9 @@ export default function AccountPage() {
 
 function DocumentUpload({ field, label, onChange, onUpload, uploading, value }) {
   return (
-    <div className="grid gap-3 rounded-md border border-slate-200 p-3">
+    <div className="grid gap-3 rounded-md border border-gray-200 p-3">
       <Field label={`${label} URL`} name={field} onChange={onChange} value={value} />
-      <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+      <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50">
         <Upload aria-hidden="true" className="h-4 w-4" />
         <span>{uploading ? 'Uploading...' : `Upload ${label}`}</span>
         <input
@@ -227,7 +227,7 @@ function DocumentUpload({ field, label, onChange, onUpload, uploading, value }) 
       </label>
       {value ? (
         <a
-          className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+          className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
           href={value}
           rel="noreferrer"
           target="_blank"

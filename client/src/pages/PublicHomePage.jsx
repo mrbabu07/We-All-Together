@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BookOpen, Heart, HeartHandshake, Image, LogIn, MessageCircle, Send, UserPlus } from 'lucide-react'
+import { BookOpen, Heart, HeartHandshake, Image, MessageCircle, Send, UserPlus, Users } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import heroImage from '../assets/community-hero.png'
 import Badge from '../components/ui/Badge'
@@ -149,50 +149,72 @@ export default function PublicHomePage() {
     }
   }
 
+  const totalDonationAmount = data.donations.reduce(
+    (sum, donation) => sum + Number(donation.amount || 0),
+    0,
+  )
+
   return (
-    <main className="bg-slate-50 text-slate-950">
+    <main className="bg-gray-50 text-gray-900">
       <section
-        className="relative min-h-[68vh] overflow-hidden bg-cover bg-center"
+        className="relative min-h-[72vh] overflow-hidden bg-cover bg-center"
         style={{
           backgroundImage: `linear-gradient(90deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.30)), url(${heroImage})`,
         }}
       >
-        <div className="mx-auto flex min-h-[68vh] max-w-7xl items-center px-4 py-14 sm:px-6">
+        <div className="mx-auto flex min-h-[72vh] max-w-7xl items-center px-4 py-14 sm:px-6">
           <div className="max-w-2xl text-white">
-            <p className="text-sm font-semibold uppercase text-emerald-100">
-              Village unity and service
-            </p>
-            <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-              Dargah Para OIkko Porishod
+            <p className="text-sm font-semibold uppercase text-indigo-100">ঐক্য, সেবা ও স্বচ্ছতা</p>
+            <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
+              দরগাহ পাড়া ঐক্য পরিষদ
             </h1>
-            <p className="mt-5 text-base leading-7 text-slate-100">
-              A shared system for registration, fees, notices, meetings, activities, rules, and
-              transparent community finance.
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-100">
+              সদস্য নিবন্ধন, মাসিক ফি, নোটিশ, মিটিং, দান এবং গ্রামের কাজের হিসাব এক জায়গায়।
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
                 to="/register"
               >
                 <UserPlus aria-hidden="true" className="h-4 w-4" />
-                Register
+                নিবন্ধন করুন
               </Link>
-              <Link
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
-                to="/login"
+              <a
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-100"
+                href="#donate"
               >
-                <LogIn aria-hidden="true" className="h-4 w-4" />
-                Login
-              </Link>
+                <HeartHandshake aria-hidden="true" className="h-4 w-4" />
+                দান করুন
+              </a>
             </div>
           </div>
         </div>
       </section>
 
+      <section className="mx-auto -mt-10 grid max-w-6xl gap-4 px-4 sm:px-6 md:grid-cols-3">
+        <Panel className="relative z-10">
+          <Users className="h-6 w-6 text-indigo-600" />
+          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">৬০+</p>
+          <p className="text-sm text-gray-500">সক্রিয় সদস্য</p>
+        </Panel>
+        <Panel className="relative z-10">
+          <BookOpen className="h-6 w-6 text-indigo-600" />
+          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">৫+</p>
+          <p className="text-sm text-gray-500">বছরের কার্যক্রম</p>
+        </Panel>
+        <Panel className="relative z-10">
+          <HeartHandshake className="h-6 w-6 text-indigo-600" />
+          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">
+            {money(totalDonationAmount)}
+          </p>
+          <p className="text-sm text-gray-500">যাচাইকৃত দান</p>
+        </Panel>
+      </section>
+
       <section className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_380px]">
         <div className="grid gap-8">
           {message ? (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+            <p className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-800">
               {message}
             </p>
           ) : null}
@@ -205,48 +227,49 @@ export default function PublicHomePage() {
 
           {!loading ? (
             <>
+              <AnnouncementCards notices={data.notices} />
               <PublicGallery items={data.gallery} />
               <PublicBlogs blogs={data.blogs} />
-              <PublicList items={data.notices} textKey="body" title="Public Notices" />
-              <PublicList items={data.meetings} textKey="agenda" title="Public Meetings" />
-              <PublicList items={data.tours} textKey="details" title="Public Tours" />
+              <PublicList items={data.notices} textKey="body" title="নোটিশ" />
+              <PublicList items={data.meetings} textKey="agenda" title="মিটিং" />
+              <PublicList items={data.tours} textKey="details" title="ভ্রমণ" />
               <PublicList
                 items={data.activities}
                 textKey="description"
-                title="Educational Activities"
+                title="শিক্ষা কার্যক্রম"
               />
-              <PublicList items={data.rules} textKey="description" title="Public Rules" />
+              <PublicList items={data.rules} textKey="description" title="নিয়মাবলি" />
             </>
           ) : null}
         </div>
 
-        <aside className="grid gap-6 self-start">
+        <aside className="grid gap-6 self-start" id="donate">
           <Panel>
-            <HeartHandshake className="h-8 w-8 text-emerald-700" />
-            <h2 className="mt-4 text-xl font-bold text-slate-950">Donate</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {data.settings.donationProvider || 'Donation number'}:{' '}
-              <span className="font-semibold text-slate-950">
-                {data.settings.donationNumber || 'Not set yet'}
+            <HeartHandshake className="h-8 w-8 text-indigo-700" />
+            <h2 className="mt-4 text-xl font-semibold tracking-tight text-gray-900">দান করুন</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              {data.settings.donationProvider || 'দান নম্বর'}:{' '}
+              <span className="font-semibold text-gray-900">
+                {data.settings.donationNumber || 'এখনো সেট করা হয়নি'}
               </span>
             </p>
             <form className="mt-5 grid gap-4" onSubmit={submitDonation}>
               <Field
-                label="Name"
+                label="নাম"
                 name="donorName"
                 onChange={handleDonationChange}
                 required
                 value={donationForm.donorName}
               />
               <Field
-                label="Phone"
+                label="ফোন"
                 name="phone"
                 onChange={handleDonationChange}
                 required
                 value={donationForm.phone}
               />
               <Field
-                label="Amount"
+                label="টাকার পরিমাণ"
                 name="amount"
                 onChange={handleDonationChange}
                 required
@@ -254,7 +277,7 @@ export default function PublicHomePage() {
                 value={donationForm.amount}
               />
               <Field
-                label="Method"
+                label="পেমেন্ট মাধ্যম"
                 name="method"
                 onChange={handleDonationChange}
                 placeholder="bKash or Nagad"
@@ -262,73 +285,73 @@ export default function PublicHomePage() {
                 value={donationForm.method}
               />
               <Field
-                label="Transaction ID"
+                label="ট্রানজেকশন আইডি"
                 name="transactionId"
                 onChange={handleDonationChange}
                 required
                 value={donationForm.transactionId}
               />
               <Field
-                label="Note"
+                label="নোট"
                 name="note"
                 onChange={handleDonationChange}
                 textarea
                 value={donationForm.note}
               />
               <Field
-                label="Payment Proof URL"
+                label="পেমেন্ট প্রমাণ URL"
                 name="proofImageUrl"
                 onChange={handleDonationChange}
                 value={donationForm.proofImageUrl}
               />
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-                <span>Upload Payment Proof</span>
+              <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+                <span>পেমেন্ট প্রমাণ আপলোড</span>
                 <input
                   accept="image/*"
-                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                  className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700"
                   disabled={uploadingProof}
                   onChange={(event) => uploadDonationProof(event.target.files?.[0])}
                   type="file"
                 />
               </label>
               {uploadingProof ? (
-                <p className="text-sm font-medium text-emerald-700">Uploading proof...</p>
+                <p className="text-sm font-medium text-indigo-700">আপলোড হচ্ছে...</p>
               ) : null}
               <Button icon={Send} type="submit">
-                Submit Donation
+                দান জমা দিন
               </Button>
             </form>
           </Panel>
 
           <Panel>
-            <h2 className="text-xl font-bold text-slate-950">Registration Fee</h2>
-            <p className="mt-3 text-3xl font-bold text-emerald-700">
+            <h2 className="text-xl font-semibold tracking-tight text-gray-900">নিবন্ধন ফি</h2>
+            <p className="mt-3 text-3xl font-bold text-indigo-700">
               {money(data.settings.registrationFee)}
             </p>
             <Link
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
               to="/register"
             >
               <UserPlus aria-hidden="true" className="h-4 w-4" />
-              Apply for Membership
+              সদস্য হতে আবেদন করুন
             </Link>
           </Panel>
 
           <Panel>
-            <h2 className="text-xl font-bold text-slate-950">Verified Donations</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-gray-900">যাচাইকৃত দান</h2>
             <div className="mt-4 grid gap-3">
               {data.donations.length === 0 ? (
-                <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  No verified donations yet.
+                <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                  এখনো কোনো যাচাইকৃত দান নেই।
                 </p>
               ) : null}
               {data.donations.slice(0, 8).map((donation) => (
-                <div className="rounded-md border border-slate-200 p-3" key={donation._id}>
+                <div className="rounded-md border border-gray-200 p-3" key={donation._id}>
                   <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold text-slate-950">{donation.donorName}</p>
-                    <p className="font-bold text-emerald-700">{money(donation.amount)}</p>
+                    <p className="font-semibold text-gray-950">{donation.donorName}</p>
+                    <p className="font-bold text-indigo-700">{money(donation.amount)}</p>
                   </div>
-                  <p className="mt-1 text-xs font-medium text-slate-500">
+                  <p className="mt-1 text-xs font-medium text-gray-500">
                     {formatDate(donation.verifiedAt || donation.createdAt)}
                   </p>
                 </div>
@@ -344,15 +367,15 @@ export default function PublicHomePage() {
 function PublicList({ items, textKey, title }) {
   return (
     <section>
-      <h2 className="text-xl font-bold text-slate-950">{title}</h2>
+      <h2 className="text-xl font-bold text-gray-950">{title}</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {items.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
             No items published yet.
           </p>
         ) : null}
         {items.map((item) => (
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={item._id}>
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={item._id}>
             {item.imageUrl ? (
               <img
                 alt=""
@@ -361,12 +384,12 @@ function PublicList({ items, textKey, title }) {
               />
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-slate-950">{item.title}</h3>
+              <h3 className="font-semibold text-gray-950">{item.title}</h3>
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{item[textKey]}</p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey]}</p>
             {item.activityDate || item.meetingDate || item.startDate ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
                 {formatDate(item.activityDate || item.meetingDate || item.startDate)}
               </p>
             ) : null}
@@ -377,26 +400,45 @@ function PublicList({ items, textKey, title }) {
   )
 }
 
+function AnnouncementCards({ notices }) {
+  return (
+    <section>
+      <h2 className="text-xl font-semibold tracking-tight text-gray-900">সর্বশেষ ঘোষণা</h2>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        {notices.slice(0, 3).map((notice) => (
+          <Panel className="p-5" key={notice._id}>
+            <Badge value="planned">ঘোষণা</Badge>
+            <h3 className="mt-3 font-semibold text-gray-900">{notice.title}</h3>
+            <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-500">
+              {notice.body}
+            </p>
+          </Panel>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function PublicGallery({ items }) {
   return (
     <section>
       <div className="flex items-center gap-2">
-        <Image aria-hidden="true" className="h-5 w-5 text-emerald-700" />
-        <h2 className="text-xl font-bold text-slate-950">Gallery</h2>
+        <Image aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900">গ্যালারি</h2>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {items.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
             No gallery photos yet.
           </p>
         ) : null}
         {items.slice(0, 6).map((item) => (
-          <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" key={item._id}>
+          <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" key={item._id}>
             <img alt="" className="h-44 w-full object-cover" src={item.imageUrl} />
             <div className="p-4">
-              <h3 className="font-semibold text-slate-950">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
-              <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
+              <h3 className="font-semibold text-gray-950">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-600">{item.description}</p>
+              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
                 {item.createdBy?.name || 'Member'}
               </p>
             </div>
@@ -411,32 +453,32 @@ function PublicBlogs({ blogs }) {
   return (
     <section>
       <div className="flex items-center gap-2">
-        <BookOpen aria-hidden="true" className="h-5 w-5 text-emerald-700" />
-        <h2 className="text-xl font-bold text-slate-950">Community Blogs</h2>
+        <BookOpen aria-hidden="true" className="h-5 w-5 text-indigo-700" />
+        <h2 className="text-xl font-semibold tracking-tight text-gray-900">কমিউনিটি ব্লগ</h2>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {blogs.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-slate-500 shadow-sm">
+          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
             No blogs published yet.
           </p>
         ) : null}
         {blogs.slice(0, 4).map((blog) => (
-          <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={blog._id}>
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={blog._id}>
             {blog.imageUrl ? (
               <img alt="" className="mb-4 h-40 w-full rounded-md object-cover" src={blog.imageUrl} />
             ) : null}
-            <h3 className="font-semibold text-slate-950">{blog.title}</h3>
-            <p className="mt-1 text-xs font-semibold uppercase text-emerald-700">
+            <h3 className="font-semibold text-gray-950">{blog.title}</h3>
+            <p className="mt-1 text-xs font-semibold uppercase text-indigo-700">
               {blog.createdBy?.name || 'Member'} | {formatDate(blog.createdAt)}
             </p>
-            <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-600">{blog.body}</p>
-            <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-slate-600">
+            <p className="mt-3 line-clamp-4 text-sm leading-6 text-gray-600">{blog.body}</p>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-gray-600">
               <span className="inline-flex items-center gap-1">
-                <Heart aria-hidden="true" className="h-4 w-4 text-rose-700" />
+                <Heart aria-hidden="true" className="h-4 w-4 text-red-700" />
                 {blog.likes?.length || 0} likes
               </span>
               <span className="inline-flex items-center gap-1">
-                <MessageCircle aria-hidden="true" className="h-4 w-4 text-emerald-700" />
+                <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-700" />
                 {blog.comments?.length || 0} comments
               </span>
             </div>

@@ -76,6 +76,9 @@ Deployment is intentionally skipped for now.
 24. UI improvement pass
     - Bengali default navigation with English toggle, mobile bottom navigation, status color consistency, 44px touch targets, loading skeletons, and member tab deep links.
 
+25. Frontend redesign pass
+    - Indigo/gray design system, Hind Siliguri and Inter fonts, reusable UI primitives, Headless UI dialogs/dropdowns, Framer Motion cards, toast notifications, dashboard sidebars/top bars, public homepage refresh, and multi-step registration.
+
 ## Verification Command Set
 
 Run these before every push:

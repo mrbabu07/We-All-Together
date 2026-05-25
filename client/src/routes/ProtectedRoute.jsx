@@ -8,7 +8,7 @@ export default function ProtectedRoute() {
   if (loading) {
     return (
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <p className="text-sm font-medium text-slate-600">Loading account...</p>
+        <p className="text-sm font-medium text-gray-600">Loading account...</p>
       </main>
     )
   }

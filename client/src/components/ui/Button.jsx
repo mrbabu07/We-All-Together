@@ -3,30 +3,40 @@ export default function Button({
   children,
   className = '',
   icon: Icon,
+  loading = false,
   type = 'button',
   variant = 'primary',
   ...props
 }) {
   const variants = {
-    primary: 'bg-emerald-700 text-white hover:bg-emerald-800',
-    secondary: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
-    danger: 'bg-rose-700 text-white hover:bg-rose-800',
+    primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
+    secondary: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
   }
 
+  const isDisabled = loading || props.disabled
   const elementProps =
     Component === 'button'
       ? {
+          disabled: isDisabled,
           type,
         }
       : {}
 
   return (
     <Component
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-60 ${variants[variant]} ${className}`}
-      {...elementProps}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-70 ${variants[variant]} ${className}`}
       {...props}
+      {...elementProps}
     >
-      {Icon ? <Icon aria-hidden="true" className="h-4 w-4" /> : null}
+      {loading ? (
+        <span
+          aria-hidden="true"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+        />
+      ) : Icon ? (
+        <Icon aria-hidden="true" className="h-4 w-4" />
+      ) : null}
       {children}
     </Component>
   )

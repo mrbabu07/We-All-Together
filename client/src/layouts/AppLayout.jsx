@@ -18,7 +18,7 @@ import useLanguage from '../hooks/useLanguage'
 
 const navLinkClass = ({ isActive }) =>
   `inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition ${
-    isActive ? 'bg-emerald-700 text-white' : 'text-slate-700 hover:bg-slate-100'
+    isActive ? 'bg-indigo-700 text-white' : 'text-gray-700 hover:bg-gray-100'
   }`
 
 export default function AppLayout() {
@@ -47,14 +47,14 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 text-slate-950 md:pb-0">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-gray-50 pb-20 text-gray-950 md:pb-0">
+      <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link className="grid gap-0.5" to="/">
-            <span className="text-base font-bold text-slate-950">
+            <span className="text-base font-bold text-gray-950">
               Dargah Para OIkko Porishod
             </span>
-            <span className="text-xs font-medium uppercase text-emerald-700">
+            <span className="text-xs font-medium uppercase text-indigo-700">
               {t.organization}
             </span>
           </Link>
@@ -104,7 +104,7 @@ export default function AppLayout() {
 
       <Outlet />
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white md:hidden">
         <div className="grid grid-cols-5">
           {mobileItems.map((item) => {
             const Icon = item.icon
@@ -113,7 +113,7 @@ export default function AppLayout() {
             return (
               <Link
                 className={`flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-semibold ${
-                  active ? 'text-emerald-700' : 'text-slate-600'
+                  active ? 'text-indigo-700' : 'text-gray-600'
                 }`}
                 key={item.to}
                 to={item.to}

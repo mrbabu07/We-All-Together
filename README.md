@@ -35,6 +35,7 @@ A MERN organization management system for member registration, admin approval, f
 - PDFKit receipt generation
 - QRCode payment verification
 - Twilio SMS/WhatsApp notifications
+- Headless UI, react-hot-toast, and Framer Motion for frontend interactions
 
 ## Project Structure
 
