@@ -58,6 +58,16 @@ const paymentSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    receiptNumber: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
+    receiptGeneratedAt: {
+      type: Date,
+      default: null,
+    },
     verifiedAt: {
       type: Date,
       default: null,

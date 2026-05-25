@@ -15,6 +15,8 @@ A MERN organization management system for member registration, admin approval, f
 - Searchable admin/member lists, confirmation dialogs, finance summaries, and Bengali/English navigation toggle
 - Meeting attendance/minutes, tour participant cost tracking, and admin password reset
 - Public/member gallery and member-created blogs with likes and comments
+- Finance analytics dashboard with income/expense charts, donation trend, and overdue fee tracking
+- Server-generated PDF receipts for monthly payments and donations
 
 ## Tech Stack
 
@@ -24,6 +26,8 @@ A MERN organization management system for member registration, admin approval, f
 - JWT authentication
 - bcrypt password hashing
 - ImgBB image uploads
+- Recharts analytics charts
+- PDFKit receipt generation
 
 ## Project Structure
 

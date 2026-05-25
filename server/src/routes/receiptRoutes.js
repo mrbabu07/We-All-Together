@@ -1,6 +1,7 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
+  downloadReceiptPdf,
   getDonationReceipt,
   getPaymentReceipt,
   getRegistrationReceipt,
@@ -23,5 +24,6 @@ router.get(
   getRegistrationReceipt,
 )
 router.get('/donations/:id', protect, authorize(USER_ROLES.ADMIN), getDonationReceipt)
+router.get('/:id', downloadReceiptPdf)
 
 module.exports = router

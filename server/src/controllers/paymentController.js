@@ -16,7 +16,7 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
   const payload = validateMonthlyPayment(req.body)
   const settings = await getSettings()
 
-  const payment = await Payment.create({
+  const payment = new Payment({
     user: req.user._id,
     type: PAYMENT_TYPES.MONTHLY_FEE,
     month: payload.month,
@@ -27,6 +27,9 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
     note: payload.note,
     proofImageUrl: payload.proofImageUrl,
   })
+  payment.receiptNumber = `PAY-${payment._id}`
+  payment.receiptGeneratedAt = new Date()
+  await payment.save()
 
   res.status(201).json({
     success: true,

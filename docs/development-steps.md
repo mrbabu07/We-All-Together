@@ -58,6 +58,9 @@ Deployment is intentionally skipped for now.
 18. Gallery and blog community features
     - Public/member gallery, member-created blogs, likes, comments, moderation controls, and seeded sample posts/photos.
 
+19. Finance analytics and PDF receipts
+    - Admin finance analytics endpoint, income vs expense bar chart, donation trend chart, overdue fee tracker, additive receipt fields, and PDF receipt downloads.
+
 ## Verification Command Set
 
 Run these before every push:

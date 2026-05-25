@@ -24,6 +24,18 @@ import SelectField from '../components/ui/SelectField'
 import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
@@ -155,6 +167,12 @@ export default function AdminDashboardPage() {
   const [message, setMessage] = useState('')
   const [data, setData] = useState({
     auditLogs: [],
+    analytics: {
+      donationTrend: [],
+      monthly: [],
+      overdue: { amount: 0, count: 0, members: [] },
+      summary: {},
+    },
     content: { activities: [], meetings: [], notices: [], rules: [], tours: [] },
     donations: [],
     expenses: [],
@@ -211,6 +229,7 @@ export default function AdminDashboardPage() {
         activitiesResponse,
         rulesResponse,
         auditLogsResponse,
+        analyticsResponse,
       ] = await Promise.all([
         api.get('/registrations/pending'),
         api.get('/settings/public'),
@@ -224,11 +243,13 @@ export default function AdminDashboardPage() {
         api.get('/activities/members'),
         api.get('/rules/members'),
         api.get('/audit-logs', { params: { limit: 80 } }),
+        api.get('/finance/analytics'),
       ])
 
       const settings = settingsResponse.data.data.settings
       setData({
         auditLogs: auditLogsResponse.data.data.logs,
+        analytics: analyticsResponse.data.data,
         content: {
           activities: activitiesResponse.data.data.items,
           meetings: meetingsResponse.data.data.items,
@@ -278,6 +299,9 @@ export default function AdminDashboardPage() {
       members: data.users.filter((item) => item.status === 'approved' && item.role === 'member')
         .length,
       pending: data.pendingRegistrations.length,
+      overdueFees: data.analytics.summary?.overdueFees || 0,
+      overdueCount: data.analytics.overdue?.count || 0,
+      thisMonthIncome: data.analytics.summary?.thisMonthIncome || 0,
       totalExpense,
       totalIncome,
     }
@@ -873,12 +897,11 @@ function OverviewTab({
 }) {
   return (
     <div className="mt-6 grid gap-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <Stat label="Approved Members" value={stats.members} />
-        <Stat label="Pending Users" value={stats.pending} />
-        <Stat label="Income" value={money(stats.totalIncome)} />
-        <Stat label="Expenses" value={money(stats.totalExpense)} />
-        <Stat label="Balance" value={money(stats.balance)} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Total Members" value={stats.members} />
+        <Stat label="Pending Approvals" value={stats.pending} />
+        <Stat label="This Month Income" value={money(stats.thisMonthIncome)} />
+        <Stat label="Overdue Fees" value={`${money(stats.overdueFees)} (${stats.overdueCount})`} />
       </div>
 
       <Panel>
@@ -996,6 +1019,8 @@ function FinanceTab({
 
   return (
     <div className="mt-6 grid gap-6">
+      <FinanceAnalytics analytics={data.analytics} />
+
       <FinanceSummary
         expenseCategories={expenseCategories}
         totalDonations={totalDonations}
@@ -1155,6 +1180,83 @@ function FinanceTab({
         rightItems={data.donations}
         rightTitle="Donations"
       />
+    </div>
+  )
+}
+
+function FinanceAnalytics({ analytics }) {
+  const monthly = analytics?.monthly || []
+  const donationTrend = analytics?.donationTrend || []
+  const overdueMembers = analytics?.overdue?.members || []
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Income vs Expense" />
+        <div className="mt-4 h-72">
+          {monthly.length === 0 ? (
+            <Empty text="No analytics data yet." />
+          ) : (
+            <ResponsiveContainer height="100%" width="100%">
+              <BarChart data={monthly}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip formatter={(value) => money(value)} />
+                <Legend />
+                <Bar dataKey="income" fill="#047857" name="Income" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill="#be123c" name="Expense" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Donation Trend" />
+        <div className="mt-4 h-72">
+          {donationTrend.length === 0 ? (
+            <Empty text="No donation trend data yet." />
+          ) : (
+            <ResponsiveContainer height="100%" width="100%">
+              <LineChart data={donationTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
+                <Tooltip formatter={(value) => money(value)} />
+                <Legend />
+                <Line
+                  activeDot={{ r: 6 }}
+                  dataKey="donations"
+                  name="Donations"
+                  stroke="#0891b2"
+                  strokeWidth={3}
+                  type="monotone"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Panel>
+
+      <Panel className="xl:col-span-2">
+        <SectionTitle icon={ClipboardList} title="Current Month Overdue Fees" />
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <SummaryStat label="Overdue Members" value={analytics?.overdue?.count || 0} />
+          <SummaryStat label="Expected Collection" value={money(analytics?.overdue?.amount || 0)} />
+          <SummaryStat label="This Month Income" value={money(analytics?.summary?.thisMonthIncome || 0)} />
+        </div>
+        <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {overdueMembers.length === 0 ? <Empty text="No overdue members this month." /> : null}
+          {overdueMembers.map((member) => (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3" key={member._id}>
+              <p className="font-semibold text-slate-950">{member.name}</p>
+              <p className="mt-1 text-sm text-slate-600">{member.phone}</p>
+              <p className="mt-1 text-sm text-slate-600">{member.address}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   )
 }

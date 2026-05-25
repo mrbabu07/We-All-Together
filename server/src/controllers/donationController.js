@@ -7,7 +7,10 @@ const { validateDonation } = require('../validators/financeValidators')
 
 const submitDonation = asyncHandler(async (req, res) => {
   const payload = validateDonation(req.body)
-  const donation = await Donation.create(payload)
+  const donation = new Donation(payload)
+  donation.receiptNumber = `DON-${donation._id}`
+  donation.receiptGeneratedAt = new Date()
+  await donation.save()
 
   res.status(201).json({
     success: true,

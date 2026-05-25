@@ -62,11 +62,13 @@ PATCH  /donations/:id/reject
 
 GET    /audit-logs
 GET    /backup
+GET    /finance/analytics
 GET    /notifications
 POST   /notifications/broadcast
 GET    /receipts/donations/:id
 GET    /receipts/payments/:id
 GET    /receipts/registrations/:id
+GET    /receipts/:id
 PATCH  /members/:id/password
 PATCH  /meetings/:id/attendance
 PATCH  /tours/:id/participants
@@ -149,6 +151,7 @@ PATCH /notifications/:id/read
 PATCH /notifications/my/read-all
 GET  /receipts/payments/:id
 GET  /receipts/registrations/:id
+GET  /receipts/:id
 ```
 
 ## Auth Header

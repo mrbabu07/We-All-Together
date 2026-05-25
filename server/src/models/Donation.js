@@ -41,6 +41,16 @@ const donationSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    receiptNumber: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
+    receiptGeneratedAt: {
+      type: Date,
+      default: null,
+    },
     status: {
       type: String,
       enum: Object.values(PAYMENT_STATUSES),

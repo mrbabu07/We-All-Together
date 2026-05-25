@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CreditCard,
+  Download,
   FileText,
   Heart,
   Image,
@@ -373,6 +374,25 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const downloadPaymentReceipt = async (id) => {
+    try {
+      setMessage('')
+      const response = await api.get(`/receipts/${id}`, {
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `payment-receipt-${id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -428,6 +448,7 @@ export default function MemberDashboardPage() {
             setPaymentForm((current) => ({ ...current, [field]: value }))
           }
           onProofUpload={uploadPaymentProof}
+          onReceiptDownload={downloadPaymentReceipt}
           onReceipt={printPaymentReceipt}
           onSubmit={submitPayment}
           payments={data.payments}
@@ -754,6 +775,7 @@ function Payments({
   onChange,
   onProofUpload,
   onReceipt,
+  onReceiptDownload,
   onSubmit,
   payments,
   uploadingProof,
@@ -857,9 +879,18 @@ function Payments({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge value={payment.status}>{payment.status}</Badge>
                 {payment.status === 'verified' ? (
-                  <Button icon={FileText} onClick={() => onReceipt(payment._id)} variant="secondary">
-                    Receipt
-                  </Button>
+                  <>
+                    <Button icon={FileText} onClick={() => onReceipt(payment._id)} variant="secondary">
+                      Print
+                    </Button>
+                    <Button
+                      icon={Download}
+                      onClick={() => onReceiptDownload(payment._id)}
+                      variant="secondary"
+                    >
+                      PDF
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </div>
