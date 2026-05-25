@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   ClipboardList,
+  Download,
   Pencil,
   FilePlus2,
   RefreshCw,
@@ -16,11 +17,13 @@ import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import useAuth from '../hooks/useAuth'
+import { downloadCsv } from '../utils/csvExport'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
+const toExportDate = (value) => (value ? new Date(value).toISOString() : '')
 
 const emptyContentForms = {
   notices: { title: '', body: '', audience: 'public', imageUrl: '', pinned: false },
@@ -446,6 +449,69 @@ export default function AdminDashboardPage() {
     }, 'User deleted successfully.')
   }
 
+  const exportUsers = () => {
+    const ok = downloadCsv(
+      'dargah-users.csv',
+      data.users.map((item) => ({
+        address: item.address || '',
+        createdAt: toExportDate(item.createdAt),
+        name: item.name,
+        phone: item.phone,
+        role: item.role,
+        status: item.status,
+      })),
+    )
+    setMessage(ok ? 'Users CSV downloaded.' : 'No users to export.')
+  }
+
+  const exportPayments = () => {
+    const ok = downloadCsv(
+      'dargah-payments.csv',
+      data.payments.map((item) => ({
+        amount: item.amount,
+        createdAt: toExportDate(item.createdAt),
+        memberName: item.user?.name || '',
+        memberPhone: item.user?.phone || '',
+        method: item.method,
+        month: item.month,
+        senderPhone: item.senderPhone,
+        status: item.status,
+        transactionId: item.transactionId,
+      })),
+    )
+    setMessage(ok ? 'Payments CSV downloaded.' : 'No payments to export.')
+  }
+
+  const exportDonations = () => {
+    const ok = downloadCsv(
+      'dargah-donations.csv',
+      data.donations.map((item) => ({
+        amount: item.amount,
+        createdAt: toExportDate(item.createdAt),
+        donorName: item.donorName,
+        method: item.method,
+        phone: item.phone,
+        status: item.status,
+        transactionId: item.transactionId,
+      })),
+    )
+    setMessage(ok ? 'Donations CSV downloaded.' : 'No donations to export.')
+  }
+
+  const exportExpenses = () => {
+    const ok = downloadCsv(
+      'dargah-expenses.csv',
+      data.expenses.map((item) => ({
+        amount: item.amount,
+        category: item.category,
+        date: toExportDate(item.date),
+        note: item.note || '',
+        title: item.title,
+      })),
+    )
+    setMessage(ok ? 'Expenses CSV downloaded.' : 'No expenses to export.')
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -491,6 +557,10 @@ export default function AdminDashboardPage() {
       {!loading && activeTab === 'overview' ? (
         <OverviewTab
           data={data}
+          onExportDonations={exportDonations}
+          onExportExpenses={exportExpenses}
+          onExportPayments={exportPayments}
+          onExportUsers={exportUsers}
           onApprove={(id) =>
             runAction(() => api.patch(`/registrations/${id}/approve`), 'Registration approved.')
           }
@@ -564,7 +634,16 @@ export default function AdminDashboardPage() {
   )
 }
 
-function OverviewTab({ data, onApprove, onReject, stats }) {
+function OverviewTab({
+  data,
+  onApprove,
+  onExportDonations,
+  onExportExpenses,
+  onExportPayments,
+  onExportUsers,
+  onReject,
+  stats,
+}) {
   return (
     <div className="mt-6 grid gap-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -574,6 +653,24 @@ function OverviewTab({ data, onApprove, onReject, stats }) {
         <Stat label="Expenses" value={money(stats.totalExpense)} />
         <Stat label="Balance" value={money(stats.balance)} />
       </div>
+
+      <Panel>
+        <SectionTitle icon={Download} title="Export Reports" />
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button icon={Download} onClick={onExportUsers} variant="secondary">
+            Users CSV
+          </Button>
+          <Button icon={Download} onClick={onExportPayments} variant="secondary">
+            Payments CSV
+          </Button>
+          <Button icon={Download} onClick={onExportDonations} variant="secondary">
+            Donations CSV
+          </Button>
+          <Button icon={Download} onClick={onExportExpenses} variant="secondary">
+            Expenses CSV
+          </Button>
+        </div>
+      </Panel>
 
       <Panel>
         <SectionTitle icon={ClipboardList} title="Pending Registrations" />
