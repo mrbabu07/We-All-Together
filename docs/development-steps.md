@@ -73,6 +73,9 @@ Deployment is intentionally skipped for now.
 23. Event RSVP system
     - Additive meeting/tour RSVP fields, member RSVP endpoints/buttons, admin RSVP counts/lists, seeded RSVP responses, and API documentation.
 
+24. UI improvement pass
+    - Bengali default navigation with English toggle, mobile bottom navigation, status color consistency, 44px touch targets, loading skeletons, and member tab deep links.
+
 ## Verification Command Set
 
 Run these before every push:

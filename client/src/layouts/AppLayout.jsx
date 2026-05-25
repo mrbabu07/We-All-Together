@@ -1,17 +1,30 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { Bell, Languages, LayoutDashboard, LogOut, UserRound, UserPlus, Users } from 'lucide-react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import {
+  Bell,
+  BookOpen,
+  CreditCard,
+  Home,
+  Image,
+  Languages,
+  LayoutDashboard,
+  LogOut,
+  UserRound,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 
 const navLinkClass = ({ isActive }) =>
-  `rounded-md px-3 py-2 text-sm font-semibold transition ${
+  `inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition ${
     isActive ? 'bg-emerald-700 text-white' : 'text-slate-700 hover:bg-slate-100'
   }`
 
 export default function AppLayout() {
   const { logout, user } = useAuth()
   const { language, t, toggleLanguage } = useLanguage()
+  const location = useLocation()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -19,8 +32,22 @@ export default function AppLayout() {
     navigate('/')
   }
 
+  const mobileItems = [
+    { icon: Home, label: t.home, to: '/' },
+    { icon: CreditCard, label: t.payment, to: user ? '/member?tab=payments' : '/login' },
+    { icon: Bell, label: t.notice, to: user ? '/member?tab=updates' : '/' },
+    { icon: Image, label: t.gallery, to: user ? '/member?tab=gallery' : '/' },
+    { icon: BookOpen, label: t.blog, to: user ? '/member?tab=blogs' : '/' },
+  ]
+
+  const isMobileActive = (to) => {
+    const [pathname, search = ''] = to.split('?')
+
+    return location.pathname === pathname && location.search === (search ? `?${search}` : '')
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
+    <div className="min-h-screen bg-slate-50 pb-20 text-slate-950 md:pb-0">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link className="grid gap-0.5" to="/">
@@ -76,6 +103,28 @@ export default function AppLayout() {
       </header>
 
       <Outlet />
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white md:hidden">
+        <div className="grid grid-cols-5">
+          {mobileItems.map((item) => {
+            const Icon = item.icon
+            const active = isMobileActive(item.to)
+
+            return (
+              <Link
+                className={`flex min-h-14 flex-col items-center justify-center gap-1 text-xs font-semibold ${
+                  active ? 'text-emerald-700' : 'text-slate-600'
+                }`}
+                key={item.to}
+                to={item.to}
+              >
+                <Icon aria-hidden="true" className="h-5 w-5" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

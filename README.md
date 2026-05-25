@@ -21,6 +21,7 @@ A MERN organization management system for member registration, admin approval, f
 - Twilio SMS/WhatsApp alerts with admin-controlled triggers and Bangladeshi phone validation
 - Meeting poll system with one-vote-per-member voting and live admin result charts
 - Meeting and tour RSVP tracking with admin counts and member response buttons
+- Bengali-first navigation, mobile bottom nav, consistent status colors, 44px touch targets, and loading skeletons
 
 ## Tech Stack
 

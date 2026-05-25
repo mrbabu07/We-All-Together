@@ -1,10 +1,14 @@
 const variants = {
   approved: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   completed: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  pending: 'bg-amber-50 text-amber-800 ring-amber-200',
+  going: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  verified: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  pending: 'bg-yellow-50 text-yellow-800 ring-yellow-200',
+  maybe: 'bg-yellow-50 text-yellow-800 ring-yellow-200',
   planned: 'bg-cyan-50 text-cyan-800 ring-cyan-200',
   rejected: 'bg-rose-50 text-rose-800 ring-rose-200',
   cancelled: 'bg-rose-50 text-rose-800 ring-rose-200',
+  not_going: 'bg-rose-50 text-rose-800 ring-rose-200',
   default: 'bg-slate-100 text-slate-700 ring-slate-200',
 }
 

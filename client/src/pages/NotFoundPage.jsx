@@ -8,7 +8,7 @@ export default function NotFoundPage() {
         <h1 className="text-2xl font-bold text-slate-950">Page Not Found</h1>
         <p className="mt-2 text-sm text-slate-600">The requested page does not exist.</p>
         <Link
-          className="mt-5 inline-flex min-h-10 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
+          className="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
           to="/"
         >
           Go Home

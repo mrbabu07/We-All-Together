@@ -22,7 +22,9 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
+import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
+import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import {
@@ -163,6 +165,7 @@ const tabLabels = [
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('overview')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -800,7 +803,7 @@ export default function AdminDashboardPage() {
       <div className="mt-6 flex flex-wrap gap-2">
         {tabLabels.map(([key, label]) => (
           <button
-            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition ${
               activeTab === key
                 ? 'bg-emerald-700 text-white'
                 : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -809,7 +812,7 @@ export default function AdminDashboardPage() {
             onClick={() => setActiveTab(key)}
             type="button"
           >
-            {label}
+            {t[key] || label}
           </button>
         ))}
       </div>
@@ -822,7 +825,7 @@ export default function AdminDashboardPage() {
 
       {loading ? (
         <Panel className="mt-6">
-          <p className="text-sm text-slate-600">Loading dashboard...</p>
+          <Skeleton rows={6} />
         </Panel>
       ) : null}
 
@@ -2199,7 +2202,7 @@ function ImageUploadControl({ form, itemKey, onChange, onImageUpload, uploading 
         <span>Upload Image</span>
         <input
           accept="image/*"
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+          className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
           disabled={uploading}
           onChange={(event) => onImageUpload(itemKey, event.target.files?.[0])}
           type="file"

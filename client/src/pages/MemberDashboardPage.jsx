@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   BookOpen,
   CalendarDays,
@@ -21,7 +22,9 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
+import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
+import useLanguage from '../hooks/useLanguage'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialPaymentForm = {
@@ -80,7 +83,10 @@ const tabs = [
 
 export default function MemberDashboardPage() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('overview')
+  const { t } = useLanguage()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const activeTab = tabs.some(([key]) => key === requestedTab) ? requestedTab : 'overview'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
@@ -161,6 +167,10 @@ export default function MemberDashboardPage() {
 
     return () => window.clearTimeout(timer)
   }, [loadDashboard])
+
+  const changeTab = (tab) => {
+    setSearchParams(tab === 'overview' ? {} : { tab })
+  }
 
   const stats = useMemo(() => {
     return {
@@ -447,16 +457,16 @@ export default function MemberDashboardPage() {
       <div className="mt-6 flex flex-wrap gap-2">
         {tabs.map(([key, label]) => (
           <button
-            className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition ${
               activeTab === key
                 ? 'bg-emerald-700 text-white'
                 : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
             key={key}
-            onClick={() => setActiveTab(key)}
+            onClick={() => changeTab(key)}
             type="button"
           >
-            {label}
+            {t[key] || label}
           </button>
         ))}
       </div>
@@ -469,7 +479,7 @@ export default function MemberDashboardPage() {
 
       {loading ? (
         <Panel className="mt-6">
-          <p className="text-sm text-slate-600">Loading member dashboard...</p>
+          <Skeleton rows={6} />
         </Panel>
       ) : null}
 
@@ -576,7 +586,7 @@ function Overview({ data, monthlyFee, stats }) {
 
 function CommunityImageUpload({ label, onUpload, uploading }) {
   return (
-    <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+    <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
       <Upload aria-hidden="true" className="h-4 w-4" />
       <span>{uploading ? 'Uploading...' : label}</span>
       <input
@@ -703,7 +713,7 @@ function Blogs({
                       comment.user?._id === user?._id ||
                       blog.createdBy?._id === user?._id) ? (
                       <button
-                        className="text-xs font-semibold text-rose-700 hover:text-rose-800"
+                        className="inline-flex min-h-11 items-center rounded-md px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 hover:text-rose-800"
                         onClick={() => onCommentDelete(blog._id, comment._id)}
                         type="button"
                       >
@@ -880,7 +890,7 @@ function Payments({
             <span>Upload Payment Proof</span>
             <input
               accept="image/*"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
               disabled={uploadingProof}
               onChange={(event) => onProofUpload(event.target.files?.[0])}
               type="file"

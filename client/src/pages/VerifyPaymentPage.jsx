@@ -5,6 +5,7 @@ import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
+import Skeleton from '../components/ui/Skeleton'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
@@ -66,7 +67,7 @@ export default function VerifyPaymentPage() {
       ) : null}
 
       <Panel className="mt-6">
-        {loading ? <p className="text-sm text-slate-600">Loading payment...</p> : null}
+        {loading ? <Skeleton rows={4} /> : null}
         {!loading && !payment ? (
           <p className="text-sm text-slate-600">Payment not found.</p>
         ) : null}

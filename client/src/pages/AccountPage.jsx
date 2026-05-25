@@ -214,7 +214,7 @@ function DocumentUpload({ field, label, onChange, onUpload, uploading, value }) 
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 p-3">
       <Field label={`${label} URL`} name={field} onChange={onChange} value={value} />
-      <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
+      <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">
         <Upload aria-hidden="true" className="h-4 w-4" />
         <span>{uploading ? 'Uploading...' : `Upload ${label}`}</span>
         <input

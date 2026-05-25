@@ -147,7 +147,7 @@ export default function RegisterPage() {
             <span>Upload Payment Proof</span>
             <input
               accept="image/*"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
               disabled={uploadingProof}
               onChange={(event) => uploadProof(event.target.files?.[0])}
               type="file"

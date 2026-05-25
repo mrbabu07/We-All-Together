@@ -7,6 +7,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
+import Skeleton from '../components/ui/Skeleton'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialDonationForm = {
@@ -170,14 +171,14 @@ export default function PublicHomePage() {
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                 to="/register"
               >
                 <UserPlus aria-hidden="true" className="h-4 w-4" />
                 Register
               </Link>
               <Link
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
                 to="/login"
               >
                 <LogIn aria-hidden="true" className="h-4 w-4" />
@@ -196,15 +197,27 @@ export default function PublicHomePage() {
             </p>
           ) : null}
 
-          {loading ? <p className="text-sm text-slate-600">Loading public updates...</p> : null}
+          {loading ? (
+            <Panel>
+              <Skeleton rows={5} />
+            </Panel>
+          ) : null}
 
-          <PublicGallery items={data.gallery} />
-          <PublicBlogs blogs={data.blogs} />
-          <PublicList items={data.notices} textKey="body" title="Public Notices" />
-          <PublicList items={data.meetings} textKey="agenda" title="Public Meetings" />
-          <PublicList items={data.tours} textKey="details" title="Public Tours" />
-          <PublicList items={data.activities} textKey="description" title="Educational Activities" />
-          <PublicList items={data.rules} textKey="description" title="Public Rules" />
+          {!loading ? (
+            <>
+              <PublicGallery items={data.gallery} />
+              <PublicBlogs blogs={data.blogs} />
+              <PublicList items={data.notices} textKey="body" title="Public Notices" />
+              <PublicList items={data.meetings} textKey="agenda" title="Public Meetings" />
+              <PublicList items={data.tours} textKey="details" title="Public Tours" />
+              <PublicList
+                items={data.activities}
+                textKey="description"
+                title="Educational Activities"
+              />
+              <PublicList items={data.rules} textKey="description" title="Public Rules" />
+            </>
+          ) : null}
         </div>
 
         <aside className="grid gap-6 self-start">
@@ -272,7 +285,7 @@ export default function PublicHomePage() {
                 <span>Upload Payment Proof</span>
                 <input
                   accept="image/*"
-                  className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
                   disabled={uploadingProof}
                   onChange={(event) => uploadDonationProof(event.target.files?.[0])}
                   type="file"
@@ -293,7 +306,7 @@ export default function PublicHomePage() {
               {money(data.settings.registrationFee)}
             </p>
             <Link
-              className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
               to="/register"
             >
               <UserPlus aria-hidden="true" className="h-4 w-4" />

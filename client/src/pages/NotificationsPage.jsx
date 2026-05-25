@@ -5,6 +5,7 @@ import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
+import Skeleton from '../components/ui/Skeleton'
 
 const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
 
@@ -80,7 +81,7 @@ export default function NotificationsPage() {
       ) : null}
 
       <Panel className="mt-6">
-        {loading ? <p className="text-sm text-slate-600">Loading notifications...</p> : null}
+        {loading ? <Skeleton rows={4} /> : null}
         {!loading && notifications.length === 0 ? (
           <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-500">
             No notifications yet.
