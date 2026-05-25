@@ -55,8 +55,71 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
   })
 })
 
+const updateUserAccess = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id)
+
+  if (!user) {
+    throw new AppError('User not found.', 404)
+  }
+
+  if (req.body.role !== undefined) {
+    if (!Object.values(USER_ROLES).includes(req.body.role)) {
+      throw new AppError('Role is invalid.', 400)
+    }
+
+    user.role = req.body.role
+  }
+
+  if (req.body.status !== undefined) {
+    if (!Object.values(USER_STATUSES).includes(req.body.status)) {
+      throw new AppError('Status is invalid.', 400)
+    }
+
+    user.status = req.body.status
+
+    if (req.body.status === USER_STATUSES.APPROVED && !user.approvedAt) {
+      user.approvedAt = new Date()
+      user.approvedBy = req.user._id
+    }
+  }
+
+  await user.save()
+
+  res.status(200).json({
+    success: true,
+    message: 'User access updated successfully.',
+    data: {
+      user,
+    },
+  })
+})
+
+const deleteUser = asyncHandler(async (req, res) => {
+  if (req.user._id.toString() === req.params.id) {
+    throw new AppError('You cannot delete your own account.', 400)
+  }
+
+  const user = await User.findById(req.params.id)
+
+  if (!user) {
+    throw new AppError('User not found.', 404)
+  }
+
+  await user.deleteOne()
+
+  res.status(200).json({
+    success: true,
+    message: 'User deleted successfully.',
+    data: {
+      id: req.params.id,
+    },
+  })
+})
+
 module.exports = {
+  deleteUser,
   getAllUsers,
   getApprovedMembers,
+  updateUserAccess,
   updateMemberProfile,
 }

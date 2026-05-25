@@ -35,9 +35,11 @@ export default function PublicHomePage() {
   const [donationForm, setDonationForm] = useState(initialDonationForm)
   const [data, setData] = useState({
     activities: [],
+    meetings: [],
     notices: [],
     rules: [],
     settings: {},
+    tours: [],
   })
 
   const loadPublicData = useCallback(async () => {
@@ -45,19 +47,30 @@ export default function PublicHomePage() {
     setMessage('')
 
     try {
-      const [settingsResponse, noticesResponse, activitiesResponse, rulesResponse] =
+      const [
+        settingsResponse,
+        noticesResponse,
+        meetingsResponse,
+        toursResponse,
+        activitiesResponse,
+        rulesResponse,
+      ] =
         await Promise.all([
           api.get('/settings/public'),
           api.get('/notices/public'),
+          api.get('/meetings/public'),
+          api.get('/tours/public'),
           api.get('/activities/public'),
           api.get('/rules/public'),
         ])
 
       setData({
         activities: activitiesResponse.data.data.items,
+        meetings: meetingsResponse.data.data.items,
         notices: noticesResponse.data.data.items,
         rules: rulesResponse.data.data.items,
         settings: settingsResponse.data.data.settings,
+        tours: toursResponse.data.data.items,
       })
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -145,6 +158,8 @@ export default function PublicHomePage() {
           {loading ? <p className="text-sm text-slate-600">Loading public updates...</p> : null}
 
           <PublicList items={data.notices} textKey="body" title="Public Notices" />
+          <PublicList items={data.meetings} textKey="agenda" title="Public Meetings" />
+          <PublicList items={data.tours} textKey="details" title="Public Tours" />
           <PublicList items={data.activities} textKey="description" title="Educational Activities" />
           <PublicList items={data.rules} textKey="description" title="Public Rules" />
         </div>
@@ -246,9 +261,9 @@ function PublicList({ items, textKey, title }) {
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
             </div>
             <p className="mt-2 text-sm leading-6 text-slate-600">{item[textKey]}</p>
-            {item.activityDate ? (
+            {item.activityDate || item.meetingDate || item.startDate ? (
               <p className="mt-3 text-xs font-semibold uppercase text-emerald-700">
-                {formatDate(item.activityDate)}
+                {formatDate(item.activityDate || item.meetingDate || item.startDate)}
               </p>
             ) : null}
           </article>

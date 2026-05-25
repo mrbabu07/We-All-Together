@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2,
   ClipboardList,
+  Pencil,
   FilePlus2,
   RefreshCw,
   Save,
@@ -17,6 +18,9 @@ import SelectField from '../components/ui/SelectField'
 import useAuth from '../hooks/useAuth'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+
+const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
+const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
 
 const emptyContentForms = {
   notices: { title: '', body: '', audience: 'public', pinned: false },
@@ -50,6 +54,59 @@ const contentConfigs = [
   { key: 'activities', title: 'Activities', endpoint: '/activities', main: 'category' },
   { key: 'rules', title: 'Rules', endpoint: '/rules', main: 'description' },
 ]
+
+const getContentEditForm = (key, item) => {
+  if (key === 'notices') {
+    return {
+      title: item.title || '',
+      body: item.body || '',
+      audience: item.audience || 'public',
+      pinned: Boolean(item.pinned),
+    }
+  }
+
+  if (key === 'meetings') {
+    return {
+      title: item.title || '',
+      agenda: item.agenda || '',
+      meetingDate: toDateTimeInput(item.meetingDate),
+      location: item.location || '',
+      audience: item.audience || 'members',
+    }
+  }
+
+  if (key === 'tours') {
+    return {
+      title: item.title || '',
+      destination: item.destination || '',
+      startDate: toDateInput(item.startDate),
+      endDate: toDateInput(item.endDate),
+      budget: item.budget || '',
+      details: item.details || '',
+      audience: item.audience || 'members',
+      status: item.status || 'planned',
+    }
+  }
+
+  if (key === 'activities') {
+    return {
+      title: item.title || '',
+      category: item.category || '',
+      description: item.description || '',
+      activityDate: toDateInput(item.activityDate),
+      participantsCount: item.participantsCount || '',
+      audience: item.audience || 'public',
+      status: item.status || 'planned',
+    }
+  }
+
+  return {
+    title: item.title || '',
+    description: item.description || '',
+    audience: item.audience || 'members',
+    order: item.order || '',
+  }
+}
 
 const tabLabels = [
   ['overview', 'Overview'],
@@ -90,6 +147,8 @@ export default function AdminDashboardPage() {
   )
   const [monthlyStatus, setMonthlyStatus] = useState(null)
   const [contentForms, setContentForms] = useState(emptyContentForms)
+  const [editingContent, setEditingContent] = useState({})
+  const [editingExpenseId, setEditingExpenseId] = useState(null)
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -207,10 +266,16 @@ export default function AdminDashboardPage() {
     }, 'Settings updated successfully.')
   }
 
-  const createExpense = async (event) => {
+  const saveExpense = async (event) => {
     event.preventDefault()
     await runAction(async () => {
-      await api.post('/expenses', expenseForm)
+      if (editingExpenseId) {
+        await api.patch(`/expenses/${editingExpenseId}`, expenseForm)
+      } else {
+        await api.post('/expenses', expenseForm)
+      }
+
+      setEditingExpenseId(null)
       setExpenseForm({
         amount: '',
         category: '',
@@ -218,7 +283,35 @@ export default function AdminDashboardPage() {
         note: '',
         title: '',
       })
-    }, 'Expense added successfully.')
+    }, editingExpenseId ? 'Expense updated successfully.' : 'Expense added successfully.')
+  }
+
+  const editExpense = (expense) => {
+    setEditingExpenseId(expense._id)
+    setExpenseForm({
+      amount: expense.amount || '',
+      category: expense.category || '',
+      date: toDateInput(expense.date),
+      note: expense.note || '',
+      title: expense.title || '',
+    })
+  }
+
+  const cancelExpenseEdit = () => {
+    setEditingExpenseId(null)
+    setExpenseForm({
+      amount: '',
+      category: '',
+      date: new Date().toISOString().slice(0, 10),
+      note: '',
+      title: '',
+    })
+  }
+
+  const deleteExpense = async (id) => {
+    await runAction(async () => {
+      await api.delete(`/expenses/${id}`)
+    }, 'Expense deleted successfully.')
   }
 
   const loadMonthlyStatus = async () => {
@@ -243,18 +336,69 @@ export default function AdminDashboardPage() {
   const createContent = async (event, config) => {
     event.preventDefault()
     await runAction(async () => {
-      await api.post(config.endpoint, contentForms[config.key])
+      const editingId = editingContent[config.key]
+
+      if (editingId) {
+        await api.patch(`${config.endpoint}/${editingId}`, contentForms[config.key])
+      } else {
+        await api.post(config.endpoint, contentForms[config.key])
+      }
+
+      setEditingContent((current) => ({
+        ...current,
+        [config.key]: null,
+      }))
       setContentForms((current) => ({
         ...current,
         [config.key]: emptyContentForms[config.key],
       }))
-    }, `${config.title} item created successfully.`)
+    }, editingContent[config.key] ? `${config.title} item updated successfully.` : `${config.title} item created successfully.`)
   }
 
   const deleteContent = async (config, id) => {
     await runAction(async () => {
       await api.delete(`${config.endpoint}/${id}`)
     }, `${config.title} item deleted successfully.`)
+  }
+
+  const editContent = (config, item) => {
+    setEditingContent((current) => ({
+      ...current,
+      [config.key]: item._id,
+    }))
+    setContentForms((current) => ({
+      ...current,
+      [config.key]: getContentEditForm(config.key, item),
+    }))
+  }
+
+  const cancelContentEdit = (config) => {
+    setEditingContent((current) => ({
+      ...current,
+      [config.key]: null,
+    }))
+    setContentForms((current) => ({
+      ...current,
+      [config.key]: emptyContentForms[config.key],
+    }))
+  }
+
+  const updateMemberProfile = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/members/${id}`, payload)
+    }, 'Member profile updated successfully.')
+  }
+
+  const updateUserAccess = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/members/${id}/access`, payload)
+    }, 'User access updated successfully.')
+  }
+
+  const deleteUser = async (id) => {
+    await runAction(async () => {
+      await api.delete(`/members/${id}`)
+    }, 'User deleted successfully.')
   }
 
   return (
@@ -316,9 +460,13 @@ export default function AdminDashboardPage() {
         <FinanceTab
           data={data}
           expenseForm={expenseForm}
+          editingExpenseId={editingExpenseId}
           monthlyStatus={monthlyStatus}
           monthlyStatusMonth={monthlyStatusMonth}
-          onCreateExpense={createExpense}
+          onCancelExpenseEdit={cancelExpenseEdit}
+          onDeleteExpense={deleteExpense}
+          onEditExpense={editExpense}
+          onSaveExpense={saveExpense}
           onExpenseChange={(field, value) =>
             setExpenseForm((current) => ({ ...current, [field]: value }))
           }
@@ -348,13 +496,23 @@ export default function AdminDashboardPage() {
         <ContentTab
           contentForms={contentForms}
           data={data}
+          editingContent={editingContent}
+          onCancelEdit={cancelContentEdit}
           onCreate={createContent}
           onDelete={deleteContent}
+          onEdit={editContent}
           onFormChange={updateContentForm}
         />
       ) : null}
 
-      {!loading && activeTab === 'members' ? <MembersTab users={data.users} /> : null}
+      {!loading && activeTab === 'members' ? (
+        <MembersTab
+          onDeleteUser={deleteUser}
+          onUpdateAccess={updateUserAccess}
+          onUpdateProfile={updateMemberProfile}
+          users={data.users}
+        />
+      ) : null}
     </main>
   )
 }
@@ -411,10 +569,13 @@ function OverviewTab({ data, onApprove, onReject, stats }) {
 
 function FinanceTab({
   data,
+  editingExpenseId,
   expenseForm,
   monthlyStatus,
   monthlyStatusMonth,
-  onCreateExpense,
+  onCancelExpenseEdit,
+  onDeleteExpense,
+  onEditExpense,
   onDonationReject,
   onDonationVerify,
   onExpenseChange,
@@ -422,6 +583,7 @@ function FinanceTab({
   onMonthChange,
   onPaymentReject,
   onPaymentVerify,
+  onSaveExpense,
   onSettingsChange,
   onUpdateSettings,
   settingsForm,
@@ -491,8 +653,8 @@ function FinanceTab({
       </Panel>
 
       <Panel>
-        <SectionTitle icon={FilePlus2} title="Add Expense" />
-        <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onCreateExpense}>
+        <SectionTitle icon={FilePlus2} title={editingExpenseId ? 'Edit Expense' : 'Add Expense'} />
+        <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onSaveExpense}>
           <Field
             label="Title"
             name="title"
@@ -529,10 +691,43 @@ function FinanceTab({
             onChange={(event) => onExpenseChange('note', event.target.value)}
             value={expenseForm.note}
           />
-          <Button className="md:col-span-2 xl:col-span-5" icon={FilePlus2} type="submit">
-            Add Expense
+          <Button className="md:col-span-2 xl:col-span-4" icon={FilePlus2} type="submit">
+            {editingExpenseId ? 'Update Expense' : 'Add Expense'}
           </Button>
+          {editingExpenseId ? (
+            <Button onClick={onCancelExpenseEdit} variant="secondary">
+              Cancel
+            </Button>
+          ) : null}
         </form>
+      </Panel>
+
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Expense List" />
+        <div className="mt-4 grid gap-3">
+          {data.expenses.length === 0 ? <Empty text="No expenses added yet." /> : null}
+          {data.expenses.map((expense) => (
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-4"
+              key={expense._id}
+            >
+              <div>
+                <h3 className="font-semibold text-slate-950">{expense.title}</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  {money(expense.amount)} | {expense.category}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button icon={Pencil} onClick={() => onEditExpense(expense)} variant="secondary">
+                  Edit
+                </Button>
+                <Button icon={Trash2} onClick={() => onDeleteExpense(expense._id)} variant="danger">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
       </Panel>
 
       <TwoColumnLists
@@ -549,17 +744,34 @@ function FinanceTab({
   )
 }
 
-function ContentTab({ contentForms, data, onCreate, onDelete, onFormChange }) {
+function ContentTab({
+  contentForms,
+  data,
+  editingContent,
+  onCancelEdit,
+  onCreate,
+  onDelete,
+  onEdit,
+  onFormChange,
+}) {
   return (
     <div className="mt-6 grid gap-6">
       {contentConfigs.map((config) => (
         <Panel key={config.key}>
-          <SectionTitle icon={FilePlus2} title={config.title} />
+          <SectionTitle
+            icon={FilePlus2}
+            title={editingContent[config.key] ? `Edit ${config.title}` : config.title}
+          />
           <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={(event) => onCreate(event, config)}>
             <ContentFields config={config} form={contentForms[config.key]} onChange={onFormChange} />
-            <Button className="md:col-span-2" icon={FilePlus2} type="submit">
-              Add {config.title}
+            <Button className={editingContent[config.key] ? '' : 'md:col-span-2'} icon={FilePlus2} type="submit">
+              {editingContent[config.key] ? `Update ${config.title}` : `Add ${config.title}`}
             </Button>
+            {editingContent[config.key] ? (
+              <Button onClick={() => onCancelEdit(config)} variant="secondary">
+                Cancel Edit
+              </Button>
+            ) : null}
           </form>
           <div className="mt-5 grid gap-3">
             {data.content[config.key].length === 0 ? <Empty text={`No ${config.title.toLowerCase()}.`} /> : null}
@@ -576,9 +788,14 @@ function ContentTab({ contentForms, data, onCreate, onDelete, onFormChange }) {
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{item[config.main]}</p>
                 </div>
-                <Button icon={Trash2} onClick={() => onDelete(config, item._id)} variant="danger">
-                  Delete
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button icon={Pencil} onClick={() => onEdit(config, item)} variant="secondary">
+                    Edit
+                  </Button>
+                  <Button icon={Trash2} onClick={() => onDelete(config, item._id)} variant="danger">
+                    Delete
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -588,37 +805,157 @@ function ContentTab({ contentForms, data, onCreate, onDelete, onFormChange }) {
   )
 }
 
-function MembersTab({ users }) {
+function MembersTab({ onDeleteUser, onUpdateAccess, onUpdateProfile, users }) {
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [memberForm, setMemberForm] = useState({
+    address: '',
+    name: '',
+    phone: '',
+    role: 'member',
+    status: 'pending',
+  })
+
+  const startEdit = (user) => {
+    setEditingUserId(user._id)
+    setMemberForm({
+      address: user.address || '',
+      name: user.name || '',
+      phone: user.phone || '',
+      role: user.role || 'member',
+      status: user.status || 'pending',
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingUserId(null)
+    setMemberForm({
+      address: '',
+      name: '',
+      phone: '',
+      role: 'member',
+      status: 'pending',
+    })
+  }
+
+  const updateField = (field, value) => {
+    setMemberForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const saveMember = async (event) => {
+    event.preventDefault()
+
+    await onUpdateProfile(editingUserId, {
+      address: memberForm.address,
+      name: memberForm.name,
+      phone: memberForm.phone,
+    })
+    await onUpdateAccess(editingUserId, {
+      role: memberForm.role,
+      status: memberForm.status,
+    })
+    cancelEdit()
+  }
+
   return (
-    <Panel className="mt-6">
-      <SectionTitle icon={ClipboardList} title="Users and Members" />
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-600">
-              <th className="py-3 pr-4">Name</th>
-              <th className="py-3 pr-4">Phone</th>
-              <th className="py-3 pr-4">Role</th>
-              <th className="py-3 pr-4">Status</th>
-              <th className="py-3 pr-4">Address</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((item) => (
-              <tr className="border-b border-slate-100" key={item._id}>
-                <td className="py-3 pr-4 font-medium text-slate-950">{item.name}</td>
-                <td className="py-3 pr-4 text-slate-600">{item.phone}</td>
-                <td className="py-3 pr-4 text-slate-600">{item.role}</td>
-                <td className="py-3 pr-4">
-                  <Badge value={item.status}>{item.status}</Badge>
-                </td>
-                <td className="py-3 pr-4 text-slate-600">{item.address}</td>
+    <div className="mt-6 grid gap-6">
+      {editingUserId ? (
+        <Panel>
+          <SectionTitle icon={Pencil} title="Edit User" />
+          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={saveMember}>
+            <Field
+              label="Name"
+              name="name"
+              onChange={(event) => updateField('name', event.target.value)}
+              required
+              value={memberForm.name}
+            />
+            <Field
+              label="Phone"
+              name="phone"
+              onChange={(event) => updateField('phone', event.target.value)}
+              required
+              value={memberForm.phone}
+            />
+            <Field
+              className="md:col-span-2"
+              label="Address"
+              name="address"
+              onChange={(event) => updateField('address', event.target.value)}
+              value={memberForm.address}
+            />
+            <SelectField
+              label="Role"
+              name="role"
+              onChange={(event) => updateField('role', event.target.value)}
+              value={memberForm.role}
+            >
+              <option value="admin">Admin</option>
+              <option value="member">Member</option>
+            </SelectField>
+            <SelectField
+              label="Status"
+              name="status"
+              onChange={(event) => updateField('status', event.target.value)}
+              value={memberForm.status}
+            >
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </SelectField>
+            <Button icon={Save} type="submit">
+              Save User
+            </Button>
+            <Button onClick={cancelEdit} variant="secondary">
+              Cancel
+            </Button>
+          </form>
+        </Panel>
+      ) : null}
+
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Users and Members" />
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-600">
+                <th className="py-3 pr-4">Name</th>
+                <th className="py-3 pr-4">Phone</th>
+                <th className="py-3 pr-4">Role</th>
+                <th className="py-3 pr-4">Status</th>
+                <th className="py-3 pr-4">Address</th>
+                <th className="py-3 pr-4">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
+            </thead>
+            <tbody>
+              {users.map((item) => (
+                <tr className="border-b border-slate-100" key={item._id}>
+                  <td className="py-3 pr-4 font-medium text-slate-950">{item.name}</td>
+                  <td className="py-3 pr-4 text-slate-600">{item.phone}</td>
+                  <td className="py-3 pr-4 text-slate-600">{item.role}</td>
+                  <td className="py-3 pr-4">
+                    <Badge value={item.status}>{item.status}</Badge>
+                  </td>
+                  <td className="py-3 pr-4 text-slate-600">{item.address}</td>
+                  <td className="py-3 pr-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
+                        Edit
+                      </Button>
+                      <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
   )
 }
 
