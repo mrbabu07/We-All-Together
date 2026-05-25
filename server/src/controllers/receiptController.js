@@ -6,6 +6,7 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
 const { createReceiptPdf } = require('../services/receiptPdfService')
+const { ensurePaymentQrCode } = require('../services/paymentQrService')
 const { verifyAccessToken } = require('../utils/tokenUtils')
 
 const organizationName = 'Dargah Para OIkko Porishod'
@@ -56,6 +57,8 @@ const getPaymentReceipt = asyncHandler(async (req, res) => {
   if (!canReadUserReceipt(req, payment.user._id)) {
     throw new AppError('You do not have permission to view this receipt.', 403)
   }
+
+  await ensurePaymentQrCode(payment)
 
   res.status(200).json({
     success: true,
@@ -165,6 +168,7 @@ const downloadReceiptPdf = asyncHandler(async (req, res) => {
       payment.receiptGeneratedAt = payment.receiptGeneratedAt || new Date()
       await payment.save()
     }
+    await ensurePaymentQrCode(payment)
 
     const buffer = await createReceiptPdf({
       amount: payment.amount,
@@ -176,10 +180,12 @@ const downloadReceiptPdf = asyncHandler(async (req, res) => {
       payerAddress: payment.user.address,
       payerName: payment.user.name,
       payerPhone: payment.user.phone,
+      qrCodeDataUrl: payment.qrCodeDataUrl,
       receiptNo: payment.receiptNumber,
       status: payment.status,
       transactionId: payment.transactionId,
       type: 'Monthly member fee',
+      verificationUrl: payment.verificationUrl,
     })
 
     sendPdf(res, `${payment.receiptNumber}.pdf`, buffer)

@@ -7,6 +7,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import MemberDashboardPage from './pages/MemberDashboardPage'
 import AccountPage from './pages/AccountPage'
 import NotificationsPage from './pages/NotificationsPage'
+import VerifyPaymentPage from './pages/VerifyPaymentPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRoute from './routes/RoleRoute'
@@ -23,6 +24,7 @@ function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="admin" element={<AdminDashboardPage />} />
+            <Route path="verify/:paymentId" element={<VerifyPaymentPage />} />
           </Route>
           <Route element={<RoleRoute allowedRoles={['admin', 'member']} />}>
             <Route path="member" element={<MemberDashboardPage />} />

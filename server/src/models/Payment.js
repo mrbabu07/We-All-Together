@@ -68,6 +68,20 @@ const paymentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    verificationUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    qrCodeDataUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    qrGeneratedAt: {
+      type: Date,
+      default: null,
+    },
     verifiedAt: {
       type: Date,
       default: null,

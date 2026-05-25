@@ -52,6 +52,7 @@ PATCH  /settings/monthly-fee
 PATCH  /settings/donation-number
 
 GET    /payments
+GET    /payments/:id
 GET    /payments/monthly-status?month=YYYY-MM
 PATCH  /payments/:id/verify
 PATCH  /payments/:id/reject

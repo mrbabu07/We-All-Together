@@ -61,6 +61,9 @@ Deployment is intentionally skipped for now.
 19. Finance analytics and PDF receipts
     - Admin finance analytics endpoint, income vs expense bar chart, donation trend chart, overdue fee tracker, additive receipt fields, and PDF receipt downloads.
 
+20. QR payment verification
+    - Payment QR generation, verification URLs, admin scan page, QR-enabled printable/PDF receipts, and admin payment lookup route.
+
 ## Verification Command Set
 
 Run these before every push:

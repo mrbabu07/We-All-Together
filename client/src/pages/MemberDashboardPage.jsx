@@ -331,6 +331,10 @@ export default function MemberDashboardPage() {
         return
       }
 
+      const qrHtml = receipt.payment.qrCodeDataUrl
+        ? `<div class="qr"><span class="label">Verification QR</span><img src="${receipt.payment.qrCodeDataUrl}" alt="" /><p>${escapeHtml(receipt.payment.verificationUrl || '')}</p></div>`
+        : ''
+
       printWindow.document.write(`
         <!doctype html>
         <html>
@@ -345,6 +349,9 @@ export default function MemberDashboardPage() {
               .item { border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
               .label { display: block; color: #64748b; font-size: 12px; text-transform: uppercase; }
               .value { display: block; font-weight: 700; margin-top: 4px; }
+              .qr { margin-top: 24px; }
+              .qr img { display: block; height: 120px; margin-top: 8px; width: 120px; }
+              .qr p { color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
               @media print { button { display: none; } body { padding: 0; } }
             </style>
           </head>
@@ -360,6 +367,7 @@ export default function MemberDashboardPage() {
                 <div class="item"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receipt.payment.transactionId)}</span></div>
                 <div class="item"><span class="label">Status</span><span class="value">${escapeHtml(receipt.payment.status)}</span></div>
               </div>
+              ${qrHtml}
               <p class="muted">This receipt was generated from the organization management system.</p>
               <button onclick="window.print()">Print</button>
             </div>

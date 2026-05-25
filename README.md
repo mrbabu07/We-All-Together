@@ -17,6 +17,7 @@ A MERN organization management system for member registration, admin approval, f
 - Public/member gallery and member-created blogs with likes and comments
 - Finance analytics dashboard with income/expense charts, donation trend, and overdue fee tracking
 - Server-generated PDF receipts for monthly payments and donations
+- QR code payment verification with admin scan/confirm page
 
 ## Tech Stack
 
@@ -28,6 +29,7 @@ A MERN organization management system for member registration, admin approval, f
 - ImgBB image uploads
 - Recharts analytics charts
 - PDFKit receipt generation
+- QRCode payment verification
 
 ## Project Structure
 

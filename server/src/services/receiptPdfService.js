@@ -27,10 +27,12 @@ const createReceiptPdf = ({
   payerAddress = '',
   payerName,
   payerPhone = '',
+  qrCodeDataUrl = '',
   receiptNo,
   status,
   transactionId,
   type,
+  verificationUrl = '',
 }) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({
@@ -79,6 +81,20 @@ const createReceiptPdf = ({
     writeRow(doc, 'Transaction ID:', transactionId)
     writeRow(doc, 'Payment Date:', formatDate(date))
     writeRow(doc, 'Status:', status)
+
+    if (qrCodeDataUrl) {
+      const [, imageData = ''] = qrCodeDataUrl.split(',')
+      const qrBuffer = Buffer.from(imageData, 'base64')
+      doc.moveDown(2)
+      doc.font('Helvetica-Bold').text('Verification QR')
+      doc.image(qrBuffer, 48, doc.y + 8, { width: 110 })
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#475569')
+        .text(verificationUrl, 174, doc.y + 40, { width: 330 })
+      doc.moveDown(8)
+    }
 
     doc.moveDown(3)
     doc

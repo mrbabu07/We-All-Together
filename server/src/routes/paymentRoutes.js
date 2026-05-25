@@ -4,6 +4,7 @@ const {
   getAllPayments,
   getMonthlyPaymentStatus,
   getMyPayments,
+  getPaymentById,
   rejectPayment,
   submitMonthlyPayment,
   verifyPayment,
@@ -22,6 +23,7 @@ router.post(
 router.get('/my', protect, authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER), getMyPayments)
 router.get('/', protect, authorize(USER_ROLES.ADMIN), getAllPayments)
 router.get('/monthly-status', protect, authorize(USER_ROLES.ADMIN), getMonthlyPaymentStatus)
+router.get('/:id', protect, authorize(USER_ROLES.ADMIN), getPaymentById)
 router.patch('/:id/verify', protect, authorize(USER_ROLES.ADMIN), verifyPayment)
 router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectPayment)
 

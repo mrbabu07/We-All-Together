@@ -7,6 +7,7 @@ const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { ensurePaymentQrCode } = require('../services/paymentQrService')
 const {
   validateMonth,
   validateMonthlyPayment,
@@ -30,6 +31,7 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
   payment.receiptNumber = `PAY-${payment._id}`
   payment.receiptGeneratedAt = new Date()
   await payment.save()
+  await ensurePaymentQrCode(payment)
 
   res.status(201).json({
     success: true,
@@ -42,6 +44,7 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
 
 const getMyPayments = asyncHandler(async (req, res) => {
   const payments = await Payment.find({ user: req.user._id }).sort({ createdAt: -1 })
+  await Promise.all(payments.map((payment) => ensurePaymentQrCode(payment)))
 
   res.status(200).json({
     success: true,
@@ -56,12 +59,33 @@ const getAllPayments = asyncHandler(async (req, res) => {
   const payments = await Payment.find()
     .populate('user', 'name phone address role status')
     .sort({ createdAt: -1 })
+  await Promise.all(payments.map((payment) => ensurePaymentQrCode(payment)))
 
   res.status(200).json({
     success: true,
     message: 'Payments loaded successfully.',
     data: {
       payments,
+    },
+  })
+})
+
+const getPaymentById = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.params.id)
+    .populate('user', 'name phone address role status profilePhotoUrl')
+    .populate('verifiedBy', 'name phone role')
+
+  if (!payment) {
+    throw new AppError('Payment not found.', 404)
+  }
+
+  await ensurePaymentQrCode(payment)
+
+  res.status(200).json({
+    success: true,
+    message: 'Payment loaded successfully.',
+    data: {
+      payment,
     },
   })
 })
@@ -178,6 +202,7 @@ const getMonthlyPaymentStatus = asyncHandler(async (req, res) => {
 
 module.exports = {
   getAllPayments,
+  getPaymentById,
   getMonthlyPaymentStatus,
   getMyPayments,
   rejectPayment,
