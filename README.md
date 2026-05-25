@@ -62,6 +62,14 @@ Run only the client:
 npm run client
 ```
 
+Seed sample dashboard data:
+
+```bash
+npm run seed
+```
+
+The seed command adds demo members, pending registrations, finance records, donations, expenses, notices, meetings, tours, activities, rules, notifications, and audit logs. Demo member phones are `01710000001` to `01710000006`; their password is `Member@123`.
+
 Environment variables must be created from the example files. Never commit real credentials.
 
 ## Environment

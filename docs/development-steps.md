@@ -52,6 +52,9 @@ Deployment is intentionally skipped for now.
 16. Workflow completion pass
     - Meeting minutes and attendance tracking, tour participant/cost tracking, member-visible workflow summaries, and admin password reset.
 
+17. Demo seed data
+    - Repeatable seed script for visual testing across members, registrations, payments, donations, expenses, content, meetings, tours, notifications, and audit logs.
+
 ## Verification Command Set
 
 Run these before every push:
@@ -60,6 +63,14 @@ Run these before every push:
 npm test
 npm run lint
 npm run build
+```
+
+## Demo Seed Command
+
+Run this when you want sample data in the connected MongoDB database:
+
+```bash
+npm run seed
 ```
 
 ## Local URLs
