@@ -1,0 +1,23 @@
+{
+  "name": "dorgah-para-oikko-porishod",
+  "version": "1.0.0",
+  "description": "MERN organization management system for Dargah Para OIkko Porishod.",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace client",
+    "build": "npm run build --workspace client",
+    "lint": "npm run lint --workspace client",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [
+    "mern",
+    "organization-management",
+    "dargah-para"
+  ],
+  "author": "Dargah Para OIkko Porishod",
+  "license": "MIT"
+}

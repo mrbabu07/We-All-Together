@@ -1,0 +1,12 @@
+{
+  "name": "dargah-para-server",
+  "version": "1.0.0",
+  "description": "Express API for Dargah Para OIkko Porishod.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "Dargah Para OIkko Porishod",
+  "license": "MIT",
+  "type": "commonjs"
+}
