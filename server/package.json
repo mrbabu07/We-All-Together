@@ -2,11 +2,26 @@
   "name": "dargah-para-server",
   "version": "1.0.0",
   "description": "Express API for Dargah Para OIkko Porishod.",
+  "main": "src/server.js",
   "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
     "test": "node --test"
   },
   "keywords": [],
   "author": "Dargah Para OIkko Porishod",
   "license": "MIT",
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "mongoose": "^9.6.2",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
+  }
 }

@@ -37,6 +37,16 @@ Run the app during development:
 npm run dev
 ```
 
-Step 1 runs the React client only. The Express API will be added in Step 2.
+Run only the API:
+
+```bash
+npm run server
+```
+
+Run only the client:
+
+```bash
+npm run client
+```
 
 Environment variables must be created from the example files. Never commit real credentials.
