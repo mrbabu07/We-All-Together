@@ -1,5 +1,5 @@
 import { Languages, LogIn, UserPlus } from 'lucide-react'
-import { Link, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
@@ -7,6 +7,11 @@ import useLanguage from '../hooks/useLanguage'
 export default function PublicLayout() {
   const { user } = useAuth()
   const { language, t, toggleLanguage } = useLanguage()
+  const location = useLocation()
+
+  if (location.pathname === '/') {
+    return <Outlet />
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">

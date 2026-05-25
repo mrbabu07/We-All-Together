@@ -24,6 +24,8 @@ GET  /activities/public
 GET  /rules/public
 ```
 
+`GET /settings/public` also returns homepage stats: `totalMembers`, `yearlyDonation`, `completedActivities`, and `yearsActive`.
+
 ## Auth Routes
 
 ```text

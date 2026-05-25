@@ -26,6 +26,7 @@ A MERN organization management system for member registration, admin approval, f
 - Framer Motion route transitions, count-up stat cards, ripple buttons, animated modals, shimmer skeletons, global Ctrl+K search, and live dashboard widgets
 - Full member profile controls with emergency contact, notification preferences, data export print/PDF flow, delete request, and downloadable digital ID card
 - PWA support with manifest, service worker, offline fallback, cached notices/payment history, and connection-lost banner
+- World-class public homepage with glass navigation, animated hero/stats, dynamic notices/events/gallery/blogs, donation CTA, confetti success feedback, and nonprofit-style Bengali presentation
 
 ## Tech Stack
 

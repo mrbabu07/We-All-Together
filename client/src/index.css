@@ -12,6 +12,7 @@
 
 html {
   background: #f9fafb;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -23,6 +24,11 @@ body {
     sans-serif;
   color: #111827;
   line-height: 1.625;
+}
+
+.home-prose {
+  font-size: 16px;
+  line-height: 1.8;
 }
 
 button,

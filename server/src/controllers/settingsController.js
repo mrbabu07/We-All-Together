@@ -1,4 +1,9 @@
 const asyncHandler = require('../utils/asyncHandler')
+const Activity = require('../models/Activity')
+const Donation = require('../models/Donation')
+const User = require('../models/User')
+const { PAYMENT_STATUSES } = require('../constants/paymentConstants')
+const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const { getSettings } = require('../services/settingsService')
 const {
   validateDonationNumber,
@@ -11,6 +16,25 @@ const { recordAuditLog } = require('../services/auditService')
 const getPublicSettings = asyncHandler(async (req, res) => {
   const settings = await getSettings()
   const notificationSettings = settings.notificationSettings || {}
+  const yearStart = new Date(new Date().getFullYear(), 0, 1)
+  const [totalMembers, yearlyDonationRows, completedActivities] = await Promise.all([
+    User.countDocuments({
+      role: { $in: [USER_ROLES.MEMBER, USER_ROLES.MODERATOR, USER_ROLES.ADMIN] },
+      status: USER_STATUSES.APPROVED,
+    }),
+    Donation.aggregate([
+      {
+        $match: {
+          status: PAYMENT_STATUSES.VERIFIED,
+          verifiedAt: { $gte: yearStart },
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]),
+    Activity.countDocuments({
+      status: 'completed',
+    }),
+  ])
 
   res.status(200).json({
     success: true,
@@ -30,6 +54,12 @@ const getPublicSettings = asyncHandler(async (req, res) => {
           whatsappFeeReminderEnabled: Boolean(notificationSettings.whatsappFeeReminderEnabled),
           whatsappMeetingEnabled: Boolean(notificationSettings.whatsappMeetingEnabled),
           whatsappNoticeEnabled: Boolean(notificationSettings.whatsappNoticeEnabled),
+        },
+        stats: {
+          completedActivities,
+          totalMembers,
+          yearlyDonation: yearlyDonationRows[0]?.total || 0,
+          yearsActive: 5,
         },
       },
     },

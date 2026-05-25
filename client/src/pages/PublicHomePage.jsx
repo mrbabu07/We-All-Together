@@ -1,46 +1,106 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { BookOpen, Heart, HeartHandshake, Image, MessageCircle, Send, UserPlus, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import confetti from 'canvas-confetti'
+import { AnimatePresence, motion } from 'framer-motion'
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ChevronUp,
+  Clock3,
+  DollarSign,
+  Globe2,
+  Heart,
+  HeartHandshake,
+  MapPin,
+  Menu,
+  MessageCircle,
+  PlayCircle,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 import api, { getErrorMessage } from '../api/http'
-import heroImage from '../assets/community-hero.png'
-import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
-import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
 import useAppStore from '../store/appStore'
-import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialDonationForm = {
-  amount: '',
+  amount: '1000',
   donorName: '',
-  method: '',
+  method: 'bKash',
   note: '',
   phone: '',
-  proofImageUrl: '',
   transactionId: '',
 }
 
-const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+const fadeUp = {
+  hidden: { opacity: 0, y: 28 },
+  show: { opacity: 1, transition: { duration: 0.55, ease: 'easeOut' }, y: 0 },
+}
+
+const stagger = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+}
+
+const quickAmounts = [500, 1000, 2000, 5000]
+
+const money = (value = 0) => `৳${Number(value || 0).toLocaleString('bn-BD')}`
+
+const plainText = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 
 const formatDate = (value) => {
   if (!value) {
     return ''
   }
 
-  return new Intl.DateTimeFormat('en-BD', {
-    dateStyle: 'medium',
+  return new Intl.DateTimeFormat('bn-BD', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   }).format(new Date(value))
 }
 
+const formatTime = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('bn-BD', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+const getMonthName = (value) =>
+  value ? new Intl.DateTimeFormat('bn-BD', { month: 'short' }).format(new Date(value)) : ''
+
+const estimateReadTime = (text = '') => Math.max(Math.ceil(plainText(text).split(' ').length / 180), 1)
+
 export default function PublicHomePage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { previewAppearance } = useAppStore()
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [donationForm, setDonationForm] = useState(initialDonationForm)
-  const [uploadingProof, setUploadingProof] = useState(false)
+  const [submittingDonation, setSubmittingDonation] = useState(false)
+  const [showBackTop, setShowBackTop] = useState(false)
   const [data, setData] = useState({
     activities: [],
     blogs: [],
@@ -68,18 +128,17 @@ export default function PublicHomePage() {
         donationsResponse,
         blogsResponse,
         galleryResponse,
-      ] =
-        await Promise.all([
-          api.get('/settings/public'),
-          api.get('/notices/public'),
-          api.get('/meetings/public'),
-          api.get('/tours/public'),
-          api.get('/activities/public'),
-          api.get('/rules/public'),
-          api.get('/donations/verified'),
-          api.get('/blogs/public'),
-          api.get('/gallery/public'),
-        ])
+      ] = await Promise.all([
+        api.get('/settings/public'),
+        api.get('/notices/public'),
+        api.get('/meetings/public'),
+        api.get('/tours/public'),
+        api.get('/activities/public'),
+        api.get('/rules/public'),
+        api.get('/donations/verified'),
+        api.get('/blogs/public'),
+        api.get('/gallery/public'),
+      ])
 
       setData({
         activities: activitiesResponse.data.data.items,
@@ -100,14 +159,77 @@ export default function PublicHomePage() {
   }, [])
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadPublicData()
-    }, 0)
-
+    const timer = window.setTimeout(loadPublicData, 0)
     return () => window.clearTimeout(timer)
   }, [loadPublicData])
 
-  const handleDonationChange = (event) => {
+  useEffect(() => {
+    const handleScroll = () => setShowBackTop(window.scrollY > 400)
+    const timer = window.setTimeout(handleScroll, 0)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  const appearance = previewAppearance || data.settings.appearance || {}
+  const siteSettings = data.settings.siteSettings || {}
+  const orgName = siteSettings.orgName || 'দরগাহ পাড়া ঐক্য পরিষদ'
+  const tagline = siteSettings.tagline || 'ঐক্য, সেবা ও স্বচ্ছতা'
+  const aboutText =
+    plainText(siteSettings.welcomeMessage) ||
+    'দরগাহ পাড়া ঐক্য পরিষদ এলাকার মানুষের পাশে দাঁড়ানো, শিক্ষামূলক কার্যক্রম পরিচালনা, সামাজিক উন্নয়ন এবং স্বচ্ছ সংগঠন ব্যবস্থাপনার জন্য কাজ করে।'
+
+  const homepageStats = useMemo(
+    () => {
+      const currentStats = data.settings.stats || {}
+
+      return {
+        completedActivities: currentStats.completedActivities || data.activities.length,
+        totalMembers: currentStats.totalMembers || 84,
+        yearlyDonation:
+          currentStats.yearlyDonation ||
+          data.donations.reduce((sum, donation) => sum + Number(donation.amount || 0), 0),
+        yearsActive: currentStats.yearsActive || 5,
+      }
+    },
+    [data.activities.length, data.donations, data.settings.stats],
+  )
+
+  const upcomingEvents = useMemo(() => {
+    const now = new Date()
+    const events = [
+      ...data.meetings.map((item) => ({
+        ...item,
+        date: item.meetingDate,
+        eventType: 'meeting',
+        location: item.location,
+      })),
+      ...data.tours.map((item) => ({
+        ...item,
+        date: item.startDate,
+        eventType: 'tour',
+        location: item.destination,
+      })),
+    ]
+
+    return events
+      .filter((item) => item.date && new Date(item.date) >= now)
+      .sort((left, right) => new Date(left.date) - new Date(right.date))
+      .slice(0, 3)
+  }, [data.meetings, data.tours])
+
+  useEffect(() => {
+    document.title = `${orgName} | ${tagline}`
+    upsertMeta('description', `${orgName} - ${tagline}. সদস্যপদ, দান, নোটিশ ও সামাজিক কার্যক্রম।`)
+    upsertMeta('og:title', orgName, 'property')
+    upsertMeta('og:description', tagline, 'property')
+    upsertMeta('og:image', '/pwa-icon.svg', 'property')
+  }, [orgName, tagline])
+
+  const updateDonationField = (event) => {
     setDonationForm((current) => ({
       ...current,
       [event.target.name]: event.target.value,
@@ -116,397 +238,1065 @@ export default function PublicHomePage() {
 
   const submitDonation = async (event) => {
     event.preventDefault()
+    setSubmittingDonation(true)
+    setSuccessMessage('')
     setMessage('')
 
     try {
       await api.post('/donations', donationForm)
       setDonationForm(initialDonationForm)
-      setMessage('Donation submitted for admin verification. Thank you.')
-    } catch (error) {
-      setMessage(getErrorMessage(error))
-    }
-  }
-
-  const uploadDonationProof = async (file) => {
-    if (!file) {
-      return
-    }
-
-    setUploadingProof(true)
-    setMessage('')
-
-    try {
-      const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/payment-proof', {
-        image,
-        name: `donation-${Date.now()}`,
+      setSuccessMessage('ধন্যবাদ। আপনার দানের তথ্য যাচাইয়ের জন্য জমা হয়েছে।')
+      confetti({
+        colors: ['#4F46E5', '#10B981', '#F59E0B'],
+        particleCount: 110,
+        spread: 70,
+        startVelocity: 38,
       })
-      setDonationForm((current) => ({
-        ...current,
-        proofImageUrl: response.data.data.image.url,
-      }))
-      setMessage('Donation proof uploaded.')
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {
-      setUploadingProof(false)
+      setSubmittingDonation(false)
     }
   }
 
-  const totalDonationAmount = data.donations.reduce(
-    (sum, donation) => sum + Number(donation.amount || 0),
-    0,
-  )
-  const appearance = previewAppearance || data.settings.appearance || {}
-  const siteSettings = data.settings.siteSettings || {}
-  const heroBackground = appearance.heroImageUrl || heroImage
+  const handleRsvp = () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    navigate('/member?tab=updates')
+  }
 
   if (siteSettings.maintenanceMode && user?.role !== 'admin') {
     return (
-      <main className="grid min-h-[calc(100vh-65px)] place-items-center bg-gray-50 px-4 py-10">
-        <Panel className="max-w-xl text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
+      <main className="grid min-h-screen place-items-center bg-gray-50 px-4 py-10">
+        <motion.section
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-xl rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-sm"
+          initial={{ opacity: 0, y: 16 }}
+        >
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+            <ShieldCheck aria-hidden="true" className="h-7 w-7" />
+          </div>
+          <h1 className="mt-5 text-3xl font-semibold tracking-tight text-gray-900">
             সাইট maintenance চলছে
           </h1>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-base leading-8 text-gray-500">
             আমরা কিছু আপডেট করছি। কিছুক্ষণ পরে আবার চেষ্টা করুন।
           </p>
-        </Panel>
+        </motion.section>
       </main>
     )
   }
 
   return (
-    <main className="bg-gray-50 text-gray-900">
-      <section
-        className="relative min-h-[72vh] overflow-hidden bg-cover bg-center"
-        style={{
-          backgroundImage: `linear-gradient(90deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.30)), url(${heroBackground})`,
-        }}
-      >
-        <div className="mx-auto flex min-h-[72vh] max-w-7xl items-center px-4 py-14 sm:px-6">
-          <div className="max-w-2xl text-white">
-            <p className="text-sm font-semibold uppercase text-indigo-100">ঐক্য, সেবা ও স্বচ্ছতা</p>
-            <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
-              দরগাহ পাড়া ঐক্য পরিষদ
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-gray-100">
-              সদস্য নিবন্ধন, মাসিক ফি, নোটিশ, মিটিং, দান এবং গ্রামের কাজের হিসাব এক জায়গায়।
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
-                to="/register"
-              >
-                <UserPlus aria-hidden="true" className="h-4 w-4" />
-                নিবন্ধন করুন
-              </Link>
-              <a
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-100"
-                href="#donate"
-              >
-                <HeartHandshake aria-hidden="true" className="h-4 w-4" />
-                দান করুন
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
+    <main
+      className="overflow-hidden bg-white text-gray-900"
+      style={{
+        '--color-primary': appearance.primaryColor || '#4F46E5',
+      }}
+    >
+      <HomepageNavbar orgName={orgName} user={user} />
 
-      <section className="mx-auto -mt-10 grid max-w-6xl gap-4 px-4 sm:px-6 md:grid-cols-3">
-        <Panel className="relative z-10">
-          <Users className="h-6 w-6 text-indigo-600" />
-          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">৬০+</p>
-          <p className="text-sm text-gray-500">সক্রিয় সদস্য</p>
-        </Panel>
-        <Panel className="relative z-10">
-          <BookOpen className="h-6 w-6 text-indigo-600" />
-          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">৫+</p>
-          <p className="text-sm text-gray-500">বছরের কার্যক্রম</p>
-        </Panel>
-        <Panel className="relative z-10">
-          <HeartHandshake className="h-6 w-6 text-indigo-600" />
-          <p className="mt-3 text-3xl font-bold tracking-tight text-gray-900">
-            {money(totalDonationAmount)}
-          </p>
-          <p className="text-sm text-gray-500">যাচাইকৃত দান</p>
-        </Panel>
-      </section>
+      <HeroSection orgName={orgName} stats={homepageStats} tagline={tagline} />
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_380px]">
-        <div className="grid gap-8">
-          {message ? (
-            <p className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-800">
-              {message}
-            </p>
-          ) : null}
+      <StatsSection stats={homepageStats} />
 
-          {loading ? (
-            <Panel>
-              <Skeleton rows={5} />
-            </Panel>
-          ) : null}
+      <AboutSection aboutText={aboutText} orgName={orgName} tagline={tagline} />
 
-          {!loading ? (
-            <>
-              <AnnouncementCards notices={data.notices} />
-              <PublicGallery items={data.gallery} />
-              <PublicBlogs blogs={data.blogs} />
-              <PublicList items={data.notices} textKey="body" title="নোটিশ" />
-              <PublicList items={data.meetings} textKey="agenda" title="মিটিং" />
-              <PublicList items={data.tours} textKey="details" title="ভ্রমণ" />
-              <PublicList
-                items={data.activities}
-                textKey="description"
-                title="শিক্ষা কার্যক্রম"
-              />
-              <PublicList items={data.rules} textKey="description" title="নিয়মাবলি" />
-            </>
-          ) : null}
-        </div>
+      <NoticeSection loading={loading} notices={data.notices} />
 
-        <aside className="grid gap-6 self-start" id="donate">
-          <Panel>
-            <HeartHandshake className="h-8 w-8 text-indigo-700" />
-            <h2 className="mt-4 text-xl font-semibold tracking-tight text-gray-900">দান করুন</h2>
-            <p className="mt-2 text-sm leading-relaxed text-gray-500">
-              {data.settings.donationProvider || 'দান নম্বর'}:{' '}
-              <span className="font-semibold text-gray-900">
-                {data.settings.donationNumber || 'এখনো সেট করা হয়নি'}
-              </span>
-            </p>
-            <form className="mt-5 grid gap-4" onSubmit={submitDonation}>
-              <Field
-                label="নাম"
-                name="donorName"
-                onChange={handleDonationChange}
-                required
-                value={donationForm.donorName}
-              />
-              <Field
-                label="ফোন"
-                name="phone"
-                onChange={handleDonationChange}
-                required
-                value={donationForm.phone}
-              />
-              <Field
-                label="টাকার পরিমাণ"
-                name="amount"
-                onChange={handleDonationChange}
-                required
-                type="number"
-                value={donationForm.amount}
-              />
-              <Field
-                label="পেমেন্ট মাধ্যম"
-                name="method"
-                onChange={handleDonationChange}
-                placeholder="bKash or Nagad"
-                required
-                value={donationForm.method}
-              />
-              <Field
-                label="ট্রানজেকশন আইডি"
-                name="transactionId"
-                onChange={handleDonationChange}
-                required
-                value={donationForm.transactionId}
-              />
-              <Field
-                label="নোট"
-                name="note"
-                onChange={handleDonationChange}
-                textarea
-                value={donationForm.note}
-              />
-              <Field
-                label="পেমেন্ট প্রমাণ URL"
-                name="proofImageUrl"
-                onChange={handleDonationChange}
-                value={donationForm.proofImageUrl}
-              />
-              <label className="grid gap-1.5 text-sm font-medium text-gray-700">
-                <span>পেমেন্ট প্রমাণ আপলোড</span>
-                <input
-                  accept="image/*"
-                  className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700"
-                  disabled={uploadingProof}
-                  onChange={(event) => uploadDonationProof(event.target.files?.[0])}
-                  type="file"
-                />
-              </label>
-              {uploadingProof ? (
-                <p className="text-sm font-medium text-indigo-700">আপলোড হচ্ছে...</p>
-              ) : null}
-              <Button icon={Send} type="submit">
-                দান জমা দিন
-              </Button>
-            </form>
-          </Panel>
+      <EventsSection events={upcomingEvents} loading={loading} onRsvp={handleRsvp} />
 
-          <Panel>
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">নিবন্ধন ফি</h2>
-            <p className="mt-3 text-3xl font-bold text-indigo-700">
-              {money(data.settings.registrationFee)}
-            </p>
-            <Link
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-              to="/register"
-            >
-              <UserPlus aria-hidden="true" className="h-4 w-4" />
-              সদস্য হতে আবেদন করুন
-            </Link>
-          </Panel>
+      <DonationSection
+        disabled={siteSettings.publicDonationsEnabled === false}
+        form={donationForm}
+        message={message}
+        onAmount={(amount) =>
+          setDonationForm((current) => ({ ...current, amount: String(amount) }))
+        }
+        onChange={updateDonationField}
+        onSubmit={submitDonation}
+        settings={data.settings}
+        submitting={submittingDonation}
+        successMessage={successMessage}
+      />
 
-          <Panel>
-            <h2 className="text-xl font-semibold tracking-tight text-gray-900">যাচাইকৃত দান</h2>
-            <div className="mt-4 grid gap-3">
-              {data.donations.length === 0 ? (
-                <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">
-                  এখনো কোনো যাচাইকৃত দান নেই।
-                </p>
-              ) : null}
-              {data.donations.slice(0, 8).map((donation) => (
-                <div className="rounded-md border border-gray-200 p-3" key={donation._id}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold text-gray-950">{donation.donorName}</p>
-                    <p className="font-bold text-indigo-700">{money(donation.amount)}</p>
-                  </div>
-                  <p className="mt-1 text-xs font-medium text-gray-500">
-                    {formatDate(donation.verifiedAt || donation.createdAt)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </aside>
-      </section>
+      <GallerySection gallery={data.gallery} loading={loading} />
+
+      <BlogSection blogs={data.blogs} loading={loading} />
+
+      <MembershipCta />
+
+      <HomepageFooter
+        notices={data.notices}
+        orgName={orgName}
+        settings={siteSettings}
+        tagline={tagline}
+      />
+
+      <AnimatePresence>
+        {showBackTop ? (
+          <motion.button
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="fixed bottom-5 right-5 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-700"
+            exit={{ opacity: 0, scale: 0.92, y: 8 }}
+            initial={{ opacity: 0, scale: 0.92, y: 8 }}
+            onClick={() => window.scrollTo({ behavior: 'smooth', top: 0 })}
+            type="button"
+          >
+            <ChevronUp aria-hidden="true" className="h-5 w-5" />
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
     </main>
   )
 }
 
-function PublicList({ items, textKey, title }) {
+function upsertMeta(name, content, attr = 'name') {
+  let tag = document.querySelector(`meta[${attr}="${name}"]`)
+
+  if (!tag) {
+    tag = document.createElement('meta')
+    tag.setAttribute(attr, name)
+    document.head.appendChild(tag)
+  }
+
+  tag.setAttribute('content', content)
+}
+
+function HomepageNavbar({ orgName, user }) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const links = [
+    ['হোম', '#home'],
+    ['আমাদের সম্পর্কে', '#about'],
+    ['সদস্যপদ', '#membership'],
+    ['দান', '#donate'],
+    ['যোগাযোগ', '#contact'],
+  ]
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 16)
+    const timer = window.setTimeout(handleScroll, 0)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
   return (
-    <section>
-      <h2 className="text-xl font-bold text-gray-950">{title}</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {items.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
-            No items published yet.
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+        scrolled ? 'border-b border-gray-200 bg-white/80 shadow-sm backdrop-blur-md' : 'bg-white/0'
+      }`}
+    >
+      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <a className="flex items-center gap-3" href="#home">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/20">
+            <Sparkles aria-hidden="true" className="h-5 w-5" />
+          </span>
+          <span className="max-w-48 truncate text-base font-semibold tracking-tight text-gray-950 sm:max-w-none">
+            {orgName}
+          </span>
+        </a>
+
+        <div className="hidden items-center gap-8 lg:flex">
+          {links.map(([label, href]) => (
+            <a
+              className="group relative text-sm font-semibold text-gray-600 transition hover:text-indigo-700"
+              href={href}
+              key={href}
+            >
+              {label}
+              <span className="absolute -bottom-2 left-0 h-0.5 w-0 rounded-full bg-indigo-600 transition-all duration-300 group-hover:w-full" />
+            </a>
+          ))}
+        </div>
+
+        <div className="hidden items-center gap-3 lg:flex">
+          <Link className="inline-flex min-h-11 items-center rounded-xl border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
+            লগইন
+          </Link>
+          <Link className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700" to={user ? (user.role === 'admin' ? '/admin' : '/member') : '/register'}>
+            {user ? 'ড্যাশবোর্ড' : 'নিবন্ধন করুন'}
+          </Link>
+        </div>
+
+        <button
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white/70 text-gray-800 lg:hidden"
+          onClick={() => setMenuOpen(true)}
+          type="button"
+        >
+          <Menu aria-hidden="true" className="h-5 w-5" />
+        </button>
+      </nav>
+
+      <AnimatePresence>
+        {menuOpen ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed inset-0 z-[60] bg-white px-6 py-6 lg:hidden"
+            exit={{ opacity: 0, y: -18 }}
+            initial={{ opacity: 0, y: -18 }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-950">{orgName}</span>
+              <button
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700"
+                onClick={() => setMenuOpen(false)}
+                type="button"
+              >
+                <X aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-10 grid gap-3">
+              {links.map(([label, href]) => (
+                <a
+                  className="rounded-2xl px-4 py-4 text-lg font-semibold text-gray-800 transition hover:bg-indigo-50 hover:text-indigo-700"
+                  href={href}
+                  key={href}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+            <div className="mt-8 grid gap-3">
+              <Link
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 text-sm font-semibold text-gray-800"
+                onClick={() => setMenuOpen(false)}
+                to="/login"
+              >
+                লগইন
+              </Link>
+              <Link
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white"
+                onClick={() => setMenuOpen(false)}
+                to="/register"
+              >
+                নিবন্ধন করুন
+              </Link>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </header>
+  )
+}
+
+function HeroSection({ orgName, stats, tagline }) {
+  const memberFaces = ['আ', 'ম', 'স', 'র', 'ন']
+
+  return (
+    <section
+      className="relative min-h-screen overflow-hidden bg-white pt-28"
+      id="home"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(#c7d2fe_1px,transparent_1px)] [background-size:24px_24px]" />
+      <div className="absolute right-0 top-0 h-72 w-72 rounded-bl-[120px] bg-indigo-50 blur-3xl" />
+      <div className="absolute bottom-0 left-0 h-80 w-80 rounded-tr-[140px] bg-violet-50 blur-3xl" />
+      <div className="relative mx-auto grid min-h-[calc(100vh-7rem)] max-w-7xl items-center gap-12 px-4 pb-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <motion.div
+          animate="show"
+          className="max-w-2xl"
+          initial="hidden"
+          variants={stagger}
+        >
+          <motion.span
+            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20"
+            variants={fadeUp}
+          >
+            ✦ দরগাহ পাড়া এলাকার গর্ব
+          </motion.span>
+          <motion.h1
+            className="mt-7 text-5xl font-bold leading-tight tracking-tight text-gray-950 sm:text-6xl lg:text-[64px]"
+            variants={stagger}
+          >
+            <motion.span className="block" variants={fadeUp}>
+              একতায় আমরা,
+            </motion.span>
+            <motion.span className="block text-indigo-700" variants={fadeUp}>
+              উন্নয়নে আমরা
+            </motion.span>
+          </motion.h1>
+          <motion.p className="mt-6 max-w-xl text-lg leading-9 text-gray-600" variants={fadeUp}>
+            {orgName} — আমাদের এলাকার সকল মানুষের সেবায় নিবেদিত একটি সংগঠন। {tagline}
+          </motion.p>
+          <motion.div className="mt-8 flex flex-wrap gap-4" variants={fadeUp}>
+            <Link className="inline-flex min-h-14 items-center gap-3 rounded-xl bg-indigo-600 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-indigo-600/20 transition hover:bg-indigo-700" to="/register">
+              সদস্য হোন
+              <ArrowRight aria-hidden="true" className="h-5 w-5" />
+            </Link>
+            <a className="inline-flex min-h-14 items-center gap-3 rounded-xl border border-gray-300 bg-white px-8 py-4 text-base font-semibold text-gray-800 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700" href="#about">
+              <PlayCircle aria-hidden="true" className="h-5 w-5" />
+              আরও জানুন
+            </a>
+          </motion.div>
+          <motion.div
+            className="mt-8 grid gap-3 text-sm font-semibold text-gray-600 sm:flex sm:flex-wrap sm:items-center sm:gap-5"
+            variants={fadeUp}
+          >
+            <TrustItem icon={Users} text={`${stats.totalMembers}+ সক্রিয় সদস্য`} />
+            <TrustItem icon={CalendarDays} text={`${stats.yearsActive}+ বছরের অভিজ্ঞতা`} />
+            <TrustItem icon={Heart} text="সমাজসেবায় প্রতিশ্রুতিবদ্ধ" />
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="relative"
+          initial={{ opacity: 0, scale: 0.96, y: 24 }}
+          transition={{ delay: 0.25, duration: 0.6, ease: 'easeOut' }}
+        >
+          <div className="absolute inset-8 rounded-[3rem] bg-gradient-to-br from-indigo-100 via-white to-violet-100 blur-2xl" />
+          <div className="relative rounded-[2rem] border border-indigo-100 bg-white p-6 shadow-2xl shadow-indigo-950/10 sm:p-8">
+            <div className="rounded-[1.5rem] bg-gradient-to-br from-indigo-600 to-violet-700 p-6 text-white">
+              <div className="flex -space-x-4">
+                {memberFaces.map((face) => (
+                  <span
+                    className="inline-flex h-14 w-14 items-center justify-center rounded-full border-4 border-indigo-600 bg-white text-lg font-bold text-indigo-700"
+                    key={face}
+                  >
+                    {face}
+                  </span>
+                ))}
+              </div>
+              <h2 className="mt-6 text-2xl font-semibold tracking-tight">আমাদের পরিবারে যোগ দিন</h2>
+              <p className="mt-2 text-indigo-100">সদস্যপদ, দায়িত্ব, স্বচ্ছতা এবং এলাকার উন্নয়নের একত্র যাত্রা।</p>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-gray-50 p-5">
+                <p className="text-sm text-gray-500">Live member count</p>
+                <p className="mt-2 text-4xl font-bold tracking-tight text-gray-950">
+                  <AnimatedCounter value={stats.totalMembers} />+
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-5">
+                <CheckCircle2 aria-hidden="true" className="h-6 w-6 text-emerald-600" />
+                <p className="mt-3 font-semibold text-emerald-900">নিরাপদ ও বিশ্বস্ত</p>
+                <p className="mt-1 text-sm text-emerald-700">Admin verified records</p>
+              </div>
+            </div>
+          </div>
+          <div className="absolute -bottom-5 left-4 rounded-full border border-emerald-100 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-xl">
+            ✓ নিরাপদ ও বিশ্বস্ত
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function TrustItem({ icon: Icon, text }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Icon aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+      {text}
+    </span>
+  )
+}
+
+function StatsSection({ stats }) {
+  const rows = [
+    ['মোট সদস্য', stats.totalMembers, '+', Users],
+    ['এই বছরের দান', stats.yearlyDonation, '', DollarSign, true],
+    ['সম্পন্ন কার্যক্রম', stats.completedActivities, '+', CheckCircle2],
+    ['বছরের অভিজ্ঞতা', stats.yearsActive, '+', CalendarDays],
+  ]
+
+  return (
+    <section className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-700 py-12 text-white">
+      <motion.div
+        className="mx-auto grid max-w-7xl divide-y divide-indigo-400/30 px-4 sm:px-6 md:grid-cols-4 md:divide-x md:divide-y-0"
+        initial="hidden"
+        variants={stagger}
+        viewport={{ once: true, amount: 0.35 }}
+        whileInView="show"
+      >
+        {rows.map(([label, value, suffix, Icon, isMoney]) => (
+          <motion.div className="px-5 py-6 text-center" key={label} variants={fadeUp}>
+            <Icon aria-hidden="true" className="mx-auto h-6 w-6 text-indigo-100" />
+            <p className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+              {isMoney ? '৳' : ''}
+              <AnimatedCounter value={value} />
+              {suffix}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-indigo-200">{label}</p>
+          </motion.div>
+        ))}
+      </motion.div>
+    </section>
+  )
+}
+
+function AboutSection({ aboutText, orgName, tagline }) {
+  const paragraphs = [
+    aboutText,
+    'আমরা সদস্যদের কল্যাণ, এলাকার উন্নয়ন, শিক্ষা সহায়তা, জরুরি সহযোগিতা এবং সামাজিক উদ্যোগকে একটি স্বচ্ছ ব্যবস্থার মধ্যে পরিচালনা করি।',
+    'প্রতিটি সিদ্ধান্ত, অর্থনৈতিক রেকর্ড এবং কার্যক্রম সদস্য ও এলাকার মানুষের আস্থাকে কেন্দ্র করে গড়ে তোলা হয়েছে।',
+  ]
+
+  return (
+    <section className="relative bg-white px-4 py-24 sm:px-6" id="about">
+      <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1fr_0.85fr]">
+        <motion.div initial="hidden" variants={stagger} viewport={{ once: true }} whileInView="show">
+          <motion.p className="border-l-4 border-indigo-600 pl-3 text-sm font-bold uppercase tracking-[0.18em] text-indigo-700" variants={fadeUp}>
+            আমাদের সম্পর্কে
+          </motion.p>
+          <motion.h2 className="mt-4 text-4xl font-semibold tracking-tight text-gray-950 sm:text-5xl" variants={fadeUp}>
+            আমরা কারা এবং কী করি?
+          </motion.h2>
+          <div className="mt-6 grid gap-4 text-base leading-8 text-gray-600">
+            {paragraphs.map((paragraph) => (
+              <motion.p key={paragraph} variants={fadeUp}>
+                {paragraph}
+              </motion.p>
+            ))}
+          </div>
+          <motion.div className="mt-8 grid gap-4 sm:grid-cols-3" variants={stagger}>
+            {[
+              ['সদস্যদের কল্যাণে কাজ', Users],
+              ['এলাকার উন্নয়নে অবদান', Sparkles],
+              ['সামাজিক কার্যক্রম পরিচালনা', HeartHandshake],
+            ].map(([text, Icon]) => (
+              <motion.div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" key={text} variants={fadeUp}>
+                <Icon aria-hidden="true" className="h-5 w-5 text-indigo-600" />
+                <p className="mt-3 text-sm font-semibold text-gray-900">✦ {text}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+          <motion.a className="mt-8 inline-flex items-center gap-2 text-base font-bold text-indigo-700 hover:text-indigo-800" href="#membership" variants={fadeUp}>
+            আমাদের সম্পর্কে আরও পড়ুন <ArrowRight aria-hidden="true" className="h-4 w-4" />
+          </motion.a>
+        </motion.div>
+
+        <motion.div
+          className="relative min-h-[420px]"
+          initial={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.55 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, scale: 1 }}
+        >
+          <div className="absolute inset-8 rounded-[3rem] bg-indigo-100 blur-3xl" />
+          <div className="absolute left-0 top-8 w-[82%] rotate-3 rounded-3xl border border-indigo-100 bg-white p-8 shadow-2xl shadow-indigo-950/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white">
+              <Sparkles aria-hidden="true" className="h-6 w-6" />
+            </div>
+            <p className="mt-8 text-sm font-bold uppercase tracking-[0.18em] text-indigo-600">Founded</p>
+            <h3 className="mt-2 text-5xl font-bold tracking-tight text-gray-950">২০১৯</h3>
+            <p className="mt-4 text-lg font-semibold text-gray-800">{orgName}</p>
+            <p className="mt-2 text-gray-500">{tagline}</p>
+          </div>
+          <div className="absolute bottom-4 right-0 w-[80%] -rotate-2 rounded-3xl border border-emerald-100 bg-emerald-50 p-8 shadow-xl shadow-emerald-950/10">
+            <CheckCircle2 aria-hidden="true" className="h-8 w-8 text-emerald-600" />
+            <h3 className="mt-5 text-2xl font-semibold tracking-tight text-emerald-950">
+              স্বচ্ছ হিসাব, সক্রিয় সদস্য, দ্রুত উদ্যোগ
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-emerald-800">
+              সব নোটিশ, দান, ফি এবং কার্যক্রম একসাথে দেখা ও পরিচালনা করা যায়।
+            </p>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+function NoticeSection({ loading, notices }) {
+  const categoryTones = {
+    General: 'border-indigo-500 bg-indigo-50 text-indigo-700',
+    জরুরি: 'border-red-500 bg-red-50 text-red-700',
+    মিটিং: 'border-emerald-500 bg-emerald-50 text-emerald-700',
+  }
+
+  return (
+    <section className="bg-gray-50 px-4 py-24 sm:px-6" id="notices">
+      <SectionHeading
+        eyebrow="ঘোষণা"
+        title="সর্বশেষ নোটিশ ও ঘোষণা"
+        text="এলাকার গুরুত্বপূর্ণ সিদ্ধান্ত, মিটিং এবং কার্যক্রমের আপডেট।"
+      />
+      {loading ? (
+        <div className="mx-auto mt-10 max-w-7xl">
+          <Skeleton rows={3} />
+        </div>
+      ) : (
+        <motion.div
+          className="mx-auto mt-10 grid max-w-7xl gap-6 md:grid-cols-3"
+          initial="hidden"
+          variants={stagger}
+          viewport={{ once: true, amount: 0.2 }}
+          whileInView="show"
+        >
+          {notices.slice(0, 3).map((notice) => {
+            const tone = categoryTones[notice.category] || categoryTones.General
+
+            return (
+              <motion.article
+                className={`rounded-2xl border border-gray-200 border-l-[3px] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg ${tone.split(' ')[0]}`}
+                key={notice._id}
+                variants={fadeUp}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${tone}`}>
+                    {notice.category || 'General'}
+                  </span>
+                  <span className="text-xs font-semibold text-gray-400">{formatDate(notice.createdAt)}</span>
+                </div>
+                <h3 className="mt-5 line-clamp-2 text-xl font-semibold tracking-tight text-gray-950">
+                  {notice.title}
+                </h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-7 text-gray-500">
+                  {plainText(notice.richBody || notice.body)}
+                </p>
+                <a className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-indigo-700" href="/login">
+                  বিস্তারিত পড়ুন <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </a>
+              </motion.article>
+            )
+          })}
+        </motion.div>
+      )}
+      <div className="mt-10 text-center">
+        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:border-indigo-300 hover:text-indigo-700" to="/login">
+          সকল নোটিশ দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
+        </Link>
+      </div>
+    </section>
+  )
+}
+
+function EventsSection({ events, loading, onRsvp }) {
+  return (
+    <section className="bg-white px-4 py-24 sm:px-6" id="events">
+      <SectionHeading
+        eyebrow="ইভেন্ট"
+        title="আসন্ন মিটিং ও ভ্রমণ"
+        text="সদস্যদের জন্য পরিকল্পিত মিটিং, ভ্রমণ এবং সামাজিক আয়োজন।"
+      />
+      {loading ? (
+        <div className="mx-auto mt-10 max-w-7xl">
+          <Skeleton rows={3} />
+        </div>
+      ) : events.length ? (
+        <motion.div
+          className="mx-auto mt-10 flex max-w-7xl snap-x gap-6 overflow-x-auto pb-3 md:grid md:grid-cols-3 md:overflow-visible"
+          initial="hidden"
+          variants={stagger}
+          viewport={{ once: true, amount: 0.2 }}
+          whileInView="show"
+        >
+          {events.map((event) => (
+            <EventCard event={event} key={`${event.eventType}-${event._id}`} onRsvp={onRsvp} />
+          ))}
+        </motion.div>
+      ) : (
+        <motion.div
+          className="mx-auto mt-10 max-w-2xl rounded-3xl border border-dashed border-indigo-200 bg-indigo-50 p-10 text-center"
+          initial={{ opacity: 0, y: 18 }}
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
+        >
+          <CalendarDays aria-hidden="true" className="mx-auto h-14 w-14 text-indigo-600" />
+          <h3 className="mt-5 text-2xl font-semibold tracking-tight text-gray-950">
+            শীঘ্রই নতুন অনুষ্ঠান আসছে
+          </h3>
+        </motion.div>
+      )}
+    </section>
+  )
+}
+
+function EventCard({ event, onRsvp }) {
+  const isTour = event.eventType === 'tour'
+  const remainingSeats = isTour && event.seatCapacity ? Math.max(event.seatCapacity - (event.participants?.length || 0), 0) : null
+
+  return (
+    <motion.article
+      className="relative min-w-[290px] snap-start overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl md:min-w-0"
+      variants={fadeUp}
+    >
+      <div className={`h-20 ${isTour ? 'bg-emerald-600' : 'bg-indigo-600'}`}>
+        <span className="ml-5 mt-5 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
+          {isTour ? 'ভ্রমণ' : 'মিটিং'}
+        </span>
+      </div>
+      <div className="absolute right-5 top-10 rounded-2xl bg-white px-4 py-3 text-center shadow-lg">
+        <p className="text-2xl font-bold leading-none text-indigo-700">
+          {new Date(event.date).toLocaleDateString('bn-BD', { day: 'numeric' })}
+        </p>
+        <p className="mt-1 text-xs font-bold uppercase text-gray-500">{getMonthName(event.date)}</p>
+      </div>
+      <div className="p-6">
+        <h3 className="line-clamp-2 text-xl font-semibold tracking-tight text-gray-950">{event.title}</h3>
+        <div className="mt-4 grid gap-2 text-sm text-gray-500">
+          <span className="inline-flex items-center gap-2">
+            <MapPin aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+            {event.location || 'Dargah Para'}
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Clock3 aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+            {formatTime(event.date)}
+          </span>
+        </div>
+        {remainingSeats !== null ? (
+          <p className="mt-4 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+            মাত্র {remainingSeats.toLocaleString('bn-BD')}টি আসন বাকি
           </p>
         ) : null}
-        {items.map((item) => (
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={item._id}>
-            {item.imageUrl ? (
+        <Button className="mt-6 w-full bg-indigo-600" onClick={onRsvp}>
+          অংশগ্রহণ করুন
+        </Button>
+      </div>
+    </motion.article>
+  )
+}
+
+function DonationSection({
+  disabled,
+  form,
+  message,
+  onAmount,
+  onChange,
+  onSubmit,
+  settings,
+  submitting,
+  successMessage,
+}) {
+  return (
+    <section className="relative bg-indigo-50 px-4 py-24 sm:px-6" id="donate">
+      <Wave className="absolute left-0 top-0 rotate-180 text-white" />
+      <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.9fr_1fr]">
+        <motion.div initial="hidden" variants={stagger} viewport={{ once: true }} whileInView="show">
+          <motion.p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-700" variants={fadeUp}>
+            দান
+          </motion.p>
+          <motion.h2 className="mt-4 text-4xl font-semibold tracking-tight text-gray-950 sm:text-5xl" variants={fadeUp}>
+            আপনার দানে বদলে যাবে একটি জীবন
+          </motion.h2>
+          <motion.p className="mt-5 max-w-xl text-base leading-8 text-gray-600" variants={fadeUp}>
+            শিক্ষা সহায়তা, জরুরি ত্রাণ, সামাজিক কার্যক্রম এবং এলাকার উন্নয়নে আপনার অনুদান সরাসরি কাজে লাগে।
+          </motion.p>
+          <motion.div className="mt-8 grid gap-3" variants={stagger}>
+            {[
+              ['৳১০০০', 'একজন শিক্ষার্থীর সহায়তা'],
+              ['৳৫০০০', 'একটি পরিবারের ত্রাণ'],
+              ['৳১০০০০', 'একটি কার্যক্রমের আয়োজন'],
+            ].map(([amount, text]) => (
+              <motion.div className="flex items-center gap-4 rounded-2xl bg-white/80 p-4 shadow-sm" key={amount} variants={fadeUp}>
+                <span className="rounded-xl bg-indigo-600 px-4 py-2 font-bold text-white">{amount}</span>
+                <span className="font-semibold text-gray-800">{text}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+          <motion.div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-gray-700" variants={fadeUp}>
+            <span className="rounded-full bg-white px-4 py-2">🔒 নিরাপদ লেনদেন</span>
+            <span className="rounded-full bg-white px-4 py-2">✓ যাচাইকৃত সংগঠন</span>
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          className="rounded-[2rem] border border-indigo-100 bg-white p-6 shadow-2xl shadow-indigo-950/10 sm:p-8"
+          initial={{ opacity: 0, x: 40 }}
+          transition={{ duration: 0.55 }}
+          viewport={{ once: true, amount: 0.25 }}
+          whileInView={{ opacity: 1, x: 0 }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-2xl font-semibold tracking-tight text-gray-950">দান করুন</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {settings.donationProvider || 'Donation'} নম্বর:{' '}
+                <span className="font-bold text-gray-900">{settings.donationNumber || 'Admin সেট করবেন'}</span>
+              </p>
+            </div>
+            <HeartHandshake aria-hidden="true" className="h-8 w-8 text-indigo-600" />
+          </div>
+          {disabled ? (
+            <p className="mt-6 rounded-2xl bg-yellow-50 p-4 text-sm font-semibold text-yellow-800">
+              আপাতত পাবলিক দান বন্ধ আছে।
+            </p>
+          ) : (
+            <form className="mt-6 grid gap-4" onSubmit={onSubmit}>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">পরিমাণ নির্বাচন করুন</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {quickAmounts.map((amount) => (
+                    <button
+                      className={`min-h-12 rounded-xl border px-4 text-sm font-bold transition ${
+                        Number(form.amount) === amount
+                          ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300'
+                      }`}
+                      key={amount}
+                      onClick={() => onAmount(amount)}
+                      type="button"
+                    >
+                      {money(amount)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Field label="Custom amount" min="1" name="amount" onChange={onChange} required type="number" value={form.amount} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="নাম" name="donorName" onChange={onChange} required value={form.donorName} />
+                <Field label="ফোন" name="phone" onChange={onChange} pattern="01[3-9][0-9]{8}" required value={form.phone} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="পেমেন্ট মাধ্যম" name="method" onChange={onChange} placeholder="bKash / Nagad" required value={form.method} />
+                <Field label="ট্রানজ্যাকশন আইডি" name="transactionId" onChange={onChange} required value={form.transactionId} />
+              </div>
+              <Field label="বার্তা" name="note" onChange={onChange} rows={3} textarea value={form.note} />
+              {message ? <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{message}</p> : null}
+              {successMessage ? (
+                <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
+                  {successMessage}
+                </p>
+              ) : null}
+              <Button className="min-h-14 w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-base" icon={Send} loading={submitting} type="submit">
+                দান করুন
+              </Button>
+              <p className="text-center text-xs leading-6 text-gray-500">
+                আপনার দান সম্পূর্ণ স্বেচ্ছামূলক এবং যেকোনো পরিমাণ গ্রহণযোগ্য।
+              </p>
+            </form>
+          )}
+        </motion.div>
+      </div>
+      <Wave className="absolute bottom-0 left-0 text-white" />
+    </section>
+  )
+}
+
+function GallerySection({ gallery, loading }) {
+  return (
+    <section className="bg-white px-4 py-24 sm:px-6">
+      <SectionHeading
+        eyebrow="গ্যালারি"
+        title="আমাদের কার্যক্রমের ছবি"
+        text="সামাজিক কাজ, মিটিং, শিক্ষা কার্যক্রম এবং এলাকার উদ্যোগের স্মৃতি।"
+      />
+      {loading ? (
+        <div className="mx-auto mt-10 max-w-7xl">
+          <Skeleton rows={4} />
+        </div>
+      ) : (
+        <motion.div
+          className="mx-auto mt-10 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3"
+          initial="hidden"
+          variants={stagger}
+          viewport={{ once: true, amount: 0.15 }}
+          whileInView="show"
+        >
+          {gallery.slice(0, 6).map((item, index) => (
+            <motion.article
+              className="group relative break-inside-avoid overflow-hidden rounded-3xl bg-indigo-100 shadow-sm"
+              key={item._id}
+              variants={fadeUp}
+            >
               <img
-                alt=""
-                className="mb-4 h-40 w-full rounded-md object-cover"
+                alt={item.title}
+                className={`w-full object-cover transition duration-500 group-hover:scale-105 ${
+                  index % 3 === 0 ? 'h-80' : 'h-60'
+                }`}
                 src={item.imageUrl}
               />
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-gray-950">{item.title}</h3>
-              {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
-            </div>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey]}</p>
-            {item.activityDate || item.meetingDate || item.startDate ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
-                {formatDate(item.activityDate || item.meetingDate || item.startDate)}
-              </p>
-            ) : null}
-          </article>
-        ))}
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-gray-950/70 to-transparent p-5 opacity-0 transition group-hover:opacity-100">
+                <p className="font-semibold text-white">{item.title}</p>
+              </div>
+            </motion.article>
+          ))}
+        </motion.div>
+      )}
+      <div className="mt-10 text-center">
+        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl bg-gray-950 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700" to="/login">
+          সম্পূর্ণ গ্যালারি দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
+        </Link>
       </div>
     </section>
   )
 }
 
-function AnnouncementCards({ notices }) {
+function BlogSection({ blogs, loading }) {
+  const approvedBlogs = blogs.filter((blog) => (blog.moderationStatus || 'approved') === 'approved')
+
   return (
-    <section>
-      <h2 className="text-xl font-semibold tracking-tight text-gray-900">সর্বশেষ ঘোষণা</h2>
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        {notices.slice(0, 3).map((notice) => (
-          <Panel className="p-5" key={notice._id}>
-            <Badge value="planned">ঘোষণা</Badge>
-            <h3 className="mt-3 font-semibold text-gray-900">{notice.title}</h3>
-            <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-500">
-              {notice.body}
-            </p>
-          </Panel>
-        ))}
+    <section className="bg-gray-50 px-4 py-24 sm:px-6">
+      <SectionHeading
+        eyebrow="ব্লগ"
+        title="সদস্যদের লেখা"
+        text="এলাকার গল্প, অভিজ্ঞতা এবং সদস্যদের ভাবনা।"
+      />
+      {loading ? (
+        <div className="mx-auto mt-10 max-w-7xl">
+          <Skeleton rows={3} />
+        </div>
+      ) : (
+        <motion.div
+          className="mx-auto mt-10 grid max-w-7xl gap-6 md:grid-cols-3"
+          initial="hidden"
+          variants={stagger}
+          viewport={{ once: true, amount: 0.2 }}
+          whileInView="show"
+        >
+          {approvedBlogs.slice(0, 3).map((blog) => (
+            <motion.article className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl" key={blog._id} variants={fadeUp}>
+              {blog.imageUrl ? (
+                <img alt={blog.title} className="h-52 w-full object-cover" src={blog.imageUrl} />
+              ) : (
+                <div className="flex h-52 items-center justify-center bg-gradient-to-br from-indigo-500 to-violet-700 text-white">
+                  <BookOpen aria-hidden="true" className="h-12 w-12" />
+                </div>
+              )}
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700">
+                    {blog.createdBy?.name?.slice(0, 1) || 'স'}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{blog.createdBy?.name || 'সদস্য'}</p>
+                    <p className="text-xs text-gray-500">{formatDate(blog.createdAt)}</p>
+                  </div>
+                </div>
+                <h3 className="mt-5 line-clamp-2 text-xl font-semibold tracking-tight text-gray-950">{blog.title}</h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-7 text-gray-500">{plainText(blog.body)}</p>
+                <div className="mt-5 flex items-center justify-between text-xs font-bold text-gray-500">
+                  <span>{estimateReadTime(blog.body)} মিনিট পড়া</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Heart aria-hidden="true" className="h-4 w-4 text-red-500" />
+                    {blog.likes?.length || 0}
+                  </span>
+                </div>
+                <Link className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-indigo-700" to="/login">
+                  পড়ুন <ArrowRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              </div>
+            </motion.article>
+          ))}
+        </motion.div>
+      )}
+      <div className="mt-10 text-center">
+        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:border-indigo-300 hover:text-indigo-700" to="/login">
+          সকল ব্লগ দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
+        </Link>
       </div>
     </section>
   )
 }
 
-function PublicGallery({ items }) {
+function MembershipCta() {
   return (
-    <section>
-      <div className="flex items-center gap-2">
-        <Image aria-hidden="true" className="h-5 w-5 text-indigo-700" />
-        <h2 className="text-xl font-semibold tracking-tight text-gray-900">গ্যালারি</h2>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {items.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
-            No gallery photos yet.
-          </p>
-        ) : null}
-        {items.slice(0, 6).map((item) => (
-          <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" key={item._id}>
-            <img alt="" className="h-44 w-full object-cover" src={item.imageUrl} />
-            <div className="p-4">
-              <h3 className="font-semibold text-gray-950">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-gray-600">{item.description}</p>
-              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
-                {item.createdBy?.name || 'Member'}
-              </p>
-            </div>
-          </article>
-        ))}
-      </div>
+    <section className="relative overflow-hidden bg-gradient-to-br from-indigo-950 to-violet-950 px-4 py-24 text-white sm:px-6" id="membership">
+      <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(135deg,rgba(99,102,241,0.25)_25%,transparent_25%,transparent_50%,rgba(99,102,241,0.25)_50%,rgba(99,102,241,0.25)_75%,transparent_75%,transparent)] bg-[length:42px_42px] opacity-40" />
+      <motion.div
+        className="relative mx-auto max-w-4xl text-center"
+        initial="hidden"
+        variants={stagger}
+        viewport={{ once: true }}
+        whileInView="show"
+      >
+        <motion.h2 className="text-4xl font-semibold tracking-tight sm:text-5xl" variants={fadeUp}>
+          আজই আমাদের পরিবারের অংশ হোন
+        </motion.h2>
+        <motion.p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-indigo-200" variants={fadeUp}>
+          সদস্যপদে পাবেন সংগঠনের আপডেট, সিদ্ধান্তে অংশগ্রহণ, স্বচ্ছ অর্থনৈতিক তথ্য এবং এলাকার উন্নয়নে সরাসরি ভূমিকা রাখার সুযোগ।
+        </motion.p>
+        <motion.div className="mt-7 flex flex-wrap justify-center gap-3 text-sm font-semibold text-indigo-100" variants={fadeUp}>
+          <span>✓ ব্যক্তিগত পেমেন্ট হিস্ট্রি</span>
+          <span>✓ মিটিং ও ভ্রমণ RSVP</span>
+          <span>✓ নোটিশ ও কার্যক্রম অ্যাক্সেস</span>
+        </motion.div>
+        <motion.div className="mt-9 flex flex-wrap justify-center gap-4" variants={fadeUp}>
+          <Link className="inline-flex min-h-14 items-center rounded-xl bg-white px-8 text-base font-bold text-indigo-700 transition hover:bg-indigo-50" to="/register">
+            এখনই নিবন্ধন করুন
+          </Link>
+          <a className="inline-flex min-h-14 items-center rounded-xl border border-white/40 px-8 text-base font-bold text-white transition hover:bg-white/10" href="#about">
+            আরও জানুন
+          </a>
+        </motion.div>
+      </motion.div>
     </section>
   )
 }
 
-function PublicBlogs({ blogs }) {
+function HomepageFooter({ notices, orgName, settings, tagline }) {
+  const quickLinks = [
+    ['হোম', '#home'],
+    ['সম্পর্কে', '#about'],
+    ['সদস্যপদ', '#membership'],
+    ['দান', '#donate'],
+    ['যোগাযোগ', '#contact'],
+  ]
+
   return (
-    <section>
-      <div className="flex items-center gap-2">
-        <BookOpen aria-hidden="true" className="h-5 w-5 text-indigo-700" />
-        <h2 className="text-xl font-semibold tracking-tight text-gray-900">কমিউনিটি ব্লগ</h2>
+    <footer className="relative bg-gray-950 px-4 pt-20 text-white sm:px-6" id="contact">
+      <Wave className="absolute left-0 top-0 rotate-180 text-violet-950" />
+      <div className="mx-auto grid max-w-7xl gap-10 pb-10 md:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500">
+              <Sparkles aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <span className="font-semibold tracking-tight">{orgName}</span>
+          </div>
+          <p className="mt-4 text-sm leading-7 text-gray-400">{tagline}</p>
+          <div className="mt-5 flex gap-3">
+            <SocialLink href={settings.facebookUrl} icon={Globe2} label="Facebook" />
+            <SocialLink href={settings.youtubeUrl} icon={PlayCircle} label="YouTube" />
+            <SocialLink href={settings.whatsappGroupUrl} icon={MessageCircle} label="WhatsApp" />
+          </div>
+        </div>
+        <div>
+          <h3 className="font-semibold">দ্রুত লিংক</h3>
+          <div className="mt-4 grid gap-3 text-sm text-gray-400">
+            {quickLinks.map(([label, href]) => (
+              <a className="transition hover:text-white" href={href} key={href}>
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="font-semibold">যোগাযোগ</h3>
+          <div className="mt-4 grid gap-3 text-sm leading-7 text-gray-400">
+            <p>{settings.address || 'Dargah Para, Bangladesh'}</p>
+            <p>{settings.contactNumber || 'সংগঠন অফিস'}</p>
+            <p>dargahpara@example.com</p>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-semibold">সাম্প্রতিক নোটিশ</h3>
+          <div className="mt-4 grid gap-4">
+            {notices.slice(0, 3).map((notice) => (
+              <a className="block text-sm text-gray-400 transition hover:text-white" href="/login" key={notice._id}>
+                <span className="line-clamp-2 font-semibold">{notice.title}</span>
+                <span className="mt-1 block text-xs text-gray-500">{formatDate(notice.createdAt)}</span>
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {blogs.length === 0 ? (
-          <p className="rounded-md bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
-            No blogs published yet.
-          </p>
-        ) : null}
-        {blogs.slice(0, 4).map((blog) => (
-          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={blog._id}>
-            {blog.imageUrl ? (
-              <img alt="" className="mb-4 h-40 w-full rounded-md object-cover" src={blog.imageUrl} />
-            ) : null}
-            <h3 className="font-semibold text-gray-950">{blog.title}</h3>
-            <p className="mt-1 text-xs font-semibold uppercase text-indigo-700">
-              {blog.createdBy?.name || 'Member'} | {formatDate(blog.createdAt)}
-            </p>
-            <p className="mt-3 line-clamp-4 text-sm leading-6 text-gray-600">{blog.body}</p>
-            <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-gray-600">
-              <span className="inline-flex items-center gap-1">
-                <Heart aria-hidden="true" className="h-4 w-4 text-red-700" />
-                {blog.likes?.length || 0} likes
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <MessageCircle aria-hidden="true" className="h-4 w-4 text-indigo-700" />
-                {blog.comments?.length || 0} comments
-              </span>
-            </div>
-          </article>
-        ))}
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-t border-white/10 py-5 text-sm text-gray-500">
+        <p>© {new Date().getFullYear()} {orgName}. সর্বস্বত্ব সংরক্ষিত।</p>
+        <div className="flex gap-4">
+          <a className="hover:text-white" href="#home">গোপনীয়তা নীতি</a>
+          <a className="hover:text-white" href="#home">ব্যবহারের শর্তাবলী</a>
+        </div>
       </div>
-    </section>
+    </footer>
+  )
+}
+
+function SocialLink({ href, icon: Icon, label }) {
+  return (
+    <a
+      aria-label={label}
+      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-gray-200 transition hover:bg-indigo-600 hover:text-white"
+      href={href || '#home'}
+      rel="noreferrer"
+      target={href ? '_blank' : undefined}
+    >
+      <Icon aria-hidden="true" className="h-4 w-4" />
+    </a>
+  )
+}
+
+function SectionHeading({ eyebrow, text, title }) {
+  return (
+    <motion.div
+      className="mx-auto max-w-3xl text-center"
+      initial="hidden"
+      variants={stagger}
+      viewport={{ once: true, amount: 0.35 }}
+      whileInView="show"
+    >
+      <motion.p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-700" variants={fadeUp}>
+        {eyebrow}
+      </motion.p>
+      <motion.h2 className="mt-4 text-4xl font-semibold tracking-tight text-gray-950 sm:text-5xl" variants={fadeUp}>
+        {title}
+      </motion.h2>
+      <motion.p className="mt-4 text-base leading-8 text-gray-500" variants={fadeUp}>
+        {text}
+      </motion.p>
+    </motion.div>
+  )
+}
+
+function AnimatedCounter({ value }) {
+  const ref = useRef(null)
+  const [started, setStarted] = useState(false)
+  const [display, setDisplay] = useState(0)
+
+  useEffect(() => {
+    const element = ref.current
+
+    if (!element) {
+      return undefined
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setStarted(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.35 },
+    )
+
+    observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!started) {
+      return undefined
+    }
+
+    const duration = 1200
+    const startedAt = performance.now()
+    let frame = 0
+
+    const tick = (time) => {
+      const progress = Math.min((time - startedAt) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setDisplay(Math.round(Number(value || 0) * eased))
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick)
+      }
+    }
+
+    frame = requestAnimationFrame(tick)
+
+    return () => cancelAnimationFrame(frame)
+  }, [started, value])
+
+  return (
+    <span className="tabular-nums" ref={ref}>
+      {display.toLocaleString('bn-BD')}
+    </span>
+  )
+}
+
+function Wave({ className = '' }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={`h-10 w-full ${className}`}
+      preserveAspectRatio="none"
+      viewBox="0 0 1440 80"
+    >
+      <path
+        d="M0 32L80 37.3C160 43 320 53 480 48C640 43 800 21 960 16C1120 11 1280 21 1360 26.7L1440 32V80H0V32Z"
+        fill="currentColor"
+      />
+    </svg>
   )
 }

@@ -82,6 +82,9 @@ Deployment is intentionally skipped for now.
 26. Advanced controls and PWA pass
     - `/admin/controls` seven-tab control panel, site/finance/member/content/notification/appearance/security settings, CSV member import/export, PDF reports, blog moderation, gallery albums, notice interactions, dashboard widgets, Socket.IO presence, member profile data controls, PWA manifest/service worker, global search, route lazy loading, and advanced UI animations.
 
+27. Public homepage redesign
+    - Fixed glass navbar, full-viewport animated hero, dynamic public stats, about/story cards, latest notices, upcoming events, donation form with quick amounts and confetti success, gallery masonry preview, approved blog cards, membership CTA, nonprofit footer, SEO meta tags, and public settings stats.
+
 ## Verification Command Set
 
 Run these before every push:

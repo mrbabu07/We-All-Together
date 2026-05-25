@@ -13,6 +13,7 @@
     "@headlessui/react": "^2.2.10",
     "axios": "^1.16.1",
     "browser-image-compression": "^2.0.2",
+    "canvas-confetti": "^1.9.4",
     "date-fns": "^4.3.0",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",
