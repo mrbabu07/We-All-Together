@@ -3,7 +3,12 @@ const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { generateAccessToken } = require('../utils/tokenUtils')
-const { validateBootstrapAdmin, validateLogin } = require('../validators/authValidators')
+const {
+  validateBootstrapAdmin,
+  validateChangePassword,
+  validateLogin,
+  validateProfileUpdate,
+} = require('../validators/authValidators')
 const env = require('../config/env')
 
 const sendAuthResponse = (res, user, statusCode = 200) => {
@@ -70,8 +75,53 @@ const getMe = asyncHandler(async (req, res) => {
   })
 })
 
+const updateMe = asyncHandler(async (req, res) => {
+  const payload = validateProfileUpdate(req.body)
+  const user = await User.findById(req.user._id)
+
+  if (!user) {
+    throw new AppError('Authenticated user no longer exists.', 401)
+  }
+
+  user.name = payload.name
+  user.phone = payload.phone
+  user.address = payload.address
+  await user.save()
+
+  res.status(200).json({
+    success: true,
+    message: 'Profile updated successfully.',
+    data: {
+      user,
+    },
+  })
+})
+
+const changePassword = asyncHandler(async (req, res) => {
+  const payload = validateChangePassword(req.body)
+  const user = await User.findById(req.user._id).select('+password')
+
+  if (!user) {
+    throw new AppError('Authenticated user no longer exists.', 401)
+  }
+
+  if (!(await user.comparePassword(payload.currentPassword))) {
+    throw new AppError('Current password is incorrect.', 401)
+  }
+
+  user.password = payload.newPassword
+  await user.save()
+
+  res.status(200).json({
+    success: true,
+    message: 'Password changed successfully.',
+  })
+})
+
 module.exports = {
   bootstrapAdmin,
+  changePassword,
   getMe,
   login,
+  updateMe,
 }

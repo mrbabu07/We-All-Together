@@ -31,7 +31,33 @@ const validateBootstrapAdmin = (body) => {
   }
 }
 
+const validateProfileUpdate = (body) => ({
+  address: typeof body.address === 'string' ? body.address.trim() : '',
+  name: requireString(body, 'name', 'Name'),
+  phone: requireString(body, 'phone', 'Phone'),
+})
+
+const validateChangePassword = (body) => {
+  const currentPassword = requireString(body, 'currentPassword', 'Current password')
+  const newPassword = requireString(body, 'newPassword', 'New password')
+
+  if (newPassword.length < 6) {
+    throw new AppError('New password must be at least 6 characters.', 400)
+  }
+
+  if (currentPassword === newPassword) {
+    throw new AppError('New password must be different from current password.', 400)
+  }
+
+  return {
+    currentPassword,
+    newPassword,
+  }
+}
+
 module.exports = {
+  validateChangePassword,
   validateBootstrapAdmin,
   validateLogin,
+  validateProfileUpdate,
 }

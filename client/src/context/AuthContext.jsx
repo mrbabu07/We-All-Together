@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import api, { getErrorMessage, setAuthToken } from '../api/http'
 import { AuthContext } from './auth-context'
 
@@ -8,6 +8,12 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY))
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(Boolean(token))
+
+  const refreshProfile = useCallback(async () => {
+    const response = await api.get('/auth/me')
+    setUser(response.data.data.user)
+    return response.data.data.user
+  }, [])
 
   useEffect(() => {
     setAuthToken(token)
@@ -74,10 +80,11 @@ export function AuthProvider({ children }) {
       loading,
       login,
       logout,
+      refreshProfile,
       token,
       user,
     }),
-    [loading, token, user],
+    [loading, refreshProfile, token, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

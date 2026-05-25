@@ -26,6 +26,8 @@ GET  /rules/public
 POST /auth/bootstrap-admin
 POST /auth/login
 GET  /auth/me
+PATCH /auth/me
+PATCH /auth/change-password
 ```
 
 ## Admin Routes

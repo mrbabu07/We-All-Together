@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage'
 import PublicHomePage from './pages/PublicHomePage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import MemberDashboardPage from './pages/MemberDashboardPage'
+import AccountPage from './pages/AccountPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRoute from './routes/RoleRoute'
@@ -17,6 +18,7 @@ function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="account" element={<AccountPage />} />
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="admin" element={<AdminDashboardPage />} />
           </Route>
