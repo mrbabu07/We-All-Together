@@ -8,6 +8,8 @@ const { getSettings } = require('../services/settingsService')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
 const { ensurePaymentQrCode } = require('../services/paymentQrService')
+const { generatePaymentReceiptFile } = require('../services/paymentReceiptFileService')
+const { BENGALI_MONTHS, getPaymentCoveredMonths } = require('../utils/feeCalculator')
 const {
   validateMonth,
   validateMonthlyPayment,
@@ -22,6 +24,7 @@ const submitMonthlyPayment = asyncHandler(async (req, res) => {
     type: PAYMENT_TYPES.MONTHLY_FEE,
     month: payload.month,
     amount: settings.monthlyFee,
+    amountPaisa: Math.round(Number(settings.monthlyFee || 0) * 100),
     method: payload.method,
     transactionId: payload.transactionId,
     senderPhone: payload.senderPhone,
@@ -92,6 +95,7 @@ const getPaymentById = asyncHandler(async (req, res) => {
 
 const verifyPayment = asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.params.id)
+  const settings = await getSettings()
 
   if (!payment) {
     throw new AppError('Payment not found.', 404)
@@ -100,13 +104,26 @@ const verifyPayment = asyncHandler(async (req, res) => {
   payment.status = PAYMENT_STATUSES.VERIFIED
   payment.verifiedAt = new Date()
   payment.verifiedBy = req.user._id
+  payment.receiptNumber =
+    payment.receiptNumber && payment.receiptNumber.startsWith('DP-')
+      ? payment.receiptNumber
+      : `DP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+  payment.receiptGeneratedAt = new Date()
+  payment.receiptPdfPath = `/api/v1/receipts/${payment._id}`
   await payment.save()
+  await generatePaymentReceiptFile({
+    organizationName: 'Dargah Para OIkko Porishod',
+    payment,
+    settings,
+  })
   await createNotification({
     createdBy: req.user,
-    link: '/member',
-    message: `Your monthly payment for ${payment.month} has been verified.`,
-    title: 'Payment verified',
-    type: 'payment',
+    link: '/member/fee-history',
+    message: `${getPaymentCoveredMonths(payment)
+      .map((item) => `${BENGALI_MONTHS[item.month - 1]} ${item.year}`)
+      .join(', ')} মাসের ৳${Number(payment.amount || 0).toLocaleString('bn-BD')} ফি অনুমোদিত হয়েছে।`,
+    title: 'ফি অনুমোদিত',
+    type: 'fee_approved',
     user: payment.user,
   })
   await recordAuditLog({

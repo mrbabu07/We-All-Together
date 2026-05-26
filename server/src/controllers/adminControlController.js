@@ -148,6 +148,16 @@ const updateControls = asyncHandler(async (req, res) => {
   }
   if (req.body.monthlyFee !== undefined) {
     settings.monthlyFee = Number(req.body.monthlyFee)
+    settings.monthlyFeeAmount = Math.round(Number(req.body.monthlyFee || 0) * 100)
+  }
+  safeAssign(settings, req.body, [
+    'monthlyFeeAmount',
+    'feeLateFeeAmount',
+    'feeDueDay',
+    'feeOverdueAlertEnabled',
+  ])
+  if (req.body.monthlyFeeAmount !== undefined) {
+    settings.monthlyFee = Number(req.body.monthlyFeeAmount || 0) / 100
   }
 
   await settings.save()

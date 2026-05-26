@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  AlertTriangle,
   Bell,
   CheckCircle2,
   ClipboardList,
   DatabaseBackup,
   Download,
   DollarSign,
+  Eye,
+  FileDown,
   FileText,
   KeyRound,
+  MessageCircle,
   Pencil,
   FilePlus2,
   RefreshCw,
@@ -27,6 +31,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
+import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
@@ -49,6 +54,28 @@ import {
 } from 'recharts'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+const moneyPaisa = (value = 0) => money(Number(value || 0) / 100)
+
+const bnMonths = [
+  'জানুয়ারি',
+  'ফেব্রুয়ারি',
+  'মার্চ',
+  'এপ্রিল',
+  'মে',
+  'জুন',
+  'জুলাই',
+  'আগস্ট',
+  'সেপ্টেম্বর',
+  'অক্টোবর',
+  'নভেম্বর',
+  'ডিসেম্বর',
+]
+
+const formatMonthYear = (month, year) =>
+  month && year ? `${bnMonths[Number(month) - 1] || month} ${year}` : 'N/A'
+
+const formatCoveredMonths = (months = []) =>
+  months.length ? months.map((item) => formatMonthYear(item.month, item.year)).join(', ') : 'N/A'
 
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
@@ -190,6 +217,7 @@ export default function AdminDashboardPage() {
     content: { activities: [], meetings: [], notices: [], rules: [], tours: [] },
     donations: [],
     expenses: [],
+    feeOverdue: { overdueMembers: [], summary: {} },
     payments: [],
     pendingRegistrations: [],
     polls: [],
@@ -214,6 +242,9 @@ export default function AdminDashboardPage() {
       whatsappNoticeEnabled: false,
     },
     monthlyFee: 0,
+    feeDueDay: 1,
+    feeLateFeeAmount: 0,
+    feeOverdueAlertEnabled: true,
     registrationFee: 0,
   })
   const [expenseForm, setExpenseForm] = useState({
@@ -261,6 +292,7 @@ export default function AdminDashboardPage() {
         auditLogsResponse,
         analyticsResponse,
         pollsResponse,
+        feeOverdueResponse,
       ] = await Promise.all([
         api.get('/registrations/pending'),
         api.get('/settings/public'),
@@ -276,6 +308,7 @@ export default function AdminDashboardPage() {
         api.get('/audit-logs', { params: { limit: 80 } }),
         api.get('/finance/analytics'),
         api.get('/polls'),
+        api.get('/fees/overdue-members'),
       ])
 
       const settings = settingsResponse.data.data.settings
@@ -291,6 +324,7 @@ export default function AdminDashboardPage() {
         },
         donations: donationsResponse.data.data.donations,
         expenses: expensesResponse.data.data.expenses,
+        feeOverdue: feeOverdueResponse.data.data,
         payments: paymentsResponse.data.data.payments,
         pendingRegistrations: pendingResponse.data.data.users,
         polls: pollsResponse.data.data.polls,
@@ -310,7 +344,10 @@ export default function AdminDashboardPage() {
           whatsappMeetingEnabled: Boolean(settings.notificationSettings?.whatsappMeetingEnabled),
           whatsappNoticeEnabled: Boolean(settings.notificationSettings?.whatsappNoticeEnabled),
         },
-        monthlyFee: settings.monthlyFee || 0,
+        monthlyFee: settings.monthlyFee || Number(settings.monthlyFeeAmount || 0) / 100,
+        feeDueDay: settings.feeDueDay || 1,
+        feeLateFeeAmount: Number(settings.feeLateFeeAmount || 0) / 100,
+        feeOverdueAlertEnabled: settings.feeOverdueAlertEnabled !== false,
         registrationFee: settings.registrationFee || 0,
       })
     } catch (error) {
@@ -393,6 +430,11 @@ export default function AdminDashboardPage() {
           donationProvider: settingsForm.donationProvider,
         }),
         api.patch('/settings/notification-settings', settingsForm.notificationSettings),
+        api.patch('/admin-controls', {
+          feeDueDay: Number(settingsForm.feeDueDay || 1),
+          feeLateFeeAmount: Math.round(Number(settingsForm.feeLateFeeAmount || 0) * 100),
+          feeOverdueAlertEnabled: settingsForm.feeOverdueAlertEnabled,
+        }),
       ])
     }, 'Settings updated successfully.')
   }
@@ -905,6 +947,27 @@ export default function AdminDashboardPage() {
           onPaymentVerify={(id) =>
             runAction(() => api.patch(`/payments/${id}/verify`), 'Payment verified.')
           }
+          onFeeReminder={(member) =>
+            runAction(
+              () => api.post(`/fees/member/${member.memberId}/reminder`),
+              'Reminder sent.',
+            )
+          }
+          onFeeAdjust={(payload) =>
+            runAction(() => api.post('/fees/adjust', payload), 'Fee amount adjusted.')
+          }
+          onFeeAdjustmentRemove={(id) =>
+            runAction(() => api.delete(`/fees/adjust/${id}`), 'Fee adjustment removed.')
+          }
+          onFeeWaive={(payload) =>
+            runAction(() => api.post('/fees/waive', payload), 'Fee waiver saved.')
+          }
+          onFeeWaiverRemove={(id) =>
+            runAction(() => api.delete(`/fees/waive/${id}`), 'Fee waiver removed.')
+          }
+          onMemberFeeHistory={(memberId, year) =>
+            api.get(`/fees/member/${memberId}/history`, { params: { year } })
+          }
           onDonationReject={(id) =>
             runAction(() => api.patch(`/donations/${id}/reject`), 'Donation rejected.')
           }
@@ -1169,6 +1232,12 @@ function FinanceTab({
   onPaymentReject,
   onPaymentReceipt,
   onPaymentVerify,
+  onFeeAdjust,
+  onFeeAdjustmentRemove,
+  onFeeReminder,
+  onFeeWaive,
+  onFeeWaiverRemove,
+  onMemberFeeHistory,
   onDonationReceipt,
   onSaveExpense,
   onNotificationSettingChange,
@@ -1201,6 +1270,18 @@ function FinanceTab({
         totalPayments={totalPayments}
       />
 
+      <OverdueMembersPanel
+        overdueData={data.feeOverdue}
+        onHistory={onMemberFeeHistory}
+        onAdjust={onFeeAdjust}
+        onRemoveAdjustment={onFeeAdjustmentRemove}
+        onPaymentReject={onPaymentReject}
+        onPaymentVerify={onPaymentVerify}
+        onReminder={onFeeReminder}
+        onRemoveWaiver={onFeeWaiverRemove}
+        onWaive={onFeeWaive}
+      />
+
       <Panel>
         <SectionTitle icon={Save} title="Finance Settings" />
         <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={onUpdateSettings}>
@@ -1229,6 +1310,28 @@ function FinanceTab({
             name="donationProvider"
             onChange={(event) => onSettingsChange('donationProvider', event.target.value)}
             value={settingsForm.donationProvider}
+          />
+          <Field
+            label="Fee Due Day"
+            max="28"
+            min="1"
+            name="feeDueDay"
+            onChange={(event) => onSettingsChange('feeDueDay', event.target.value)}
+            type="number"
+            value={settingsForm.feeDueDay}
+          />
+          <Field
+            label="Late Fee"
+            min="0"
+            name="feeLateFeeAmount"
+            onChange={(event) => onSettingsChange('feeLateFeeAmount', event.target.value)}
+            type="number"
+            value={settingsForm.feeLateFeeAmount}
+          />
+          <ToggleField
+            checked={settingsForm.feeOverdueAlertEnabled}
+            label="Enable overdue alerts"
+            onChange={(value) => onSettingsChange('feeOverdueAlertEnabled', value)}
           />
           <Button className="md:col-span-2 xl:col-span-4" icon={Save} type="submit">
             Save Settings
@@ -1494,6 +1597,686 @@ function FinanceSummary({ expenseCategories, totalDonations, totalExpenses, tota
           </div>
         ))}
       </div>
+    </Panel>
+  )
+}
+
+function OverdueMembersPanel({
+  onAdjust,
+  onHistory,
+  onPaymentReject,
+  onPaymentVerify,
+  onReminder,
+  onRemoveAdjustment,
+  onRemoveWaiver,
+  onWaive,
+  overdueData,
+}) {
+  const members = useMemo(() => overdueData?.overdueMembers || [], [overdueData?.overdueMembers])
+  const summary = overdueData?.summary || {}
+  const [countFilter, setCountFilter] = useState('')
+  const [expandedId, setExpandedId] = useState('')
+  const [history, setHistory] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyMember, setHistoryMember] = useState(null)
+  const [historyYear, setHistoryYear] = useState(new Date().getFullYear())
+  const [query, setQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [sortBy, setSortBy] = useState('amount')
+  const [waiverModal, setWaiverModal] = useState(null)
+
+  const collectionRate = summary.totalMembers
+    ? Math.round((Number(summary.paidThisMonth || 0) / Number(summary.totalMembers || 1)) * 100)
+    : 0
+  const progressColor =
+    collectionRate < 50 ? 'bg-red-500' : collectionRate < 80 ? 'bg-yellow-500' : 'bg-green-500'
+
+  const visibleMembers = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    const countMatches = (member) => {
+      const count = member.overdueMonths?.length || 0
+      if (countFilter === '1') return count === 1
+      if (countFilter === '2-3') return count >= 2 && count <= 3
+      if (countFilter === '4+') return count >= 4
+      return true
+    }
+    const queryMatches = (member) =>
+      normalizedQuery
+        ? [member.name, member.phone]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+        : true
+
+    return [...members]
+      .filter((member) => countMatches(member) && queryMatches(member))
+      .sort((left, right) => {
+        if (sortBy === 'months') {
+          return (right.overdueMonths?.length || 0) - (left.overdueMonths?.length || 0)
+        }
+        if (sortBy === 'name') {
+          return String(left.name || '').localeCompare(String(right.name || ''))
+        }
+        if (sortBy === 'lastPaid') {
+          return String(left.lastPaidMonth || '').localeCompare(String(right.lastPaidMonth || ''))
+        }
+        return Number(right.totalDuePaisa || 0) - Number(left.totalDuePaisa || 0)
+      })
+  }, [countFilter, members, query, sortBy])
+
+  const selectedMembers = visibleMembers.filter((member) => selectedIds.includes(member.memberId))
+
+  const toggleSelected = (memberId) => {
+    setSelectedIds((current) =>
+      current.includes(memberId) ? current.filter((id) => id !== memberId) : [...current, memberId],
+    )
+  }
+
+  const toggleAllVisible = () => {
+    setSelectedIds((current) =>
+      visibleMembers.every((member) => current.includes(member.memberId))
+        ? current.filter((id) => !visibleMembers.some((member) => member.memberId === id))
+        : [...new Set([...current, ...visibleMembers.map((member) => member.memberId)])],
+    )
+  }
+
+  const exportSelected = () => {
+    downloadCsv(
+      'overdue-members.csv',
+      selectedMembers.map((member) => ({
+        phone: member.phone,
+        member: member.name,
+        overdueMonths: formatCoveredMonths(member.overdueMonths || []),
+        totalDue: member.totalDue,
+        lastPaidMonth: member.lastPaidMonth,
+      })),
+    )
+  }
+
+  const printSelected = () => {
+    if (!selectedMembers.length) return
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+    if (!printWindow) return
+
+    const rows = selectedMembers
+      .map(
+        (member) => `
+          <tr>
+            <td>${escapeHtml(member.name)}</td>
+            <td>${escapeHtml(member.phone || '')}</td>
+            <td>${escapeHtml(formatCoveredMonths(member.overdueMonths || []))}</td>
+            <td>${escapeHtml(money(member.totalDue || 0))}</td>
+          </tr>
+        `,
+      )
+      .join('')
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Overdue Members</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 32px; color: #111827; }
+            h1 { margin: 0 0 16px; font-size: 22px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
+            th { background: #f9fafb; font-size: 12px; text-transform: uppercase; color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <h1>Dargah Para OIkko Porishod - Overdue Members</h1>
+          <table>
+            <thead><tr><th>Member</th><th>Phone</th><th>Months</th><th>Total due</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
+  const sendSelectedReminders = async () => {
+    for (const member of selectedMembers) {
+      await onReminder(member)
+    }
+    setSelectedIds([])
+  }
+
+  const openHistory = async (member, year = new Date().getFullYear()) => {
+    setHistoryMember(member)
+    setHistoryYear(year)
+    setHistoryLoading(true)
+    setHistory(null)
+
+    try {
+      const response = await onHistory(member.memberId, year)
+      setHistory(response.data.data)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const reloadHistory = async () => {
+    if (historyMember) {
+      await openHistory(historyMember, historyYear)
+    }
+  }
+
+  const submitWaiver = async (event) => {
+    event.preventDefault()
+    const selectedMonth = waiverModal?.member?.overdueMonths?.find(
+      (item) => `${item.month}-${item.year}` === waiverModal.monthKey,
+    )
+
+    if (!selectedMonth || !waiverModal?.reason?.trim()) {
+      return
+    }
+
+    await onWaive({
+      memberId: waiverModal.member.memberId,
+      month: selectedMonth.month,
+      reason: waiverModal.reason.trim(),
+      year: selectedMonth.year,
+    })
+    setWaiverModal(null)
+    await reloadHistory()
+  }
+
+  const removeWaiver = async (waiverId) => {
+    await onRemoveWaiver(waiverId)
+    await reloadHistory()
+  }
+
+  const adjustMonthAmount = async ({ member, month, year }) => {
+    const amount = window.prompt(`${formatMonthYear(month, year)} fee amount (Tk)`)
+    if (amount === null) return
+    const numericAmount = Number(amount)
+    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
+      window.alert('Enter a valid amount.')
+      return
+    }
+
+    const reason = window.prompt('Adjustment reason')
+    if (!reason?.trim()) return
+
+    await onAdjust({
+      amountPaisa: Math.round(numericAmount * 100),
+      memberId: member.memberId,
+      month,
+      reason: reason.trim(),
+      year,
+    })
+    await reloadHistory()
+  }
+
+  const removeAdjustment = async (adjustmentId) => {
+    await onRemoveAdjustment(adjustmentId)
+    await reloadHistory()
+  }
+
+  const handlePaymentAction = async (action, paymentId) => {
+    await action(paymentId)
+    await reloadHistory()
+  }
+
+  const downloadHistoryReceipt = async (paymentId) => {
+    const response = await api.get(`/receipts/${paymentId}`, { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `fee-receipt-${paymentId}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionTitle icon={AlertTriangle} title="বকেয়া সদস্য তালিকা" />
+        <Badge value={summary.totalOverdueMembers ? 'rejected' : 'verified'}>
+          {summary.totalOverdueMembers || 0} জন বকেয়া
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        <SummaryStat label="মোট বকেয়া সদস্য" value={summary.totalOverdueMembers || 0} />
+        <SummaryStat label="মোট বকেয়া" value={money(summary.totalAmountDue || 0)} />
+        <SummaryStat
+          label="এই মাসে পরিশোধ"
+          value={`${summary.paidThisMonth || 0}/${summary.totalMembers || 0}`}
+        />
+        <SummaryStat label="সংগ্রহ হার" value={`${collectionRate}%`} />
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="font-semibold text-gray-700">Monthly collection progress</span>
+          <span className="font-bold text-gray-950">{collectionRate}%</span>
+        </div>
+        <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className={`h-full rounded-full transition-all ${progressColor}`}
+            style={{ width: `${collectionRate}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <Field
+          className="md:col-span-2"
+          label="সদস্য খুঁজুন"
+          name="overdueSearch"
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="নাম বা ফোন"
+          value={query}
+        />
+        <SelectField
+          label="বকেয়া মাস"
+          name="overdueCount"
+          onChange={(event) => setCountFilter(event.target.value)}
+          value={countFilter}
+        >
+          <option value="">সব</option>
+          <option value="1">১ মাস</option>
+          <option value="2-3">২-৩ মাস</option>
+          <option value="4+">৪+ মাস</option>
+        </SelectField>
+        <SelectField
+          label="সাজান"
+          name="overdueSort"
+          onChange={(event) => setSortBy(event.target.value)}
+          value={sortBy}
+        >
+          <option value="amount">সবচেয়ে বেশি টাকা</option>
+          <option value="months">সবচেয়ে বেশি মাস</option>
+          <option value="name">নাম</option>
+          <option value="lastPaid">শেষ পেমেন্ট</option>
+        </SelectField>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button disabled={!selectedMembers.length} icon={MessageCircle} onClick={sendSelectedReminders}>
+          SMS পাঠান
+        </Button>
+        <Button
+          disabled={!selectedMembers.length}
+          icon={FileDown}
+          onClick={exportSelected}
+          variant="secondary"
+        >
+          CSV Export
+        </Button>
+        <Button
+          disabled={!selectedMembers.length}
+          icon={FileText}
+          onClick={printSelected}
+          variant="secondary"
+        >
+          PDF/Print
+        </Button>
+      </div>
+
+      <div className="mt-5 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3">
+                <input
+                  checked={
+                    visibleMembers.length > 0 &&
+                    visibleMembers.every((member) => selectedIds.includes(member.memberId))
+                  }
+                  className="h-4 w-4 accent-indigo-600"
+                  onChange={toggleAllVisible}
+                  type="checkbox"
+                />
+              </th>
+              {['সদস্য', 'ফোন', 'বকেয়া মাস', 'মোট বকেয়া', 'শেষ পেমেন্ট', 'অ্যাকশন'].map(
+                (heading) => (
+                  <th
+                    className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500"
+                    key={heading}
+                  >
+                    {heading}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {visibleMembers.length === 0 ? (
+              <tr>
+                <td className="px-4 py-6 text-gray-500" colSpan={7}>
+                  No overdue members found.
+                </td>
+              </tr>
+            ) : null}
+            {visibleMembers.map((member) => {
+              const isExpanded = expandedId === member.memberId
+              return (
+                <Fragment key={member.memberId}>
+                  <tr className="transition hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <input
+                        checked={selectedIds.includes(member.memberId)}
+                        className="h-4 w-4 accent-indigo-600"
+                        onChange={() => toggleSelected(member.memberId)}
+                        type="checkbox"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={member.name} size="sm" src={member.photo} />
+                        <div>
+                          <p className="font-semibold text-gray-950">{member.name}</p>
+                          <p className="text-xs text-gray-500">
+                            Since {toDateInput(member.memberSince) || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{member.phone}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        className="text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                        onClick={() => setExpandedId(isExpanded ? '' : member.memberId)}
+                        type="button"
+                      >
+                        {member.overdueMonths?.length || 0} মাস
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 font-bold text-red-600">{money(member.totalDue || 0)}</td>
+                    <td className="px-4 py-3 text-gray-600">{member.lastPaidMonth || 'N/A'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button icon={MessageCircle} onClick={() => onReminder(member)} variant="secondary">
+                          SMS
+                        </Button>
+                        <Button
+                          icon={CheckCircle2}
+                          onClick={() =>
+                            setWaiverModal({
+                              member,
+                              monthKey: `${member.overdueMonths?.[0]?.month}-${member.overdueMonths?.[0]?.year}`,
+                              reason: '',
+                            })
+                          }
+                          variant="secondary"
+                        >
+                          মওকুফ
+                        </Button>
+                        <Button icon={Eye} onClick={() => openHistory(member)} variant="secondary">
+                          বিস্তারিত
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isExpanded ? (
+                    <tr>
+                      <td className="bg-red-50/50 px-4 py-3" colSpan={7}>
+                        <div className="flex flex-wrap gap-2">
+                          {(member.overdueMonths || []).map((item) => (
+                            <Badge key={`${item.month}-${item.year}`} value="rejected">
+                              {formatMonthYear(item.month, item.year)} - {money(item.amount)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <Modal
+        className="max-w-lg"
+        onClose={() => setWaiverModal(null)}
+        open={Boolean(waiverModal)}
+        title="ফি মওকুফ করুন"
+      >
+        {waiverModal ? (
+          <form className="grid gap-4" onSubmit={submitWaiver}>
+            <p className="text-sm text-gray-600">
+              {waiverModal.member.name} এর নির্দিষ্ট মাসের ফি মওকুফ করতে কারণ লিখুন।
+            </p>
+            <SelectField
+              label="মাস"
+              name="waiverMonth"
+              onChange={(event) =>
+                setWaiverModal((current) => ({ ...current, monthKey: event.target.value }))
+              }
+              value={waiverModal.monthKey}
+            >
+              {(waiverModal.member.overdueMonths || []).map((item) => (
+                <option key={`${item.month}-${item.year}`} value={`${item.month}-${item.year}`}>
+                  {formatMonthYear(item.month, item.year)} - {money(item.amount)}
+                </option>
+              ))}
+            </SelectField>
+            <Field
+              label="কারণ"
+              name="waiverReason"
+              onChange={(event) =>
+                setWaiverModal((current) => ({ ...current, reason: event.target.value }))
+              }
+              required
+              textarea
+              value={waiverModal.reason}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setWaiverModal(null)} variant="secondary">
+                বাতিল
+              </Button>
+              <Button icon={CheckCircle2} type="submit">
+                সংরক্ষণ
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
+        className="max-h-[90vh] max-w-6xl overflow-y-auto"
+        onClose={() => {
+          setHistoryMember(null)
+          setHistory(null)
+        }}
+        open={Boolean(historyMember)}
+        title="সদস্যের ফি ইতিহাস"
+      >
+        {historyLoading ? <Skeleton rows={6} /> : null}
+        {!historyLoading && history ? (
+          <div className="grid gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Avatar name={history.member?.name} src={history.member?.profilePhotoUrl} />
+                <div>
+                  <p className="font-semibold text-gray-950">{history.member?.name}</p>
+                  <p className="text-sm text-gray-500">{history.member?.phone}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(history.years || []).map((year) => (
+                  <button
+                    className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${
+                      Number(year) === Number(historyYear)
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-gray-300 bg-white text-gray-700'
+                    }`}
+                    key={year}
+                    onClick={() => openHistory(historyMember, year)}
+                    type="button"
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {(history.grid || []).map((cell) => (
+                <div
+                  className={`rounded-xl border p-3 ${
+                    cell.status === 'approved'
+                      ? 'border-green-200 bg-green-50'
+                      : cell.status === 'pending'
+                        ? 'border-yellow-200 bg-yellow-50'
+                        : cell.status === 'overdue'
+                          ? 'border-red-200 bg-red-50'
+                          : cell.status === 'waived'
+                            ? 'border-gray-300 bg-gray-100'
+                            : 'border-gray-200 bg-white'
+                  }`}
+                  key={`${cell.month}-${cell.year}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-gray-950">{cell.label}</p>
+                    <Badge
+                      value={
+                        cell.status === 'approved'
+                          ? 'verified'
+                          : cell.status === 'pending'
+                            ? 'pending'
+                            : cell.status === 'overdue'
+                              ? 'rejected'
+                              : 'default'
+                      }
+                    >
+                      {cell.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-gray-900">
+                    {cell.amountPaisa ? moneyPaisa(cell.amountPaisa) : money(cell.amount)}
+                  </p>
+                  {cell.adjustment?._id ? (
+                    <p className="mt-1 text-xs font-semibold text-indigo-700">
+                      Adjusted: {cell.adjustment.reason}
+                    </p>
+                  ) : null}
+                  {cell.payment?.status === 'pending' ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => handlePaymentAction(onPaymentVerify, cell.payment._id)}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => handlePaymentAction(onPaymentReject, cell.payment._id)}
+                        variant="danger"
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  ) : null}
+                  {cell.status === 'overdue' ? (
+                    <div className="mt-3 grid gap-2">
+                      <Button
+                        onClick={() =>
+                          setWaiverModal({
+                            member: historyMember,
+                            monthKey: `${cell.month}-${cell.year}`,
+                            reason: '',
+                          })
+                        }
+                        variant="secondary"
+                      >
+                        মওকুফ
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          adjustMonthAmount({
+                            member: historyMember,
+                            month: cell.month,
+                            year: cell.year,
+                          })
+                        }
+                        variant="secondary"
+                      >
+                        টাকা সেট
+                      </Button>
+                    </div>
+                  ) : null}
+                  {cell.adjustment?._id ? (
+                    <Button
+                      className="mt-3 w-full"
+                      onClick={() => removeAdjustment(cell.adjustment._id)}
+                      variant="danger"
+                    >
+                      সমন্বয় বাতিল
+                    </Button>
+                  ) : null}
+                  {cell.waiver?._id ? (
+                    <Button
+                      className="mt-3 w-full"
+                      onClick={() => removeWaiver(cell.waiver._id)}
+                      variant="danger"
+                    >
+                      মওকুফ বাতিল
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['তারিখ', 'মাসসমূহ', 'পরিমাণ', 'বিলম্ব ফি', 'অবস্থা', 'রসিদ'].map(
+                      (heading) => (
+                        <th className="px-4 py-3 text-xs font-semibold text-gray-500" key={heading}>
+                          {heading}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(history.payments || []).map((payment) => (
+                    <tr key={payment._id}>
+                      <td className="px-4 py-3 text-gray-600">{toReadableDate(payment.createdAt)}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {formatCoveredMonths(payment.coveredMonths || [])}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-gray-950">
+                        {payment.amountPaisa ? moneyPaisa(payment.amountPaisa) : money(payment.amount)}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {payment.lateFeeAppliedPaisa
+                          ? moneyPaisa(payment.lateFeeAppliedPaisa)
+                          : money(payment.lateFeeApplied || 0)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge value={payment.status}>{payment.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {payment.status === 'verified' ? (
+                          <Button
+                            icon={Download}
+                            onClick={() => downloadHistoryReceipt(payment._id)}
+                            variant="secondary"
+                          >
+                            PDF
+                          </Button>
+                        ) : (
+                          <span className="text-gray-400">--</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </Panel>
   )
 }

@@ -21,7 +21,10 @@ const writeRow = (doc, label, value) => {
 
 const createReceiptPdf = ({
   amount,
+  adminName = '',
+  coveredMonths = [],
   date,
+  lateFee = 0,
   method,
   organization,
   payerAddress = '',
@@ -55,6 +58,12 @@ const createReceiptPdf = ({
       .fontSize(10)
       .fillColor('#475569')
       .text('Official payment receipt', { align: 'center' })
+    if (organization.address || organization.contactNumber) {
+      doc.text([organization.address, organization.contactNumber].filter(Boolean).join(' | '), {
+        align: 'center',
+      })
+    }
+    doc
       .moveDown(1)
 
     doc
@@ -77,10 +86,21 @@ const createReceiptPdf = ({
     writeRow(doc, 'Phone:', payerPhone)
     writeRow(doc, 'Address:', payerAddress)
     writeRow(doc, 'Amount:', formatMoney(amount))
+    if (coveredMonths.length) {
+      writeRow(
+        doc,
+        'Covered Months:',
+        coveredMonths.map((item) => `${item.month}/${item.year}`).join(', '),
+      )
+    }
+    if (Number(lateFee || 0) > 0) {
+      writeRow(doc, 'Late Fee:', formatMoney(lateFee))
+    }
     writeRow(doc, 'Payment Method:', method)
     writeRow(doc, 'Transaction ID:', transactionId)
     writeRow(doc, 'Payment Date:', formatDate(date))
     writeRow(doc, 'Status:', status)
+    writeRow(doc, 'Approved By:', adminName || 'Admin')
 
     if (qrCodeDataUrl) {
       const [, imageData = ''] = qrCodeDataUrl.split(',')

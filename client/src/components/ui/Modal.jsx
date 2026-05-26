@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { modalBackdrop, modalPanel } from '../../animations/variants'
 
-export default function Modal({ children, onClose, open, title }) {
+export default function Modal({ children, className = '', onClose, open, title }) {
   return (
     <Dialog className="relative z-50" onClose={onClose} open={open}>
       <AnimatePresence>
@@ -19,7 +19,7 @@ export default function Modal({ children, onClose, open, title }) {
               <DialogPanel
                 as={motion.div}
                 animate={modalPanel.animate}
-                className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+                className={`w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl ${className}`}
                 exit={modalPanel.exit}
                 initial={modalPanel.initial}
                 transition={{ duration: 0.18, ease: 'easeOut' }}

@@ -21,10 +21,45 @@ const paymentSchema = new mongoose.Schema(
       match: [/^\d{4}-(0[1-9]|1[0-2])$/, 'Month must use YYYY-MM format.'],
       index: true,
     },
+    forMonth: {
+      type: Number,
+      min: 1,
+      max: 12,
+      default: null,
+      index: true,
+    },
+    forYear: {
+      type: Number,
+      min: 2000,
+      max: 3000,
+      default: null,
+      index: true,
+    },
+    coveredMonths: [
+      {
+        month: {
+          type: Number,
+          min: 1,
+          max: 12,
+          required: true,
+        },
+        year: {
+          type: Number,
+          min: 2000,
+          max: 3000,
+          required: true,
+        },
+      },
+    ],
     amount: {
       type: Number,
       required: true,
       min: [0, 'Payment amount cannot be negative.'],
+    },
+    amountPaisa: {
+      type: Number,
+      min: [0, 'Payment amount cannot be negative.'],
+      default: 0,
     },
     method: {
       type: String,
@@ -63,6 +98,20 @@ const paymentSchema = new mongoose.Schema(
       min: [0, 'Late fee cannot be negative.'],
       default: 0,
     },
+    isLate: {
+      type: Boolean,
+      default: false,
+    },
+    lateFeeApplied: {
+      type: Number,
+      min: [0, 'Late fee cannot be negative.'],
+      default: 0,
+    },
+    lateFeeAppliedPaisa: {
+      type: Number,
+      min: [0, 'Late fee cannot be negative.'],
+      default: 0,
+    },
     waived: {
       type: Boolean,
       default: false,
@@ -85,6 +134,11 @@ const paymentSchema = new mongoose.Schema(
     receiptGeneratedAt: {
       type: Date,
       default: null,
+    },
+    receiptPdfPath: {
+      type: String,
+      trim: true,
+      default: '',
     },
     verificationUrl: {
       type: String,
@@ -116,5 +170,27 @@ const paymentSchema = new mongoose.Schema(
 )
 
 paymentSchema.index({ user: 1, type: 1, month: 1 }, { unique: true })
+paymentSchema.index({ user: 1, forMonth: 1, forYear: 1 })
+paymentSchema.index({ 'coveredMonths.year': 1, 'coveredMonths.month': 1 })
+
+paymentSchema.pre('validate', function syncFeeMonthFields() {
+  if (this.month && (!this.forMonth || !this.forYear)) {
+    const [year, month] = this.month.split('-').map(Number)
+    this.forYear = this.forYear || year
+    this.forMonth = this.forMonth || month
+  }
+
+  if ((!this.coveredMonths || this.coveredMonths.length === 0) && this.forMonth && this.forYear) {
+    this.coveredMonths = [{ month: this.forMonth, year: this.forYear }]
+  }
+
+  if (!this.amountPaisa && Number.isFinite(Number(this.amount))) {
+    this.amountPaisa = Math.round(Number(this.amount) * 100)
+  }
+
+  if (!this.lateFeeApplied && this.lateFeeAppliedPaisa) {
+    this.lateFeeApplied = Math.round(Number(this.lateFeeAppliedPaisa || 0)) / 100
+  }
+})
 
 module.exports = mongoose.model('Payment', paymentSchema)

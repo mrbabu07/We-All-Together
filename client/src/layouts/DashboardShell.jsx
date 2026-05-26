@@ -74,6 +74,11 @@ function SidebarContent({ navItems, onNavigate, user }) {
               ) : null}
               <Icon aria-hidden="true" className="relative z-10 h-5 w-5 shrink-0" />
               <span className="relative z-10 hidden truncate lg:block">{item.label}</span>
+              {item.badge ? (
+                <span className="relative z-10 ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                  {item.badge}
+                </span>
+              ) : null}
             </Link>
           )
         })}
@@ -218,7 +223,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
 
             return (
               <Link
-                className={`flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold ${
+                className={`relative flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold ${
                   active ? 'text-indigo-600' : 'text-gray-500'
                 }`}
                 key={item.to}
@@ -228,6 +233,11 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                   <Icon aria-hidden="true" className="h-5 w-5" />
                 </motion.span>
                 <span>{item.label}</span>
+                {item.badge ? (
+                  <span className="absolute right-4 top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                    {item.badge}
+                  </span>
+                ) : null}
               </Link>
             )
           })}

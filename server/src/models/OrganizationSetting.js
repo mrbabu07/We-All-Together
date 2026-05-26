@@ -18,6 +18,26 @@ const organizationSettingSchema = new mongoose.Schema(
       min: [0, 'Monthly fee cannot be negative.'],
       default: 0,
     },
+    monthlyFeeAmount: {
+      type: Number,
+      min: [0, 'Monthly fee amount cannot be negative.'],
+      default: 50000,
+    },
+    feeLateFeeAmount: {
+      type: Number,
+      min: [0, 'Late fee amount cannot be negative.'],
+      default: 0,
+    },
+    feeDueDay: {
+      type: Number,
+      min: 1,
+      max: 28,
+      default: 1,
+    },
+    feeOverdueAlertEnabled: {
+      type: Boolean,
+      default: true,
+    },
     donationNumber: {
       type: String,
       trim: true,

@@ -15,6 +15,7 @@ const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
 const AuthenticatedLayout = lazy(() => import('./layouts/AuthenticatedLayout'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const MemberDashboardPage = lazy(() => import('./pages/MemberDashboardPage'))
+const MemberFeeHistoryPage = lazy(() => import('./pages/MemberFeeHistoryPage'))
 const MemberLayout = lazy(() => import('./layouts/MemberLayout'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
@@ -67,11 +68,13 @@ function App() {
                 <Route path="admin" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/controls" element={page(<AdminControlsPage />)} />
                 <Route path="verify/:paymentId" element={page(<VerifyPaymentPage />)} />
+                <Route path="verify/receipt/:paymentId" element={page(<VerifyPaymentPage />)} />
               </Route>
             </Route>
             <Route element={<RoleRoute allowedRoles={['admin', 'member', 'moderator']} />}>
               <Route element={<MemberLayout />}>
                 <Route path="member" element={page(<MemberDashboardPage />)} />
+                <Route path="member/fee-history" element={page(<MemberFeeHistoryPage />)} />
               </Route>
             </Route>
             <Route path="dashboard" element={<Navigate to="/member" replace />} />

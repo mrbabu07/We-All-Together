@@ -43,6 +43,10 @@ const getPublicSettings = asyncHandler(async (req, res) => {
       settings: {
         registrationFee: settings.registrationFee,
         monthlyFee: settings.monthlyFee,
+        monthlyFeeAmount: settings.monthlyFeeAmount,
+        feeLateFeeAmount: settings.feeLateFeeAmount,
+        feeDueDay: settings.feeDueDay,
+        feeOverdueAlertEnabled: settings.feeOverdueAlertEnabled,
         donationNumber: settings.donationNumber,
         donationProvider: settings.donationProvider,
         appearance: settings.appearance,
@@ -119,6 +123,7 @@ const updateMonthlyFee = asyncHandler(async (req, res) => {
   const payload = validateMonthlyFee(req.body)
   const settings = await updateSettings({
     monthlyFee: payload.monthlyFee,
+    monthlyFeeAmount: Math.round(Number(payload.monthlyFee || 0) * 100),
   })
   await recordAuditLog({
     action: 'settings.monthlyFee.update',

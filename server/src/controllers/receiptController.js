@@ -6,6 +6,10 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
 const { createReceiptPdf } = require('../services/receiptPdfService')
+const {
+  createPaymentReceiptBuffer,
+  readReceiptPdfFile,
+} = require('../services/paymentReceiptFileService')
 const { ensurePaymentQrCode } = require('../services/paymentQrService')
 const { verifyAccessToken } = require('../utils/tokenUtils')
 
@@ -145,7 +149,9 @@ const getDonationReceipt = asyncHandler(async (req, res) => {
 const downloadReceiptPdf = asyncHandler(async (req, res) => {
   const [settings, payment, donation] = await Promise.all([
     getSettings(),
-    Payment.findById(req.params.id).populate('user', 'name phone address role status'),
+    Payment.findById(req.params.id)
+      .populate('user', 'name phone address role status')
+      .populate('verifiedBy', 'name phone role'),
     Donation.findById(req.params.id),
   ])
 
@@ -168,25 +174,14 @@ const downloadReceiptPdf = asyncHandler(async (req, res) => {
       payment.receiptGeneratedAt = payment.receiptGeneratedAt || new Date()
       await payment.save()
     }
-    await ensurePaymentQrCode(payment)
-
-    const buffer = await createReceiptPdf({
-      amount: payment.amount,
-      date: payment.createdAt,
-      method: payment.method,
-      organization: {
-        name: organizationName,
-      },
-      payerAddress: payment.user.address,
-      payerName: payment.user.name,
-      payerPhone: payment.user.phone,
-      qrCodeDataUrl: payment.qrCodeDataUrl,
-      receiptNo: payment.receiptNumber,
-      status: payment.status,
-      transactionId: payment.transactionId,
-      type: 'Monthly member fee',
-      verificationUrl: payment.verificationUrl,
-    })
+    const storedBuffer = await readReceiptPdfFile(payment.receiptPdfPath)
+    const buffer =
+      storedBuffer ||
+      (await createPaymentReceiptBuffer({
+        organizationName,
+        payment,
+        settings,
+      }))
 
     sendPdf(res, `${payment.receiptNumber}.pdf`, buffer)
     return

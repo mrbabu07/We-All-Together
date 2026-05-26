@@ -209,6 +209,10 @@ const seedSettings = async () => {
         youtubeUrl: '',
       },
       monthlyFee: 150,
+      monthlyFeeAmount: 15000,
+      feeDueDay: 10,
+      feeLateFeeAmount: 5000,
+      feeOverdueAlertEnabled: true,
       notificationSettings: {
         smsFeeReminderEnabled: false,
         smsMeetingEnabled: false,

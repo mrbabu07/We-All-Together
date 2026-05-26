@@ -3,7 +3,7 @@ const env = require('../config/env')
 
 const buildPaymentVerificationUrl = (paymentId) => {
   const baseUrl = env.clientUrl.replace(/\/$/, '')
-  return `${baseUrl}/verify/${paymentId}`
+  return `${baseUrl}/verify/receipt/${paymentId}`
 }
 
 const ensurePaymentQrCode = async (payment) => {

@@ -5,6 +5,7 @@ import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 import {
+  AlertTriangle,
   Bell,
   BookOpen,
   CalendarDays,
@@ -70,6 +71,9 @@ const formatDate = (value) => {
 }
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleString('bn-BD')}`
+const monthLabel = ({ label, month, year }) =>
+  label || `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
 
 const escapeHtml = (value = '') =>
   String(value)
@@ -106,6 +110,7 @@ export default function MemberDashboardPage() {
   const [data, setData] = useState({
     activities: [],
     blogs: [],
+    feeStatus: null,
     gallery: [],
     meetings: [],
     members: [],
@@ -134,6 +139,7 @@ export default function MemberDashboardPage() {
         blogsResponse,
         galleryResponse,
         pollsResponse,
+        feeStatusResponse,
       ] = await Promise.all([
         api.get('/settings/public'),
         api.get('/payments/my'),
@@ -146,11 +152,13 @@ export default function MemberDashboardPage() {
         api.get('/blogs/members'),
         api.get('/gallery/members'),
         api.get('/polls'),
+        api.get('/fees/my-status'),
       ])
 
       setData({
         activities: activitiesResponse.data.data.items,
         blogs: blogsResponse.data.data.blogs,
+        feeStatus: feeStatusResponse.data.data,
         gallery: galleryResponse.data.data.items,
         meetings: meetingsResponse.data.data.items,
         members: membersResponse.data.data.members,
@@ -196,9 +204,27 @@ export default function MemberDashboardPage() {
     setMessage('')
 
     try {
-      await api.post('/payments/monthly', paymentForm)
+      const feeStatus = data.feeStatus
+      const months =
+        feeStatus?.payableMonths?.length && feeStatus?.isOverdue
+          ? feeStatus.payableMonths.map(({ month, year }) => ({ month, year }))
+          : [
+              {
+                month: Number(paymentForm.month.slice(5, 7)),
+                year: Number(paymentForm.month.slice(0, 4)),
+              },
+            ]
+
+      await api.post('/fees/pay', {
+        ...paymentForm,
+        months,
+      })
       setPaymentForm(initialPaymentForm)
-      setMessage('Monthly fee submitted for admin verification.')
+      setMessage(
+        months.length > 1
+          ? 'Selected fee months submitted for admin verification.'
+          : 'Monthly fee submitted for admin verification.',
+      )
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -485,6 +511,10 @@ export default function MemberDashboardPage() {
         </p>
       ) : null}
 
+      {!loading && data.feeStatus?.isOverdue ? (
+        <OverdueAlertBanner feeStatus={data.feeStatus} onPay={() => changeTab('payments')} />
+      ) : null}
+
       {loading ? (
         <Panel className="mt-6">
           <Skeleton rows={6} />
@@ -512,6 +542,7 @@ export default function MemberDashboardPage() {
           onReceipt={printPaymentReceipt}
           onSubmit={submitPayment}
           paymentSettings={data.settings}
+          feeStatus={data.feeStatus}
           payments={data.payments}
           uploadingProof={uploadingProof}
         />
@@ -682,6 +713,40 @@ function CommunityImageUpload({ label, onUpload, uploading }) {
         type="file"
       />
     </label>
+  )
+}
+
+function OverdueAlertBanner({ feeStatus, onPay }) {
+  const overdueMonths = feeStatus.overdueMonths || []
+
+  if (!overdueMonths.length) {
+    return null
+  }
+
+  return (
+    <section className="fee-alert-pulse mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex gap-3">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <AlertTriangle aria-hidden="true" className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-base font-bold text-red-800">
+              আপনার {overdueMonths.length} মাসের বকেয়া ফি রয়েছে। মোট পরিশোধযোগ্য:{' '}
+              {moneyPaisa(feeStatus.totalDuePaisa)}
+            </p>
+            <p className="mt-2 text-sm leading-7 text-red-700">
+              {overdueMonths
+                .map((item) => `${monthLabel(item)} — ${moneyPaisa(item.amountPaisa)}`)
+                .join(', ')}
+            </p>
+          </div>
+        </div>
+        <Button className="bg-red-600 hover:bg-red-700" icon={CreditCard} onClick={onPay}>
+          এখনই পরিশোধ করুন
+        </Button>
+      </div>
+    </section>
   )
 }
 
@@ -934,6 +999,7 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
 }
 
 function Payments({
+  feeStatus,
   form,
   monthlyFee,
   onChange,
@@ -945,11 +1011,66 @@ function Payments({
   payments,
   uploadingProof,
 }) {
+  const overdueMonths = feeStatus?.overdueMonths || []
+  const payableMonths =
+    overdueMonths.length && feeStatus?.payableMonths?.length
+      ? feeStatus.payableMonths
+      : [
+          {
+            amountPaisa: Math.round(Number(monthlyFee || 0) * 100),
+            label: form.month,
+            month: Number(form.month.slice(5, 7)),
+            year: Number(form.month.slice(0, 4)),
+          },
+        ]
+  const lateFeePaisa = feeStatus?.lateFeePaisa || 0
+  const totalPaisa =
+    payableMonths.reduce((sum, item) => sum + Number(item.amountPaisa || 0), 0) + lateFeePaisa
+
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
         <SectionTitle icon={CreditCard} title="Pay Monthly Fee" />
         <p className="mt-2 text-sm text-gray-600">Current amount: {money(monthlyFee)}</p>
+        {overdueMonths.length ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="font-bold text-red-800">
+              আপনার বকেয়া ফি পরিশোধ না করে শুধু চলতি মাসের ফি দেওয়া সম্ভব নয়।
+            </p>
+            <div className="mt-4 grid gap-2">
+              {payableMonths.map((item) => (
+                <label
+                  className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+                  key={`${item.year}-${item.month}`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <input checked disabled readOnly type="checkbox" />
+                    {monthLabel(item)}
+                  </span>
+                  <span>{moneyPaisa(item.amountPaisa)}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 rounded-lg bg-white p-4 text-sm">
+              {payableMonths.map((item) => (
+                <div className="flex justify-between gap-4 py-1" key={`line-${item.year}-${item.month}`}>
+                  <span>{monthLabel(item)}</span>
+                  <span className="font-bold">{moneyPaisa(item.amountPaisa)}</span>
+                </div>
+              ))}
+              {lateFeePaisa ? (
+                <div className="flex justify-between gap-4 border-t border-gray-100 py-1 text-red-700">
+                  <span>বিলম্ব ফি</span>
+                  <span className="font-bold">{moneyPaisa(lateFeePaisa)}</span>
+                </div>
+              ) : null}
+              <div className="mt-2 flex justify-between gap-4 border-t border-gray-200 pt-2 text-base font-bold text-gray-950">
+                <span>মোট</span>
+                <span>{moneyPaisa(totalPaisa)}</span>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-4">
           <p className="text-sm font-semibold text-indigo-700">Send monthly fee to</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -974,6 +1095,7 @@ function Payments({
             onChange={(event) => onChange('month', event.target.value)}
             required
             type="month"
+            disabled={overdueMonths.length > 0}
             value={form.month}
           />
           <Field
@@ -1028,7 +1150,7 @@ function Payments({
             </p>
           ) : null}
           <Button className="md:col-span-2" icon={Send} type="submit">
-            Submit Payment
+            Submit Payment ({moneyPaisa(totalPaisa)})
           </Button>
         </form>
       </Panel>
