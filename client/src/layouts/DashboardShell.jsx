@@ -14,9 +14,11 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import GlobalSearchModal from '../components/admin/GlobalSearchModal'
 import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
+import FontSizeControl from '../components/ui/FontSizeControl'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
+import useTheme from '../hooks/useTheme'
 import { useEffect, useState } from 'react'
 
 const isActiveRoute = (location, to) => {
@@ -96,9 +98,12 @@ function SidebarContent({ navItems, onNavigate, user }) {
 export default function DashboardShell({ mobileItems, navItems, title }) {
   const { user } = useAuth()
   const { language, toggleLanguage } = useLanguage()
+  const { homepageControls } = useTheme()
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const showDarkToggle = homepageControls.darkModeToggleEnabled !== false
+  const showFontControls = homepageControls.fontSizeControlsEnabled !== false
 
   useEffect(() => {
     const handleKeydown = (event) => {
@@ -165,7 +170,8 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
               <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
                 {language === 'bn' ? 'EN' : 'BN'}
               </Button>
-              <ThemeToggle />
+              {showDarkToggle ? <ThemeToggle /> : null}
+              {showFontControls ? <FontSizeControl className="hidden xl:inline-flex" /> : null}
               <Button as={Link} className="relative" icon={Bell} to="/notifications" variant="secondary">
                 <motion.span
                   animate={{ scale: [1, 1.25, 1] }}

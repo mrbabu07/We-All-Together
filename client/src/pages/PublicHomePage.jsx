@@ -22,13 +22,31 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api, { getErrorMessage } from '../api/http'
+import {
+  AchievementsSection,
+  CommitteeSection,
+  CookieConsentBanner,
+  CountdownSection,
+  FacebookPageSection,
+  GalleryPreviewSection,
+  GoogleMapSection,
+  NewsTicker,
+  NoticePreviewSection,
+  PartnersSection,
+  TestimonialsSection,
+  TrustBadgeSection,
+  WhatsAppFloatingButton,
+  YoutubeSection,
+} from '../components/homepage/HomepageExtras'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
+import FontSizeControl from '../components/ui/FontSizeControl'
 import Skeleton from '../components/ui/Skeleton'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
+import useTypewriter from '../hooks/useTypewriter'
 import useAppStore from '../store/appStore'
 
 const initialDonationForm = {
@@ -94,6 +112,7 @@ const estimateReadTime = (text = '') => Math.max(Math.ceil(plainText(text).split
 
 export default function PublicHomePage() {
   const navigate = useNavigate()
+  const { noticeId } = useParams()
   const { user } = useAuth()
   const { previewAppearance } = useAppStore()
   const [loading, setLoading] = useState(true)
@@ -103,14 +122,19 @@ export default function PublicHomePage() {
   const [submittingDonation, setSubmittingDonation] = useState(false)
   const [showBackTop, setShowBackTop] = useState(false)
   const [data, setData] = useState({
+    achievements: [],
     activities: [],
     blogs: [],
+    committee: [],
     donations: [],
     gallery: [],
     meetings: [],
     notices: [],
+    partners: [],
     rules: [],
     settings: {},
+    testimonials: [],
+    tickerNotices: [],
     tours: [],
   })
 
@@ -129,6 +153,11 @@ export default function PublicHomePage() {
         donationsResponse,
         blogsResponse,
         galleryResponse,
+        committeeResponse,
+        achievementsResponse,
+        testimonialsResponse,
+        partnersResponse,
+        tickerResponse,
       ] = await Promise.all([
         api.get('/settings/public'),
         api.get('/notices/public'),
@@ -139,17 +168,27 @@ export default function PublicHomePage() {
         api.get('/donations/verified'),
         api.get('/blogs/public'),
         api.get('/gallery/public'),
+        api.get('/committee'),
+        api.get('/achievements'),
+        api.get('/testimonials'),
+        api.get('/partners'),
+        api.get('/notices?public=true&limit=5'),
       ])
 
       setData({
+        achievements: achievementsResponse.data.data.items,
         activities: activitiesResponse.data.data.items,
         blogs: blogsResponse.data.data.blogs,
+        committee: committeeResponse.data.data.items,
         donations: donationsResponse.data.data.donations,
         gallery: galleryResponse.data.data.items,
         meetings: meetingsResponse.data.data.items,
         notices: noticesResponse.data.data.items,
+        partners: partnersResponse.data.data.items,
         rules: rulesResponse.data.data.items,
         settings: settingsResponse.data.data.settings,
+        testimonials: testimonialsResponse.data.data.items,
+        tickerNotices: tickerResponse.data.data.items,
         tours: toursResponse.data.data.items,
       })
     } catch (error) {
@@ -177,6 +216,7 @@ export default function PublicHomePage() {
 
   const appearance = previewAppearance || data.settings.appearance || {}
   const siteSettings = data.settings.siteSettings || {}
+  const homepageControls = data.settings.homepageControls || {}
   const orgName = siteSettings.orgName || 'দরগাহ পাড়া ঐক্য পরিষদ'
   const tagline = siteSettings.tagline || 'ঐক্য, সেবা ও স্বচ্ছতা'
   const aboutText =
@@ -298,15 +338,46 @@ export default function PublicHomePage() {
         '--color-primary': appearance.primaryColor || '#4F46E5',
       }}
     >
-      <HomepageNavbar orgName={orgName} user={user} />
+      <HomepageNavbar controls={homepageControls} orgName={orgName} user={user} />
 
-      <HeroSection orgName={orgName} stats={homepageStats} tagline={tagline} />
+      <NewsTicker
+        enabled={homepageControls.newsTickerEnabled !== false}
+        notices={data.tickerNotices.length ? data.tickerNotices : data.notices.slice(0, 5)}
+      />
+
+      <HeroSection
+        orgName={orgName}
+        phrases={homepageControls.typewriterPhrases}
+        stats={homepageStats}
+        tagline={tagline}
+      />
 
       <StatsSection stats={homepageStats} />
 
+      <CountdownSection
+        enabled={homepageControls.countdownEnabled !== false}
+        event={upcomingEvents[0]}
+      />
+
       <AboutSection aboutText={aboutText} orgName={orgName} tagline={tagline} />
 
-      <NoticeSection loading={loading} notices={data.notices} />
+      <TrustBadgeSection controls={homepageControls} orgName={orgName} />
+
+      <CommitteeSection
+        enabled={homepageControls.committeeEnabled !== false}
+        members={data.committee}
+      />
+
+      <AchievementsSection
+        enabled={homepageControls.achievementsEnabled !== false}
+        items={data.achievements}
+      />
+
+      <NoticePreviewSection
+        initialNoticeId={noticeId}
+        loading={loading}
+        notices={data.notices}
+      />
 
       <EventsSection events={upcomingEvents} loading={loading} onRsvp={handleRsvp} />
 
@@ -324,11 +395,35 @@ export default function PublicHomePage() {
         successMessage={successMessage}
       />
 
-      <GallerySection gallery={data.gallery} loading={loading} />
+      <GalleryPreviewSection
+        downloadEnabled={homepageControls.galleryDownloadEnabled !== false}
+        gallery={data.gallery}
+        loading={loading}
+      />
+
+      <TestimonialsSection
+        enabled={homepageControls.testimonialsEnabled !== false}
+        items={data.testimonials}
+      />
+
+      <YoutubeSection controls={homepageControls} />
 
       <BlogSection blogs={data.blogs} loading={loading} />
 
+      <PartnersSection
+        enabled={homepageControls.partnersEnabled !== false}
+        partners={data.partners}
+      />
+
+      <FacebookPageSection controls={homepageControls} />
+
       <MembershipCta />
+
+      <GoogleMapSection
+        controls={homepageControls}
+        orgName={orgName}
+        siteSettings={siteSettings}
+      />
 
       <HomepageFooter
         notices={data.notices}
@@ -336,6 +431,10 @@ export default function PublicHomePage() {
         settings={siteSettings}
         tagline={tagline}
       />
+
+      <WhatsAppFloatingButton controls={homepageControls} siteSettings={siteSettings} />
+
+      <CookieConsentBanner enabled={homepageControls.cookieConsentEnabled !== false} />
 
       <AnimatePresence>
         {showBackTop ? (
@@ -367,9 +466,11 @@ function upsertMeta(name, content, attr = 'name') {
   tag.setAttribute('content', content)
 }
 
-function HomepageNavbar({ orgName, user }) {
+function HomepageNavbar({ controls = {}, orgName, user }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const showDarkToggle = controls.darkModeToggleEnabled !== false
+  const showFontControls = controls.fontSizeControlsEnabled !== false
   const links = [
     ['হোম', '#home'],
     ['আমাদের সম্পর্কে', '#about'],
@@ -419,7 +520,8 @@ function HomepageNavbar({ orgName, user }) {
         </div>
 
         <div className="hidden items-center gap-3 lg:flex">
-          <ThemeToggle />
+          {showDarkToggle ? <ThemeToggle /> : null}
+          {showFontControls ? <FontSizeControl /> : null}
           <Link className="inline-flex min-h-11 items-center rounded-xl border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
             লগইন
           </Link>
@@ -468,7 +570,8 @@ function HomepageNavbar({ orgName, user }) {
               ))}
             </div>
             <div className="mt-8 grid gap-3">
-              <ThemeToggle className="w-full" showLabel />
+              {showDarkToggle ? <ThemeToggle className="w-full" showLabel /> : null}
+              {showFontControls ? <FontSizeControl className="w-full justify-center" /> : null}
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 text-sm font-semibold text-gray-800"
                 onClick={() => setMenuOpen(false)}
@@ -491,8 +594,9 @@ function HomepageNavbar({ orgName, user }) {
   )
 }
 
-function HeroSection({ orgName, stats, tagline }) {
+function HeroSection({ orgName, phrases, stats, tagline }) {
   const memberFaces = ['আ', 'ম', 'স', 'র', 'ন']
+  const typedHeading = useTypewriter(phrases)
 
   return (
     <section
@@ -517,14 +621,10 @@ function HeroSection({ orgName, stats, tagline }) {
           </motion.span>
           <motion.h1
             className="mt-7 text-5xl font-bold leading-tight tracking-tight text-gray-950 sm:text-6xl lg:text-[64px]"
-            variants={stagger}
+            variants={fadeUp}
           >
-            <motion.span className="block" variants={fadeUp}>
-              একতায় আমরা,
-            </motion.span>
-            <motion.span className="block text-indigo-700" variants={fadeUp}>
-              উন্নয়নে আমরা
-            </motion.span>
+            <span className="text-indigo-700">{typedHeading}</span>
+            <span className="typewriter-cursor text-indigo-500">|</span>
           </motion.h1>
           <motion.p className="mt-6 max-w-xl text-lg leading-9 text-gray-600" variants={fadeUp}>
             {orgName} — আমাদের এলাকার সকল মানুষের সেবায় নিবেদিত একটি সংগঠন। {tagline}
@@ -704,70 +804,6 @@ function AboutSection({ aboutText, orgName, tagline }) {
             </p>
           </div>
         </motion.div>
-      </div>
-    </section>
-  )
-}
-
-function NoticeSection({ loading, notices }) {
-  const categoryTones = {
-    General: 'border-indigo-500 bg-indigo-50 text-indigo-700',
-    জরুরি: 'border-red-500 bg-red-50 text-red-700',
-    মিটিং: 'border-emerald-500 bg-emerald-50 text-emerald-700',
-  }
-
-  return (
-    <section className="bg-gray-50 px-4 py-24 sm:px-6" id="notices">
-      <SectionHeading
-        eyebrow="ঘোষণা"
-        title="সর্বশেষ নোটিশ ও ঘোষণা"
-        text="এলাকার গুরুত্বপূর্ণ সিদ্ধান্ত, মিটিং এবং কার্যক্রমের আপডেট।"
-      />
-      {loading ? (
-        <div className="mx-auto mt-10 max-w-7xl">
-          <Skeleton rows={3} />
-        </div>
-      ) : (
-        <motion.div
-          className="mx-auto mt-10 grid max-w-7xl gap-6 md:grid-cols-3"
-          initial="hidden"
-          variants={stagger}
-          viewport={{ once: true, amount: 0.2 }}
-          whileInView="show"
-        >
-          {notices.slice(0, 3).map((notice) => {
-            const tone = categoryTones[notice.category] || categoryTones.General
-
-            return (
-              <motion.article
-                className={`rounded-2xl border border-gray-200 border-l-[3px] bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-200 hover:shadow-lg ${tone.split(' ')[0]}`}
-                key={notice._id}
-                variants={fadeUp}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${tone}`}>
-                    {notice.category || 'General'}
-                  </span>
-                  <span className="text-xs font-semibold text-gray-400">{formatDate(notice.createdAt)}</span>
-                </div>
-                <h3 className="mt-5 line-clamp-2 text-xl font-semibold tracking-tight text-gray-950">
-                  {notice.title}
-                </h3>
-                <p className="mt-3 line-clamp-3 text-sm leading-7 text-gray-500">
-                  {plainText(notice.richBody || notice.body)}
-                </p>
-                <a className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-indigo-700" href="/login">
-                  বিস্তারিত পড়ুন <ArrowRight aria-hidden="true" className="h-4 w-4" />
-                </a>
-              </motion.article>
-            )
-          })}
-        </motion.div>
-      )}
-      <div className="mt-10 text-center">
-        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:border-indigo-300 hover:text-indigo-700" to="/login">
-          সকল নোটিশ দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
-        </Link>
       </div>
     </section>
   )
@@ -971,55 +1007,6 @@ function DonationSection({
         </motion.div>
       </div>
       <Wave className="absolute bottom-0 left-0 text-white" />
-    </section>
-  )
-}
-
-function GallerySection({ gallery, loading }) {
-  return (
-    <section className="bg-white px-4 py-24 sm:px-6">
-      <SectionHeading
-        eyebrow="গ্যালারি"
-        title="আমাদের কার্যক্রমের ছবি"
-        text="সামাজিক কাজ, মিটিং, শিক্ষা কার্যক্রম এবং এলাকার উদ্যোগের স্মৃতি।"
-      />
-      {loading ? (
-        <div className="mx-auto mt-10 max-w-7xl">
-          <Skeleton rows={4} />
-        </div>
-      ) : (
-        <motion.div
-          className="mx-auto mt-10 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3"
-          initial="hidden"
-          variants={stagger}
-          viewport={{ once: true, amount: 0.15 }}
-          whileInView="show"
-        >
-          {gallery.slice(0, 6).map((item, index) => (
-            <motion.article
-              className="group relative break-inside-avoid overflow-hidden rounded-3xl bg-indigo-100 shadow-sm"
-              key={item._id}
-              variants={fadeUp}
-            >
-              <img
-                alt={item.title}
-                className={`w-full object-cover transition duration-500 group-hover:scale-105 ${
-                  index % 3 === 0 ? 'h-80' : 'h-60'
-                }`}
-                src={item.imageUrl}
-              />
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-gray-950/70 to-transparent p-5 opacity-0 transition group-hover:opacity-100">
-                <p className="font-semibold text-white">{item.title}</p>
-              </div>
-            </motion.article>
-          ))}
-        </motion.div>
-      )}
-      <div className="mt-10 text-center">
-        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl bg-gray-950 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700" to="/login">
-          সম্পূর্ণ গ্যালারি দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
-        </Link>
-      </div>
     </section>
   )
 }

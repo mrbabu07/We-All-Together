@@ -1,14 +1,19 @@
 import { Languages, LogIn, UserPlus } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import Button from '../components/ui/Button'
+import FontSizeControl from '../components/ui/FontSizeControl'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
+import useTheme from '../hooks/useTheme'
 
 export default function PublicLayout() {
   const { user } = useAuth()
   const { language, t, toggleLanguage } = useLanguage()
+  const { homepageControls } = useTheme()
   const location = useLocation()
+  const showDarkToggle = homepageControls.darkModeToggleEnabled !== false
+  const showFontControls = homepageControls.fontSizeControlsEnabled !== false
 
   if (location.pathname === '/') {
     return <Outlet />
@@ -28,7 +33,8 @@ export default function PublicLayout() {
             <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
               {language === 'bn' ? 'EN' : 'BN'}
             </Button>
-            <ThemeToggle />
+            {showDarkToggle ? <ThemeToggle /> : null}
+            {showFontControls ? <FontSizeControl className="hidden sm:inline-flex" /> : null}
             {user ? (
               <Button as={Link} to={user.role === 'admin' ? '/admin' : '/member'}>
                 {user.role === 'admin' ? t.admin : t.member}

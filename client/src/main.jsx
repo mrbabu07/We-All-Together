@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { ThemeProvider } from './context/ThemeContext.jsx'
 import ConnectionStatus from './components/ui/ConnectionStatus.jsx'
+import 'nprogress/nprogress.css'
 import './index.css'
 import App from './App.jsx'
 

@@ -5,6 +5,7 @@ const useAppStore = create(
   persist(
     (set) => ({
       filterPresets: [],
+      fontSizePreference: null,
       previewAppearance: null,
       themePreference: null,
       removeFilterPreset: (name) =>
@@ -19,6 +20,7 @@ const useAppStore = create(
           ],
         })),
       setPreviewAppearance: (previewAppearance) => set({ previewAppearance }),
+      setFontSizePreference: (fontSizePreference) => set({ fontSizePreference }),
       setThemePreference: (themePreference) => set({ themePreference }),
     }),
     {

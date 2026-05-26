@@ -4,8 +4,10 @@ const { AUDIENCES, ITEM_STATUSES } = require('../src/constants/contentConstants'
 const { PAYMENT_STATUSES, PAYMENT_TYPES } = require('../src/constants/paymentConstants')
 const { USER_ROLES, USER_STATUSES } = require('../src/constants/userConstants')
 const Activity = require('../src/models/Activity')
+const Achievement = require('../src/models/Achievement')
 const AuditLog = require('../src/models/AuditLog')
 const Blog = require('../src/models/Blog')
+const CommitteeMember = require('../src/models/CommitteeMember')
 const Donation = require('../src/models/Donation')
 const Expense = require('../src/models/Expense')
 const GalleryItem = require('../src/models/GalleryItem')
@@ -13,9 +15,11 @@ const Meeting = require('../src/models/Meeting')
 const Notice = require('../src/models/Notice')
 const Notification = require('../src/models/Notification')
 const OrganizationSetting = require('../src/models/OrganizationSetting')
+const Partner = require('../src/models/Partner')
 const Payment = require('../src/models/Payment')
 const Poll = require('../src/models/Poll')
 const Rule = require('../src/models/Rule')
+const Testimonial = require('../src/models/Testimonial')
 const Tour = require('../src/models/Tour')
 const User = require('../src/models/User')
 
@@ -57,6 +61,11 @@ const contentTitles = {
     'Seed: Clean village campaign',
     'Seed: Computer literacy evening',
   ],
+  achievements: [
+    'Seed: Education support fund launched',
+    'Seed: First public relief program',
+    'Seed: Digital member system started',
+  ],
   blogs: [
     'Seed: Why monthly transparency matters',
     'Seed: A member story from the coaching program',
@@ -78,6 +87,11 @@ const contentTitles = {
     'Seed: Monthly fee collection reminder',
     'Seed: Member-only finance update',
   ],
+  partners: [
+    'Seed: Dargah Para Youth Club',
+    'Seed: Local Education Support',
+    'Seed: Community Health Desk',
+  ],
   polls: [
     'Seed: Approve Sylhet tour budget?',
     'Seed: Preferred weekly meeting time?',
@@ -86,6 +100,11 @@ const contentTitles = {
     'Seed: Monthly fee deadline',
     'Seed: Meeting attendance',
     'Seed: Donation verification',
+  ],
+  testimonials: [
+    'Seed: Member testimonial - Rahim',
+    'Seed: Member testimonial - Karim',
+    'Seed: Member testimonial - Mizanur',
   ],
   tours: [
     'Seed: Sylhet community tour',
@@ -99,8 +118,10 @@ const removePreviousSeedData = async () => {
 
   await Promise.all([
     Activity.deleteMany({ title: { $in: contentTitles.activities } }),
+    Achievement.deleteMany({ title: { $in: contentTitles.achievements } }),
     AuditLog.deleteMany({ action: /^seed\./ }),
     Blog.deleteMany({ title: { $in: contentTitles.blogs } }),
+    CommitteeMember.deleteMany({ name: /^Seed:/ }),
     Donation.deleteMany({ transactionId: /^SEED-DON-/ }),
     Expense.deleteMany({ title: /^Seed:/ }),
     GalleryItem.deleteMany({ title: { $in: contentTitles.gallery } }),
@@ -109,9 +130,11 @@ const removePreviousSeedData = async () => {
     Notification.deleteMany({
       $or: [{ user: { $in: sampleUserIds } }, { title: /^Seed:/ }],
     }),
+    Partner.deleteMany({ name: { $in: contentTitles.partners } }),
     Payment.deleteMany({ transactionId: /^SEED-PAY-/ }),
     Poll.deleteMany({ question: { $in: contentTitles.polls } }),
     Rule.deleteMany({ title: { $in: contentTitles.rules } }),
+    Testimonial.deleteMany({ name: /^Seed:/ }),
     Tour.deleteMany({ title: { $in: contentTitles.tours } }),
   ])
 
@@ -154,6 +177,37 @@ const seedSettings = async () => {
     {
       donationNumber: '01712345678',
       donationProvider: 'bKash / Nagad',
+      homepageControls: {
+        achievementsEnabled: true,
+        certificateEnabled: true,
+        certificateImageUrl: image('certificate'),
+        committeeEnabled: true,
+        cookieConsentEnabled: true,
+        countdownEnabled: true,
+        darkModeToggleEnabled: true,
+        facebookEmbedEnabled: false,
+        facebookPageUrl: '',
+        fontSizeControlsEnabled: true,
+        galleryDownloadEnabled: true,
+        googleMapsEmbedUrl: '',
+        googleMapsEnabled: true,
+        newsTickerEnabled: true,
+        partnersEnabled: true,
+        testimonialsEnabled: true,
+        trustBadgeLabels: ['Verified community organization', 'Transparent finance', 'Member-first service'],
+        trustBadgesEnabled: true,
+        typewriterPhrases: [
+          'একতায় আমরা, উন্নয়নে আমরা',
+          'সেবায় নিবেদিত, সমাজের জন্য',
+          'দরগাহ পাড়ার গর্ব, সবার পরিষদ',
+        ],
+        whatsappButtonEnabled: true,
+        whatsappNumber: '01712345678',
+        youtubeDescription: 'Seed video placeholder for community programs.',
+        youtubeEnabled: false,
+        youtubeTitle: 'আমাদের কার্যক্রমের ভিডিও',
+        youtubeUrl: '',
+      },
       monthlyFee: 150,
       notificationSettings: {
         smsFeeReminderEnabled: false,
@@ -164,6 +218,16 @@ const seedSettings = async () => {
         whatsappNoticeEnabled: false,
       },
       registrationFee: 500,
+      siteSettings: {
+        address: 'Dargah Para, Bangladesh',
+        contactNumber: '01712345678',
+        email: 'dargahpara@example.com',
+        orgName: 'Dargah Para OIkko Porishod',
+        publicDonationsEnabled: true,
+        registrationEnabled: true,
+        tagline: 'ঐক্য, সেবা ও স্বচ্ছতা',
+        whatsappGroupUrl: 'https://wa.me/8801712345678',
+      },
     },
     { returnDocument: 'after', setDefaultsOnInsert: true, upsert: true },
   )
@@ -800,6 +864,125 @@ const seedContent = async (admin, members) => {
   ])
 }
 
+const seedHomepageContent = async () => {
+  await CommitteeMember.create([
+    {
+      active: true,
+      name: 'Seed: Abdul Karim',
+      order: 1,
+      phone: '01750000001',
+      photo: avatar('Abdul Karim'),
+      position: 'সভাপতি',
+      showPhone: true,
+    },
+    {
+      active: true,
+      name: 'Seed: Rahim Uddin',
+      order: 2,
+      phone: '01750000002',
+      photo: avatar('Rahim Uddin'),
+      position: 'সাধারণ সম্পাদক',
+      showPhone: true,
+    },
+    {
+      active: true,
+      name: 'Seed: Mizanur Rahman',
+      order: 3,
+      phone: '01750000003',
+      photo: avatar('Mizanur Rahman'),
+      position: 'অর্থ সম্পাদক',
+      showPhone: false,
+    },
+    {
+      active: true,
+      name: 'Seed: Sabbir Hossain',
+      order: 4,
+      phone: '01750000004',
+      photo: avatar('Sabbir Hossain'),
+      position: 'সাংগঠনিক সম্পাদক',
+      showPhone: false,
+    },
+  ])
+
+  await Achievement.create([
+    {
+      active: true,
+      description: 'Students received books, notebooks, and coaching support from the organization fund.',
+      order: 1,
+      photo: image('achievement-education'),
+      title: contentTitles.achievements[0],
+      year: '2022',
+    },
+    {
+      active: true,
+      description: 'Local families received emergency relief through verified community donations.',
+      order: 2,
+      photo: image('achievement-relief'),
+      title: contentTitles.achievements[1],
+      year: '2023',
+    },
+    {
+      active: true,
+      description: 'Member approval, fee tracking, notices, blogs, and gallery moved into one digital system.',
+      order: 3,
+      photo: image('achievement-digital'),
+      title: contentTitles.achievements[2],
+      year: '2026',
+    },
+  ])
+
+  await Testimonial.create([
+    {
+      active: true,
+      joinYear: '2021',
+      name: 'Seed: Rahim Uddin',
+      order: 1,
+      photo: avatar('Rahim Uddin'),
+      text: 'এই সংগঠন আমাদের এলাকার মানুষকে একসাথে কাজ করার সুন্দর সুযোগ দিয়েছে।',
+    },
+    {
+      active: true,
+      joinYear: '2022',
+      name: 'Seed: Karim Ahmed',
+      order: 2,
+      photo: avatar('Karim Ahmed'),
+      text: 'ফি, দান এবং কার্যক্রম এখন স্বচ্ছভাবে দেখা যায়, তাই সবার আস্থা বেড়েছে।',
+    },
+    {
+      active: true,
+      joinYear: '2023',
+      name: 'Seed: Mizanur Rahman',
+      order: 3,
+      photo: avatar('Mizanur Rahman'),
+      text: 'শিক্ষা সহায়তা ও সামাজিক কাজের জন্য এই পরিষদ আমাদের গর্ব।',
+    },
+  ])
+
+  await Partner.create([
+    {
+      active: true,
+      logo: avatar('Dargah Para Youth Club'),
+      name: contentTitles.partners[0],
+      order: 1,
+      websiteUrl: '',
+    },
+    {
+      active: true,
+      logo: avatar('Local Education Support'),
+      name: contentTitles.partners[1],
+      order: 2,
+      websiteUrl: '',
+    },
+    {
+      active: true,
+      logo: avatar('Community Health Desk'),
+      name: contentTitles.partners[2],
+      order: 3,
+      websiteUrl: '',
+    },
+  ])
+}
+
 const seedNotificationsAndAudit = async (admin, members) => {
   await Notification.create([
     {
@@ -860,6 +1043,7 @@ const run = async () => {
     const members = await seedUsers(admin)
     await seedFinance(admin, members)
     await seedContent(admin, members)
+    await seedHomepageContent()
     await seedNotificationsAndAudit(admin, members)
 
     console.log('Seed data inserted successfully.')

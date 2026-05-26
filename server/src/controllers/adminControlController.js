@@ -56,6 +56,7 @@ const getControls = asyncHandler(async (req, res) => {
 
 const updateControls = asyncHandler(async (req, res) => {
   const settings = await getSettings()
+  settings.homepageControls = settings.homepageControls || {}
 
   safeAssign(settings.siteSettings, req.body.siteSettings, [
     'orgName',
@@ -63,6 +64,7 @@ const updateControls = asyncHandler(async (req, res) => {
     'tagline',
     'address',
     'contactNumber',
+    'email',
     'welcomeMessage',
     'facebookUrl',
     'youtubeUrl',
@@ -93,6 +95,42 @@ const updateControls = asyncHandler(async (req, res) => {
     'heroImageUrl',
     'customCss',
   ])
+  safeAssign(settings.homepageControls, req.body.homepageControls, [
+    'achievementsEnabled',
+    'certificateEnabled',
+    'certificateImageUrl',
+    'committeeEnabled',
+    'cookieConsentEnabled',
+    'countdownEnabled',
+    'darkModeToggleEnabled',
+    'facebookEmbedEnabled',
+    'facebookPageUrl',
+    'fontSizeControlsEnabled',
+    'galleryDownloadEnabled',
+    'googleMapsEmbedUrl',
+    'googleMapsEnabled',
+    'newsTickerEnabled',
+    'partnersEnabled',
+    'testimonialsEnabled',
+    'trustBadgesEnabled',
+    'whatsappButtonEnabled',
+    'whatsappNumber',
+    'youtubeDescription',
+    'youtubeEnabled',
+    'youtubeTitle',
+    'youtubeUrl',
+  ])
+  if (Array.isArray(req.body.homepageControls?.typewriterPhrases)) {
+    settings.homepageControls.typewriterPhrases = req.body.homepageControls.typewriterPhrases
+      .slice(0, 5)
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  }
+  if (Array.isArray(req.body.homepageControls?.trustBadgeLabels)) {
+    settings.homepageControls.trustBadgeLabels = req.body.homepageControls.trustBadgeLabels
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  }
   safeAssign(settings.securityControls, req.body.securityControls, [
     'autoBackupSchedule',
     'twoFactorRequiredForAdmins',

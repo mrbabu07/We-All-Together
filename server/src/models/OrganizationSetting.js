@@ -54,6 +54,11 @@ const organizationSettingSchema = new mongoose.Schema(
         trim: true,
         default: '',
       },
+      email: {
+        type: String,
+        trim: true,
+        default: '',
+      },
       welcomeMessage: {
         type: String,
         trim: true,
@@ -153,6 +158,119 @@ const organizationSettingSchema = new mongoose.Schema(
         default: '',
       },
       customCss: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+    },
+    homepageControls: {
+      achievementsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      certificateEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      certificateImageUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      committeeEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      cookieConsentEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      countdownEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      darkModeToggleEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      facebookEmbedEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      facebookPageUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      fontSizeControlsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      galleryDownloadEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      googleMapsEmbedUrl: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      googleMapsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      newsTickerEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      partnersEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      testimonialsEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      trustBadgeLabels: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      trustBadgesEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      typewriterPhrases: [
+        {
+          type: String,
+          trim: true,
+        },
+      ],
+      whatsappButtonEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      whatsappNumber: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      youtubeDescription: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      youtubeEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      youtubeTitle: {
+        type: String,
+        trim: true,
+        default: '',
+      },
+      youtubeUrl: {
         type: String,
         trim: true,
         default: '',

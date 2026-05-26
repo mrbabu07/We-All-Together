@@ -10,9 +10,15 @@ const DEFAULT_APPEARANCE = {
   primaryColor: '#4F46E5',
 }
 
+const DEFAULT_HOMEPAGE_CONTROLS = {
+  darkModeToggleEnabled: true,
+  fontSizeControlsEnabled: true,
+}
+
 const fontScales = {
+  small: '14px',
   normal: '16px',
-  large: '17px',
+  large: '18px',
   'extra-large': '18px',
 }
 
@@ -20,8 +26,15 @@ const readSystemTheme = () =>
   window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 
 export function ThemeProvider({ children }) {
-  const { previewAppearance, setThemePreference, themePreference } = useAppStore()
+  const {
+    fontSizePreference,
+    previewAppearance,
+    setFontSizePreference,
+    setThemePreference,
+    themePreference,
+  } = useAppStore()
   const [settingsAppearance, setSettingsAppearance] = useState(DEFAULT_APPEARANCE)
+  const [homepageControls, setHomepageControls] = useState(DEFAULT_HOMEPAGE_CONTROLS)
   const [systemTheme, setSystemTheme] = useState(readSystemTheme)
 
   useEffect(() => {
@@ -31,9 +44,14 @@ export function ThemeProvider({ children }) {
       .get('/settings/public')
       .then((response) => {
         if (active) {
+          const settings = response.data.data.settings || {}
           setSettingsAppearance({
             ...DEFAULT_APPEARANCE,
-            ...response.data.data.settings?.appearance,
+            ...settings.appearance,
+          })
+          setHomepageControls({
+            ...DEFAULT_HOMEPAGE_CONTROLS,
+            ...settings.homepageControls,
           })
         }
       })
@@ -66,6 +84,7 @@ export function ThemeProvider({ children }) {
     [previewAppearance, settingsAppearance],
   )
   const selectedMode = themePreference || appearance.colorMode || 'light'
+  const selectedFontSize = fontSizePreference || appearance.fontSize || 'normal'
   const resolvedTheme = selectedMode === 'system' ? systemTheme : selectedMode
 
   useEffect(() => {
@@ -77,7 +96,7 @@ export function ThemeProvider({ children }) {
     root.classList.toggle('dark', resolvedTheme === 'dark')
     root.dataset.theme = resolvedTheme
     root.style.setProperty('--color-primary', appearance.primaryColor || DEFAULT_APPEARANCE.primaryColor)
-    root.style.setProperty('--app-font-size', fontScales[appearance.fontSize] || fontScales.normal)
+    root.style.setProperty('--app-font-size', fontScales[selectedFontSize] || fontScales.normal)
 
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor)
 
@@ -88,7 +107,7 @@ export function ThemeProvider({ children }) {
     }
 
     customCss.textContent = appearance.customCss || ''
-  }, [appearance, resolvedTheme])
+  }, [appearance, resolvedTheme, selectedFontSize])
 
   const toggleTheme = useCallback(() => {
     setThemePreference(resolvedTheme === 'dark' ? 'light' : 'dark')
@@ -102,8 +121,12 @@ export function ThemeProvider({ children }) {
     () => ({
       appearance,
       clearThemePreference,
+      fontSizePreference,
+      homepageControls,
       resolvedTheme,
+      selectedFontSize,
       selectedMode,
+      setFontSizePreference,
       setThemePreference,
       themePreference,
       toggleTheme,
@@ -111,8 +134,12 @@ export function ThemeProvider({ children }) {
     [
       appearance,
       clearThemePreference,
+      fontSizePreference,
+      homepageControls,
       resolvedTheme,
+      selectedFontSize,
       selectedMode,
+      setFontSizePreference,
       setThemePreference,
       themePreference,
       toggleTheme,

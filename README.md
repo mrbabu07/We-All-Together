@@ -28,6 +28,7 @@ A MERN organization management system for member registration, admin approval, f
 - Full member profile controls with emergency contact, notification preferences, data export print/PDF flow, delete request, and downloadable digital ID card
 - PWA support with manifest, service worker, offline fallback, cached notices/payment history, and connection-lost banner
 - World-class public homepage with glass navigation, animated hero/stats, dynamic notices/events/gallery/blogs, donation CTA, confetti success feedback, and nonprofit-style Bengali presentation
+- Admin-controlled homepage extras: WhatsApp button, news ticker, countdown, Google Maps, committee, achievements, testimonials, partners, YouTube/Facebook embeds, trust badges, notice share modal, cookie consent, and lightbox gallery
 
 ## Tech Stack
 
@@ -42,6 +43,7 @@ A MERN organization management system for member registration, admin approval, f
 - QRCode payment verification
 - Twilio SMS/WhatsApp notifications
 - Headless UI, react-hot-toast, and Framer Motion for frontend interactions
+- NProgress, React Share, Yet Another React Lightbox, and React IS for homepage UX and chart compatibility
 - Socket.IO presence updates, node-cron jobs, react-quill, react-colorful, browser image compression, Zustand, and PWA service worker assets
 
 ## Project Structure

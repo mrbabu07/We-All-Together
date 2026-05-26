@@ -6,6 +6,7 @@ const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = createContentRoutes(noticeController)
 
+router.get('/', noticeController.getNotices)
 router.post(
   '/archive-bulk',
   protect,

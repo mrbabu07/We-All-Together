@@ -1,5 +1,7 @@
 import { lazy, Suspense } from 'react'
+import { useEffect } from 'react'
 import { AnimatePresence } from 'framer-motion'
+import NProgress from 'nprogress'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import PageTransition from './components/ui/PageTransition'
 import Skeleton from './components/ui/Skeleton'
@@ -34,12 +36,23 @@ function RouteFallback() {
 function App() {
   const location = useLocation()
 
+  useEffect(() => {
+    NProgress.start()
+    const timer = window.setTimeout(() => NProgress.done(), 180)
+
+    return () => {
+      window.clearTimeout(timer)
+      NProgress.done()
+    }
+  }, [location.pathname, location.search])
+
   return (
     <Suspense fallback={<RouteFallback />}>
       <AnimatePresence mode="wait">
         <Routes key={location.pathname + location.search} location={location}>
           <Route element={<PublicLayout />}>
             <Route index element={page(<PublicHomePage />)} />
+            <Route path="notices/:noticeId" element={page(<PublicHomePage />)} />
             <Route path="login" element={page(<LoginPage />)} />
             <Route path="register" element={page(<RegisterPage />)} />
             <Route path="*" element={page(<NotFoundPage />)} />

@@ -11,11 +11,14 @@ import {
   FileDown,
   FileInput,
   GalleryHorizontalEnd,
+  Home,
+  Image,
   Lock,
   Palette,
   RefreshCw,
   Save,
   ShieldCheck,
+  Star,
   Trash2,
   Upload,
   UserCog,
@@ -54,6 +57,33 @@ const defaultSettings = {
     lateFeeEnabled: false,
     monthlyFeeDueDate: 10,
   },
+  homepageControls: {
+    achievementsEnabled: true,
+    certificateEnabled: true,
+    certificateImageUrl: '',
+    committeeEnabled: true,
+    cookieConsentEnabled: true,
+    countdownEnabled: true,
+    darkModeToggleEnabled: true,
+    facebookEmbedEnabled: false,
+    facebookPageUrl: '',
+    fontSizeControlsEnabled: true,
+    galleryDownloadEnabled: true,
+    googleMapsEmbedUrl: '',
+    googleMapsEnabled: true,
+    newsTickerEnabled: true,
+    partnersEnabled: true,
+    testimonialsEnabled: true,
+    trustBadgeLabels: [],
+    trustBadgesEnabled: true,
+    typewriterPhrases: [],
+    whatsappButtonEnabled: true,
+    whatsappNumber: '',
+    youtubeDescription: '',
+    youtubeEnabled: false,
+    youtubeTitle: '',
+    youtubeUrl: '',
+  },
   monthlyFee: 0,
   notificationSettings: {
     smsFeeReminderEnabled: false,
@@ -73,6 +103,7 @@ const defaultSettings = {
   siteSettings: {
     address: '',
     contactNumber: '',
+    email: '',
     facebookUrl: '',
     logoUrl: '',
     maintenanceMode: false,
@@ -88,6 +119,7 @@ const defaultSettings = {
 
 const tabs = [
   { icon: ShieldCheck, key: 'site', label: 'সাইট সেটিংস' },
+  { icon: Home, key: 'homepage', label: 'হোমপেজ নিয়ন্ত্রণ' },
   { icon: UserCog, key: 'members', label: 'সদস্য নিয়ন্ত্রণ' },
   { icon: WalletCards, key: 'finance', label: 'ফাইন্যান্স' },
   { icon: GalleryHorizontalEnd, key: 'content', label: 'কনটেন্ট' },
@@ -137,16 +169,20 @@ export default function AdminControlsPage() {
   const [message, setMessage] = useState('')
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [controls, setControls] = useState({
+    achievements: [],
     donations: [],
     gallery: [],
     blogs: [],
+    committee: [],
     meetings: [],
     notices: [],
     notifications: [],
+    partners: [],
     payments: [],
     recentActivity: [],
     rules: [],
     settings: defaultSettings,
+    testimonials: [],
     tours: [],
     users: [],
   })
@@ -197,6 +233,10 @@ export default function AdminControlsPage() {
         galleryResponse,
         rulesResponse,
         paymentsResponse,
+        committeeResponse,
+        achievementsResponse,
+        testimonialsResponse,
+        partnersResponse,
       ] = await Promise.all([
         api.get('/admin-controls'),
         api.get('/donations'),
@@ -208,6 +248,10 @@ export default function AdminControlsPage() {
         api.get('/gallery/members'),
         api.get('/rules/members'),
         api.get('/payments'),
+        api.get('/committee/admin'),
+        api.get('/achievements/admin'),
+        api.get('/testimonials/admin'),
+        api.get('/partners/admin'),
       ])
       const settings = {
         ...defaultSettings,
@@ -224,6 +268,10 @@ export default function AdminControlsPage() {
           ...defaultSettings.financeControls,
           ...controlsResponse.data.data.settings?.financeControls,
         },
+        homepageControls: {
+          ...defaultSettings.homepageControls,
+          ...controlsResponse.data.data.settings?.homepageControls,
+        },
         notificationSettings: {
           ...defaultSettings.notificationSettings,
           ...controlsResponse.data.data.settings?.notificationSettings,
@@ -239,16 +287,20 @@ export default function AdminControlsPage() {
       }
 
       setControls({
+        achievements: achievementsResponse.data.data.items,
         blogs: blogsResponse.data.data.blogs,
+        committee: committeeResponse.data.data.items,
         donations: donationsResponse.data.data.donations,
         gallery: galleryResponse.data.data.items,
         meetings: meetingsResponse.data.data.items,
         notices: noticesResponse.data.data.items,
         notifications: notificationsResponse.data.data.notifications,
+        partners: partnersResponse.data.data.items,
         payments: paymentsResponse.data.data.payments,
         recentActivity: controlsResponse.data.data.recentActivity,
         rules: rulesResponse.data.data.items,
         settings,
+        testimonials: testimonialsResponse.data.data.items,
         tours: toursResponse.data.data.items,
         users: controlsResponse.data.data.users,
       })
@@ -330,19 +382,21 @@ export default function AdminControlsPage() {
     }
   }
 
-  const uploadSettingImage = async (section, field, file) => {
+  const uploadImageFile = async (file, name = `homepage-${Date.now()}`) => {
     if (!file) {
-      return
+      return ''
     }
 
+    const image = await readFileAsDataUrl(file)
+    const response = await api.post('/uploads/image', { image, name })
+    toast.success('ছবি আপলোড হয়েছে')
+    return response.data.data.image.url
+  }
+
+  const uploadSettingImage = async (section, field, file) => {
     try {
-      const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/image', {
-        image,
-        name: `${field}-${Date.now()}`,
-      })
-      updateSettingsField(section, field, response.data.data.image.url)
-      toast.success('ছবি আপলোড হয়েছে')
+      const url = await uploadImageFile(file, `${field}-${Date.now()}`)
+      if (url) updateSettingsField(section, field, url)
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
@@ -517,6 +571,37 @@ export default function AdminControlsPage() {
           onChange={updateSettingsField}
           onSave={saveSettings}
           onUpload={uploadSettingImage}
+          saving={saving}
+        />
+      ) : null}
+      {activeTab === 'homepage' ? (
+        <HomepageControlsTab
+          collections={{
+            achievements: controls.achievements,
+            committee: controls.committee,
+            partners: controls.partners,
+            testimonials: controls.testimonials,
+          }}
+          form={settingsForm}
+          onChange={updateSettingsField}
+          onCreate={(collection, payload) =>
+            runAction(() => api.post(`/${collection}`, payload), 'Homepage item saved')
+          }
+          onDelete={(collection, item) =>
+            requestConfirm({
+              action: () =>
+                runAction(() => api.delete(`/${collection}/${item._id}`), 'Homepage item deleted'),
+              message: `${item.name || item.title} মুছে ফেলতে চান?`,
+              title: 'Delete item?',
+              variant: 'danger',
+            })
+          }
+          onSave={saveSettings}
+          onUpdate={(collection, item, payload) =>
+            runAction(() => api.patch(`/${collection}/${item._id}`, payload), 'Homepage item updated')
+          }
+          onUploadImage={uploadImageFile}
+          onUploadSetting={uploadSettingImage}
           saving={saving}
         />
       ) : null}
@@ -821,6 +906,12 @@ function SiteSettingsTab({ form, onChange, onSave, onUpload, saving }) {
             value={form.siteSettings.contactNumber}
           />
           <Field
+            label="ইমেইল"
+            name="email"
+            onChange={(event) => onChange('siteSettings', 'email', event.target.value)}
+            value={form.siteSettings.email}
+          />
+          <Field
             label="ঠিকানা"
             name="address"
             onChange={(event) => onChange('siteSettings', 'address', event.target.value)}
@@ -906,6 +997,269 @@ function SiteSettingsTab({ form, onChange, onSave, onUpload, saving }) {
           />
         </div>
       </Panel>
+    </div>
+  )
+}
+
+const homepageManagerConfigs = [
+  {
+    fields: [
+      { label: 'নাম', name: 'name', required: true },
+      { label: 'পদবি', name: 'position', required: true },
+      { label: 'ফোন', name: 'phone' },
+      { label: 'ছবির URL', name: 'photo', type: 'image' },
+      { label: 'ক্রম', name: 'order', type: 'number' },
+    ],
+    icon: UserCog,
+    key: 'committee',
+    photoField: 'photo',
+    title: 'কমিটি সদস্য',
+    toggles: [
+      { label: 'ফোন দেখান', name: 'showPhone' },
+      { label: 'Active', name: 'active' },
+    ],
+  },
+  {
+    fields: [
+      { label: 'বছর', name: 'year', required: true },
+      { label: 'শিরোনাম', name: 'title', required: true },
+      { label: 'বিবরণ', name: 'description', required: true, textarea: true },
+      { label: 'ছবির URL', name: 'photo', type: 'image' },
+      { label: 'ক্রম', name: 'order', type: 'number' },
+    ],
+    icon: Star,
+    key: 'achievements',
+    photoField: 'photo',
+    title: 'অর্জন',
+    toggles: [{ label: 'Active', name: 'active' }],
+  },
+  {
+    fields: [
+      { label: 'সদস্যের নাম', name: 'name', required: true },
+      { label: 'প্রশংসাপত্র', name: 'text', required: true, textarea: true },
+      { label: 'যোগদানের বছর', name: 'joinYear' },
+      { label: 'ছবির URL', name: 'photo', type: 'image' },
+      { label: 'ক্রম', name: 'order', type: 'number' },
+    ],
+    icon: Bell,
+    key: 'testimonials',
+    photoField: 'photo',
+    title: 'প্রশংসাপত্র',
+    toggles: [{ label: 'Active', name: 'active' }],
+  },
+  {
+    fields: [
+      { label: 'প্রতিষ্ঠানের নাম', name: 'name', required: true },
+      { label: 'লোগো URL', name: 'logo', required: true, type: 'image' },
+      { label: 'ওয়েবসাইট URL', name: 'websiteUrl' },
+      { label: 'ক্রম', name: 'order', type: 'number' },
+    ],
+    icon: Image,
+    key: 'partners',
+    photoField: 'logo',
+    title: 'সহযোগী প্রতিষ্ঠান',
+    toggles: [{ label: 'Active', name: 'active' }],
+  },
+]
+
+const createEmptyHomepageDrafts = () =>
+  homepageManagerConfigs.reduce(
+    (drafts, config) => ({
+      ...drafts,
+      [config.key]: { active: true, order: 0, showPhone: false },
+    }),
+    {},
+  )
+
+const toLines = (value) => (Array.isArray(value) ? value.join('\n') : '')
+const fromLines = (value) =>
+  String(value || '')
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+function HomepageControlsTab({
+  collections,
+  form,
+  onChange,
+  onCreate,
+  onDelete,
+  onSave,
+  onUpdate,
+  onUploadImage,
+  onUploadSetting,
+  saving,
+}) {
+  const [drafts, setDrafts] = useState(createEmptyHomepageDrafts)
+  const homepage = form.homepageControls || defaultSettings.homepageControls
+
+  const updateDraft = (key, field, value) => {
+    setDrafts((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        [field]: value,
+      },
+    }))
+  }
+
+  const resetDraft = (key) => {
+    setDrafts((current) => ({
+      ...current,
+      [key]: { active: true, order: 0, showPhone: false },
+    }))
+  }
+
+  const submitDraft = async (event, config) => {
+    event.preventDefault()
+    const draft = drafts[config.key] || {}
+    const payload = { ...draft, order: Number(draft.order || 0) }
+    const existing = draft._id ? draft : null
+
+    if (existing) {
+      await onUpdate(config.key, existing, payload)
+    } else {
+      await onCreate(config.key, payload)
+    }
+    resetDraft(config.key)
+  }
+
+  return (
+    <div className="mt-6 grid gap-6">
+      <Panel>
+        <SectionTitle icon={Home} title="হোমপেজ নিয়ন্ত্রণ" />
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <Toggle checked={homepage.newsTickerEnabled} label="News ticker" onChange={(value) => onChange('homepageControls', 'newsTickerEnabled', value)} />
+          <Toggle checked={homepage.countdownEnabled} label="Countdown timer" onChange={(value) => onChange('homepageControls', 'countdownEnabled', value)} />
+          <Toggle checked={homepage.committeeEnabled} label="Committee section" onChange={(value) => onChange('homepageControls', 'committeeEnabled', value)} />
+          <Toggle checked={homepage.achievementsEnabled} label="Achievements timeline" onChange={(value) => onChange('homepageControls', 'achievementsEnabled', value)} />
+          <Toggle checked={homepage.testimonialsEnabled} label="Testimonials" onChange={(value) => onChange('homepageControls', 'testimonialsEnabled', value)} />
+          <Toggle checked={homepage.partnersEnabled} label="Partner logos" onChange={(value) => onChange('homepageControls', 'partnersEnabled', value)} />
+          <Toggle checked={homepage.whatsappButtonEnabled} label="WhatsApp button" onChange={(value) => onChange('homepageControls', 'whatsappButtonEnabled', value)} />
+          <Toggle checked={homepage.googleMapsEnabled} label="Google Maps" onChange={(value) => onChange('homepageControls', 'googleMapsEnabled', value)} />
+          <Toggle checked={homepage.youtubeEnabled} label="YouTube video" onChange={(value) => onChange('homepageControls', 'youtubeEnabled', value)} />
+          <Toggle checked={homepage.facebookEmbedEnabled} label="Facebook embed" onChange={(value) => onChange('homepageControls', 'facebookEmbedEnabled', value)} />
+          <Toggle checked={homepage.trustBadgesEnabled} label="Trust badges" onChange={(value) => onChange('homepageControls', 'trustBadgesEnabled', value)} />
+          <Toggle checked={homepage.certificateEnabled} label="Certificate section" onChange={(value) => onChange('homepageControls', 'certificateEnabled', value)} />
+          <Toggle checked={homepage.cookieConsentEnabled} label="Cookie consent" onChange={(value) => onChange('homepageControls', 'cookieConsentEnabled', value)} />
+          <Toggle checked={homepage.darkModeToggleEnabled} label="Dark mode toggle" onChange={(value) => onChange('homepageControls', 'darkModeToggleEnabled', value)} />
+          <Toggle checked={homepage.fontSizeControlsEnabled} label="Font size controls" onChange={(value) => onChange('homepageControls', 'fontSizeControlsEnabled', value)} />
+          <Toggle checked={homepage.galleryDownloadEnabled} label="Gallery download" onChange={(value) => onChange('homepageControls', 'galleryDownloadEnabled', value)} />
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <Field label="WhatsApp number" name="whatsappNumber" onChange={(event) => onChange('homepageControls', 'whatsappNumber', event.target.value)} value={homepage.whatsappNumber || ''} />
+          <Field label="Google Maps embed URL/code" name="googleMapsEmbedUrl" onChange={(event) => onChange('homepageControls', 'googleMapsEmbedUrl', event.target.value)} value={homepage.googleMapsEmbedUrl || ''} />
+          <Field label="YouTube URL/embed code" name="youtubeUrl" onChange={(event) => onChange('homepageControls', 'youtubeUrl', event.target.value)} value={homepage.youtubeUrl || ''} />
+          <Field label="YouTube title" name="youtubeTitle" onChange={(event) => onChange('homepageControls', 'youtubeTitle', event.target.value)} value={homepage.youtubeTitle || ''} />
+          <Field label="YouTube description" name="youtubeDescription" onChange={(event) => onChange('homepageControls', 'youtubeDescription', event.target.value)} textarea value={homepage.youtubeDescription || ''} />
+          <Field label="Facebook page URL" name="facebookPageUrl" onChange={(event) => onChange('homepageControls', 'facebookPageUrl', event.target.value)} value={homepage.facebookPageUrl || ''} />
+          <Field label="Typewriter phrases (one per line, max 5)" name="typewriterPhrases" onChange={(event) => onChange('homepageControls', 'typewriterPhrases', fromLines(event.target.value).slice(0, 5))} textarea value={toLines(homepage.typewriterPhrases)} />
+          <Field label="Trust badge labels" name="trustBadgeLabels" onChange={(event) => onChange('homepageControls', 'trustBadgeLabels', fromLines(event.target.value))} textarea value={toLines(homepage.trustBadgeLabels)} />
+          <Field label="Certificate image URL" name="certificateImageUrl" onChange={(event) => onChange('homepageControls', 'certificateImageUrl', event.target.value)} value={homepage.certificateImageUrl || ''} />
+          <div className="flex items-end">
+            <FileUploadButton label="Certificate upload" onUpload={(file) => onUploadSetting('homepageControls', 'certificateImageUrl', file)} />
+          </div>
+        </div>
+        <div className="mt-5">
+          <Button icon={Save} loading={saving} onClick={onSave}>
+            সেটিংস সংরক্ষণ করুন
+          </Button>
+        </div>
+      </Panel>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        {homepageManagerConfigs.map((config) => (
+          <Panel key={config.key}>
+            <SectionTitle icon={config.icon} title={config.title} />
+            <form className="mt-5 grid gap-4" onSubmit={(event) => submitDraft(event, config)}>
+              <div className="grid gap-4 md:grid-cols-2">
+                {config.fields.map((field) => (
+                  <div className={field.textarea ? 'md:col-span-2' : ''} key={field.name}>
+                    <Field
+                      label={field.label}
+                      name={field.name}
+                      onChange={(event) =>
+                        updateDraft(
+                          config.key,
+                          field.name,
+                          field.type === 'number' ? Number(event.target.value || 0) : event.target.value,
+                        )
+                      }
+                      required={field.required}
+                      textarea={field.textarea}
+                      type={field.type === 'number' ? 'number' : 'text'}
+                      value={drafts[config.key]?.[field.name] ?? ''}
+                    />
+                    {field.type === 'image' ? (
+                      <div className="mt-2">
+                        <FileUploadButton
+                          label="ছবি আপলোড"
+                          onUpload={async (file) => {
+                            try {
+                              const url = await onUploadImage(file, `${config.key}-${Date.now()}`)
+                              updateDraft(config.key, field.name, url)
+                            } catch (error) {
+                              toast.error(getErrorMessage(error))
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+              {config.toggles?.length ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {config.toggles.map((toggle) => (
+                    <Toggle
+                      checked={Boolean(drafts[config.key]?.[toggle.name])}
+                      key={toggle.name}
+                      label={toggle.label}
+                      onChange={(value) => updateDraft(config.key, toggle.name, value)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button icon={Save} type="submit">
+                  {drafts[config.key]?._id ? 'আপডেট করুন' : 'যোগ করুন'}
+                </Button>
+                {drafts[config.key]?._id ? (
+                  <Button onClick={() => resetDraft(config.key)} type="button" variant="secondary">
+                    Cancel edit
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+
+            <div className="mt-6 grid gap-3">
+              {(collections[config.key] || []).map((item) => (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={item._id}>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-gray-900">{item.name || item.title}</p>
+                    <p className="truncate text-sm text-gray-500">
+                      {item.position || item.year || item.joinYear || item.websiteUrl || 'Homepage item'}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button onClick={() => setDrafts((current) => ({ ...current, [config.key]: item }))} type="button" variant="secondary">
+                      Edit
+                    </Button>
+                    <Button icon={Trash2} onClick={() => onDelete(config.key, item)} type="button" variant="danger">
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {!collections[config.key]?.length ? (
+                <p className="rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+                  এখনো কোনো আইটেম নেই।
+                </p>
+              ) : null}
+            </div>
+          </Panel>
+        ))}
+      </div>
     </div>
   )
 }

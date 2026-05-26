@@ -46,6 +46,7 @@ const getPublicSettings = asyncHandler(async (req, res) => {
         donationNumber: settings.donationNumber,
         donationProvider: settings.donationProvider,
         appearance: settings.appearance,
+        homepageControls: settings.homepageControls,
         siteSettings: settings.siteSettings,
         notificationSettings: {
           smsFeeReminderEnabled: Boolean(notificationSettings.smsFeeReminderEnabled),

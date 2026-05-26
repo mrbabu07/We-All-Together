@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import Lightbox from 'yet-another-react-lightbox'
+import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
+import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
+import Zoom from 'yet-another-react-lightbox/plugins/zoom'
 import {
   Bell,
   BookOpen,
@@ -28,6 +32,8 @@ import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import 'yet-another-react-lightbox/styles.css'
+import 'yet-another-react-lightbox/plugins/thumbnails.css'
 
 const initialPaymentForm = {
   method: '',
@@ -825,8 +831,14 @@ function Blogs({
 }
 
 function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, uploading, user }) {
+  const [lightboxIndex, setLightboxIndex] = useState(-1)
   const canManage = (item) =>
     user?.role === 'admin' || item.createdBy?._id === user?._id || item.createdBy === user?._id
+  const slides = gallery.map((item) => ({
+    description: item.description,
+    src: item.imageUrl,
+    title: item.title,
+  }))
 
   return (
     <div className="mt-6 grid gap-6">
@@ -881,7 +893,17 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
         {gallery.length === 0 ? <Empty text="No gallery photos yet." /> : null}
         {gallery.map((item) => (
           <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" key={item._id}>
-            <img alt="" className="h-56 w-full object-cover" src={item.imageUrl} />
+            <button
+              className="block w-full overflow-hidden text-left"
+              onClick={() => setLightboxIndex(gallery.findIndex((row) => row._id === item._id))}
+              type="button"
+            >
+              <img
+                alt={item.title}
+                className="h-56 w-full object-cover transition duration-300 hover:scale-105"
+                src={item.imageUrl}
+              />
+            </button>
             <div className="grid gap-3 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-gray-950">{item.title}</h3>
@@ -900,6 +922,13 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
           </article>
         ))}
       </div>
+      <Lightbox
+        close={() => setLightboxIndex(-1)}
+        index={lightboxIndex}
+        open={lightboxIndex >= 0}
+        plugins={[Thumbnails, Zoom, DownloadPlugin]}
+        slides={slides}
+      />
     </div>
   )
 }

@@ -12,6 +12,18 @@ const controllers = createContentController({
   name: 'Notice',
 })
 
+const getNotices = asyncHandler(async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 100)
+  const filter = req.query.public === 'true' ? { audience: 'public' } : {}
+  const items = await Notice.find(filter).sort({ pinned: -1, createdAt: -1 }).limit(limit)
+
+  res.status(200).json({
+    success: true,
+    message: 'Notices loaded successfully.',
+    data: { items },
+  })
+})
+
 const markNoticeRead = asyncHandler(async (req, res) => {
   const notice = await Notice.findById(req.params.id)
 
@@ -125,6 +137,7 @@ module.exports = {
   ...controllers,
   addNoticeComment,
   archiveNotices,
+  getNotices,
   markNoticeRead,
   reactToNotice,
 }
