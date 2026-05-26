@@ -27,6 +27,9 @@ const escapeHtml = (value = '') =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
 
+const cssVar = (name) =>
+  window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
 export default function AccountPage() {
   const { refreshProfile, user } = useAuth()
   const canvasRef = useRef(null)
@@ -213,9 +216,9 @@ export default function AccountPage() {
           <head>
             <title>My Data</title>
             <style>
-              body { font-family: Arial, sans-serif; color: #111827; padding: 32px; }
-              h1 { color: #4f46e5; }
-              pre { white-space: pre-wrap; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; }
+              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
+              h1 { color: ${cssVar('--brand-600')}; }
+              pre { white-space: pre-wrap; border: 1px solid ${cssVar('--gray-200')}; border-radius: 12px; padding: 16px; }
               @media print { button { display: none; } }
             </style>
           </head>
@@ -254,7 +257,7 @@ export default function AccountPage() {
       seed += text.charCodeAt(index) * (index + 1)
     }
 
-    context.fillStyle = '#111827'
+    context.fillStyle = cssVar('--text-primary')
     for (let row = 0; row < cells; row += 1) {
       for (let col = 0; col < cells; col += 1) {
         const finder =
@@ -276,36 +279,36 @@ export default function AccountPage() {
 
     canvas.width = 880
     canvas.height = 540
-    context.fillStyle = '#ffffff'
+    context.fillStyle = cssVar('--text-inverted')
     context.fillRect(0, 0, canvas.width, canvas.height)
-    context.fillStyle = '#4f46e5'
+    context.fillStyle = cssVar('--brand-600')
     context.fillRect(0, 0, canvas.width, 120)
-    context.fillStyle = '#ffffff'
+    context.fillStyle = cssVar('--text-inverted')
     context.font = 'bold 34px Arial'
     context.fillText('Dargah Para OIkko Porishod', 40, 62)
     context.font = '18px Arial'
     context.fillText('Digital Member ID Card', 40, 94)
-    context.fillStyle = '#eef2ff'
+    context.fillStyle = cssVar('--brand-50')
     context.beginPath()
     context.arc(115, 240, 74, 0, Math.PI * 2)
     context.fill()
-    context.fillStyle = '#4f46e5'
+    context.fillStyle = cssVar('--brand-600')
     context.font = 'bold 58px Arial'
     context.textAlign = 'center'
     context.fillText(user?.name?.slice(0, 1) || 'M', 115, 260)
     context.textAlign = 'left'
-    context.fillStyle = '#111827'
+    context.fillStyle = cssVar('--text-primary')
     context.font = 'bold 30px Arial'
     context.fillText(user?.name || 'Member', 230, 205)
     context.font = '20px Arial'
     context.fillText(`Phone: ${user?.phone || ''}`, 230, 245)
     context.fillText(`Role: ${user?.role || 'member'}`, 230, 285)
     context.fillText(`Status: ${user?.status || 'approved'}`, 230, 325)
-    context.fillStyle = '#6b7280'
+    context.fillStyle = cssVar('--text-secondary')
     context.font = '16px Arial'
     context.fillText(`Member ID: ${user?._id || ''}`, 40, 472)
     drawQrLikePattern(context, user?._id || user?.phone || 'member', 670, 180, 150)
-    context.fillStyle = '#6b7280'
+    context.fillStyle = cssVar('--text-secondary')
     context.font = '14px Arial'
     context.fillText('Scan/verify with organization records', 610, 360)
 

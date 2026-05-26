@@ -83,6 +83,9 @@ const escapeHtml = (value = '') =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
 
+const cssVar = (name) =>
+  window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
 const tabs = [
   ['overview', 'Overview'],
   ['payments', 'Payments'],
@@ -391,17 +394,17 @@ export default function MemberDashboardPage() {
           <head>
             <title>${escapeHtml(receipt.receiptNo)}</title>
             <style>
-              body { font-family: Arial, sans-serif; color: #0f172a; padding: 32px; }
-              .receipt { border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
+              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
+              .receipt { border: 1px solid ${cssVar('--gray-200')}; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
               h1 { margin: 0; font-size: 24px; }
-              .muted { color: #64748b; }
+              .muted { color: ${cssVar('--text-secondary')}; }
               .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
-              .item { border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-              .label { display: block; color: #64748b; font-size: 12px; text-transform: uppercase; }
+              .item { border-bottom: 1px solid ${cssVar('--gray-200')}; padding-bottom: 8px; }
+              .label { display: block; color: ${cssVar('--text-secondary')}; font-size: 12px; text-transform: uppercase; }
               .value { display: block; font-weight: 700; margin-top: 4px; }
               .qr { margin-top: 24px; }
               .qr img { display: block; height: 120px; margin-top: 8px; width: 120px; }
-              .qr p { color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
+              .qr p { color: ${cssVar('--text-secondary')}; font-size: 11px; overflow-wrap: anywhere; }
               @media print { button { display: none; } body { padding: 0; } }
             </style>
           </head>

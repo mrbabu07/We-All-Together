@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import Card from './Card'
+import Badge from './Badge'
 
 const parseDisplayValue = (value) => {
   if (typeof value === 'number') {
@@ -21,28 +22,34 @@ const parseDisplayValue = (value) => {
   }
 }
 
+const tones = {
+  brand: ['bg-[var(--brand-50)] text-[var(--brand-600)]', 'bg-[var(--brand-600)]'],
+  green: ['bg-[var(--success-light)] text-[var(--success)]', 'bg-[var(--success)]'],
+  indigo: ['bg-[var(--brand-50)] text-[var(--brand-600)]', 'bg-[var(--brand-600)]'],
+  red: ['bg-[var(--danger-light)] text-[var(--danger)]', 'bg-[var(--danger)]'],
+  yellow: ['bg-[var(--warning-light)] text-[var(--warning)]', 'bg-[var(--warning)]'],
+}
+
 export default function StatCard({
   icon: Icon,
   label,
-  tone = 'indigo',
+  tone = 'brand',
   trend = '↑ 0%',
+  trendDirection = 'up',
   value,
 }) {
   const parsed = useMemo(() => parseDisplayValue(value), [value])
   const [displayNumber, setDisplayNumber] = useState(parsed.number ?? 0)
-  const tones = {
-    green: 'bg-green-100 text-green-600',
-    indigo: 'bg-indigo-100 text-indigo-600',
-    red: 'bg-red-100 text-red-600',
-    yellow: 'bg-yellow-100 text-yellow-600',
-  }
+  const [toneClasses, sparklineClass] = tones[tone] || tones.brand
+  const TrendIcon = trendDirection === 'down' || String(trend).includes('↓') ? ArrowDownRight : ArrowUpRight
+  const trendVariant = TrendIcon === ArrowDownRight ? 'danger' : 'success'
 
   useEffect(() => {
     if (parsed.number === null) {
       return undefined
     }
 
-    const duration = 1200
+    const duration = 800
     const startedAt = performance.now()
     let frame = 0
 
@@ -66,24 +73,30 @@ export default function StatCard({
       : `${parsed.prefix}${displayNumber.toLocaleString('en-US')}${parsed.suffix}`
 
   return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div
-          className={`inline-flex h-12 w-12 items-center justify-center rounded-full ${
-            tones[tone] || tones.indigo
-          }`}
-        >
-          {Icon ? <Icon aria-hidden="true" className="h-5 w-5" /> : null}
-        </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold tracking-tight text-gray-900">{displayValue}</p>
-          <p className="mt-1 text-sm text-gray-500">{label}</p>
-        </div>
+    <Card className="group p-6" hover>
+      <div className="flex items-start justify-between gap-4">
+        <span className={`inline-flex h-11 w-11 items-center justify-center rounded-full ${toneClasses}`}>
+          {Icon ? <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} /> : null}
+        </span>
+        <Badge dot value={trendVariant}>
+          <TrendIcon aria-hidden="true" className="h-3 w-3" />
+          {trend}
+        </Badge>
       </div>
-      <p className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-green-600">
-        <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" />
-        {trend}
-      </p>
+
+      <p className="mt-5 text-3xl font-bold tracking-tight text-[var(--text-primary)]">{displayValue}</p>
+      <div className="mt-1 flex items-end justify-between gap-4">
+        <p className="text-sm text-[var(--text-secondary)]">{label}</p>
+        <span className="flex h-8 w-20 items-end gap-1 opacity-80">
+          {[28, 46, 34, 62, 48, 70, 54].map((height, index) => (
+            <span
+              className={`w-full rounded-t ${sparklineClass} transition-all group-hover:opacity-100`}
+              key={index}
+              style={{ height: `${height}%`, opacity: 0.28 + index * 0.08 }}
+            />
+          ))}
+        </span>
+      </div>
     </Card>
   )
 }

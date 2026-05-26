@@ -1,15 +1,43 @@
+import { Search } from 'lucide-react'
 import Button from './Button'
+import Card from './Card'
 
-export default function Table({ columns, emptyText = 'কোনো তথ্য নেই', rows }) {
+export function EmptyState({
+  action,
+  icon: Icon = Search,
+  message = 'কোনো তথ্য নেই',
+  title = 'কিছু পাওয়া যায়নি',
+}) {
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="grid place-items-center px-4 py-16 text-center">
+      <div className="inline-flex h-16 w-16 items-center justify-center rounded-[var(--radius-full)] bg-[var(--brand-50)] text-[var(--brand-600)]">
+        <Icon aria-hidden="true" className="h-8 w-8" />
+      </div>
+      <h3 className="mt-4 text-lg font-medium text-[var(--text-primary)]">{title}</h3>
+      <p className="mt-1 max-w-sm text-sm text-[var(--text-secondary)]">{message}</p>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  )
+}
+
+export default function Table({
+  columns,
+  emptyAction,
+  emptyIcon,
+  emptyText = 'কোনো তথ্য নেই',
+  emptyTitle = 'কিছু পাওয়া যায়নি',
+  rows,
+  striped = false,
+}) {
+  return (
+    <Card className="overflow-hidden p-0" flush hover={false}>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full border-collapse">
+          <thead className="sticky top-0 z-10 bg-[var(--surface-1)]">
             <tr>
               {columns.map((column) => (
                 <th
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
+                  className="px-4 py-3.5 text-left text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]"
                   key={column.key}
                 >
                   {column.label}
@@ -17,18 +45,28 @@ export default function Table({ columns, emptyText = 'কোনো তথ্য 
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-sm text-gray-500" colSpan={columns.length}>
-                  {emptyText}
+                <td colSpan={columns.length}>
+                  <EmptyState
+                    action={emptyAction}
+                    icon={emptyIcon}
+                    message={emptyText}
+                    title={emptyTitle}
+                  />
                 </td>
               </tr>
             ) : null}
-            {rows.map((row) => (
-              <tr className="transition hover:bg-gray-50" key={row._id || row.id}>
+            {rows.map((row, index) => (
+              <tr
+                className={`border-b border-[var(--gray-200)] transition-colors hover:bg-[var(--surface-1)] ${
+                  striped && index % 2 ? 'bg-[color-mix(in_srgb,var(--surface-1)_50%,transparent)]' : ''
+                }`}
+                key={row._id || row.id}
+              >
                 {columns.map((column) => (
-                  <td className="px-4 py-3 text-sm text-gray-700" key={column.key}>
+                  <td className="px-4 py-3.5 text-sm text-[var(--text-secondary)]" key={column.key}>
                     {column.render ? column.render(row) : row[column.key]}
                   </td>
                 ))}
@@ -37,10 +75,14 @@ export default function Table({ columns, emptyText = 'কোনো তথ্য 
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-end gap-2 border-t border-gray-200 bg-white px-4 py-3">
-        <Button variant="secondary">পূর্ববর্তী</Button>
-        <Button variant="secondary">পরবর্তী</Button>
+      <div className="flex items-center justify-end gap-2 border-t border-[var(--gray-200)] bg-[var(--surface-0)] px-4 py-3">
+        <Button disabled variant="secondary">
+          পূর্ববর্তী
+        </Button>
+        <Button disabled variant="secondary">
+          পরবর্তী
+        </Button>
       </div>
-    </div>
+    </Card>
   )
 }

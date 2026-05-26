@@ -15,21 +15,21 @@ export default function Modal({ children, className = '', onClose, open, title }
               exit={modalBackdrop.exit}
               initial={modalBackdrop.initial}
             />
-            <div className="fixed inset-0 flex items-center justify-center px-4 py-6">
+            <div className="fixed inset-x-0 bottom-0 flex items-end justify-center px-0 sm:inset-0 sm:items-center sm:px-4 sm:py-6">
               <DialogPanel
                 as={motion.div}
                 animate={modalPanel.animate}
-                className={`w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl ${className}`}
+                className={`max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[var(--radius-2xl)] border border-[var(--gray-200)] bg-[var(--surface-0)] p-6 shadow-[var(--shadow-xl-token)] sm:rounded-[var(--radius-2xl)] ${className}`}
                 exit={modalPanel.exit}
                 initial={modalPanel.initial}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
-                  <DialogTitle className="text-lg font-semibold tracking-tight text-gray-900">
+                  <DialogTitle className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
                     {title}
                   </DialogTitle>
                   <button
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-full)] text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
                     onClick={onClose}
                     type="button"
                   >

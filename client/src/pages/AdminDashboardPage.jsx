@@ -90,6 +90,9 @@ const escapeHtml = (value = '') =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
 
+const cssVar = (name) =>
+  window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
 const emptyContentForms = {
   notices: { title: '', body: '', audience: 'public', imageUrl: '', pinned: false },
   meetings: {
@@ -787,17 +790,17 @@ export default function AdminDashboardPage() {
           <head>
             <title>${escapeHtml(receipt.receiptNo)}</title>
             <style>
-              body { font-family: Arial, sans-serif; color: #0f172a; padding: 32px; }
-              .receipt { border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
+              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
+              .receipt { border: 1px solid ${cssVar('--gray-200')}; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
               h1 { margin: 0; font-size: 24px; }
-              .muted { color: #64748b; }
+              .muted { color: ${cssVar('--text-secondary')}; }
               .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
-              .item { border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-              .label { display: block; color: #64748b; font-size: 12px; text-transform: uppercase; }
+              .item { border-bottom: 1px solid ${cssVar('--gray-200')}; padding-bottom: 8px; }
+              .label { display: block; color: ${cssVar('--text-secondary')}; font-size: 12px; text-transform: uppercase; }
               .value { display: block; font-weight: 700; margin-top: 4px; }
               .qr { margin-top: 24px; }
               .qr img { display: block; height: 120px; margin-top: 8px; width: 120px; }
-              .qr p { color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
+              .qr p { color: ${cssVar('--text-secondary')}; font-size: 11px; overflow-wrap: anywhere; }
               @media print { button { display: none; } body { padding: 0; } }
             </style>
           </head>
@@ -1508,8 +1511,8 @@ function FinanceAnalytics({ analytics }) {
                 <YAxis tickFormatter={(value) => `${Number(value) / 1000}k`} />
                 <Tooltip formatter={(value) => money(value)} />
                 <Legend />
-                <Bar dataKey="income" fill="#4F46E5" name="Income" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="#EF4444" name="Expense" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" fill="var(--brand-600)" name="Income" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill="var(--danger)" name="Expense" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -1533,7 +1536,7 @@ function FinanceAnalytics({ analytics }) {
                   activeDot={{ r: 6 }}
                   dataKey="donations"
                   name="Donations"
-                  stroke="#10B981"
+                  stroke="var(--success)"
                   strokeWidth={3}
                   type="monotone"
                 />
@@ -1717,11 +1720,11 @@ function OverdueMembersPanel({
         <head>
           <title>Overdue Members</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 32px; color: #111827; }
+            body { font-family: Arial, sans-serif; padding: 32px; color: ${cssVar('--text-primary')}; }
             h1 { margin: 0 0 16px; font-size: 22px; }
             table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
-            th { background: #f9fafb; font-size: 12px; text-transform: uppercase; color: #6b7280; }
+            th, td { border: 1px solid ${cssVar('--gray-200')}; padding: 10px; text-align: left; }
+            th { background: ${cssVar('--surface-1')}; font-size: 12px; text-transform: uppercase; color: ${cssVar('--text-secondary')}; }
           </style>
         </head>
         <body>
@@ -2601,7 +2604,7 @@ function PollResultsChart({ poll }) {
           <XAxis dataKey="name" />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Bar dataKey="votes" fill="#4F46E5" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="votes" fill="var(--brand-600)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

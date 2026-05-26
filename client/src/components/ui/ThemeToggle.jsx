@@ -1,5 +1,6 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
 import useTheme from '../../hooks/useTheme'
+import Button from './Button'
 
 export default function ThemeToggle({ className = '', showLabel = false }) {
   const { clearThemePreference, resolvedTheme, selectedMode, themePreference, toggleTheme } = useTheme()
@@ -12,21 +13,23 @@ export default function ThemeToggle({ className = '', showLabel = false }) {
   }
 
   return (
-    <button
+    <Button
       aria-label={`${label} পরিবর্তন করুন`}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 ${className}`}
+      className={className}
+      icon={Icon}
+      iconOnly={!showLabel}
       onClick={toggleTheme}
       onContextMenu={handleContextMenu}
+      rightIcon={!themePreference && showLabel ? Monitor : undefined}
       title={
         themePreference
           ? 'Click to switch light/dark. Right click to follow admin setting.'
           : `Following ${selectedMode} setting`
       }
       type="button"
+      variant="ghost"
     >
-      <Icon aria-hidden="true" className="h-4 w-4" />
-      {showLabel ? <span>{label}</span> : null}
-      {!themePreference ? <Monitor aria-hidden="true" className="h-3.5 w-3.5 text-gray-400" /> : null}
-    </button>
+      {showLabel ? label : label}
+    </Button>
   )
 }

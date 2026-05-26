@@ -7,7 +7,7 @@ const DEFAULT_APPEARANCE = {
   colorMode: 'light',
   customCss: '',
   fontSize: 'normal',
-  primaryColor: '#4F46E5',
+  primaryColor: 'var(--brand-600)',
 }
 
 const DEFAULT_HOMEPAGE_CONTROLS = {
@@ -90,12 +90,18 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const root = document.documentElement
     const customCssId = 'dargah-custom-css'
-    const themeColor = resolvedTheme === 'dark' ? '#111827' : appearance.primaryColor
+    const computedStyle = window.getComputedStyle(root)
+    const fallbackThemeColor =
+      resolvedTheme === 'dark'
+        ? computedStyle.getPropertyValue('--surface-0').trim()
+        : computedStyle.getPropertyValue('--brand-600').trim()
+    const primaryColor = appearance.primaryColor || fallbackThemeColor
+    const themeColor = primaryColor.startsWith('var(') ? fallbackThemeColor : primaryColor
     let customCss = document.getElementById(customCssId)
 
     root.classList.toggle('dark', resolvedTheme === 'dark')
     root.dataset.theme = resolvedTheme
-    root.style.setProperty('--color-primary', appearance.primaryColor || DEFAULT_APPEARANCE.primaryColor)
+    root.style.setProperty('--color-primary', primaryColor)
     root.style.setProperty('--app-font-size', fontScales[selectedFontSize] || fontScales.normal)
 
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor)

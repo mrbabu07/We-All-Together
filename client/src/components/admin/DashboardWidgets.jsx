@@ -116,14 +116,14 @@ export default function DashboardWidgets() {
         <div className="mt-6 h-64">
           <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
             <LineChart data={data?.memberGrowth || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-              <XAxis dataKey="_id" stroke="#6B7280" />
-              <YAxis allowDecimals={false} stroke="#6B7280" />
+              <CartesianGrid stroke="var(--gray-200)" strokeDasharray="3 3" />
+              <XAxis dataKey="_id" stroke="var(--text-secondary)" />
+              <YAxis allowDecimals={false} stroke="var(--text-secondary)" />
               <Tooltip />
               <Line
                 animationDuration={900}
                 dataKey="members"
-                stroke="#4F46E5"
+                stroke="var(--brand-600)"
                 strokeWidth={3}
                 type="monotone"
               />

@@ -1,9 +1,9 @@
-export default function Panel({ children, className = '' }) {
+import Card from './Card'
+
+export default function Panel({ children, className = '', flush = false, hover = true }) {
   return (
-    <section
-      className={`rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md ${className}`}
-    >
+    <Card className={className} flush={flush} hover={hover}>
       {children}
-    </section>
+    </Card>
   )
 }

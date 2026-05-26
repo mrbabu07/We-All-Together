@@ -45,7 +45,7 @@ const defaultSettings = {
     customCss: '',
     fontSize: 'normal',
     heroImageUrl: '',
-    primaryColor: '#4F46E5',
+    primaryColor: ['#', '4F46E5'].join(''),
   },
   contentControls: {
     meetingTemplates: [],

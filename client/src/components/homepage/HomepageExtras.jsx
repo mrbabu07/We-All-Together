@@ -863,7 +863,7 @@ export function WhatsAppFloatingButton({ controls, siteSettings }) {
   return (
     <a
       aria-label="WhatsApp"
-      className="whatsapp-float group fixed bottom-20 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-xl transition hover:scale-110 md:bottom-6"
+      className="whatsapp-float group fixed bottom-20 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success)] text-white shadow-xl transition hover:scale-110 md:bottom-6"
       href={`https://wa.me/${number}`}
       rel="noreferrer"
       target="_blank"

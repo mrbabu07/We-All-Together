@@ -1,13 +1,37 @@
 import { motion } from 'framer-motion'
 
-export default function Card({ children, className = '', hover = true }) {
+const variants = {
+  base: 'border border-[color-mix(in_srgb,var(--gray-200)_60%,transparent)] bg-[var(--surface-0)] shadow-[var(--shadow-sm-token)]',
+  elevated: 'border border-transparent bg-[var(--surface-0)] shadow-[var(--shadow-lg-token)]',
+}
+
+export default function Card({
+  as = 'section',
+  children,
+  className = '',
+  elevated = false,
+  flush = false,
+  hover = true,
+}) {
+  const Component = motion[as] || motion.section
+
   return (
-    <motion.section
-      className={`rounded-xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}
-      transition={{ duration: 0.18 }}
-      whileHover={hover ? { y: -2, boxShadow: '0 10px 24px rgb(17 24 39 / 0.08)' } : undefined}
+    <Component
+      className={`rounded-[var(--radius-lg)] ${
+        flush ? '' : 'p-6'
+      } ${elevated ? variants.elevated : variants.base} ${className}`}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      whileHover={
+        hover
+          ? {
+              borderColor: 'color-mix(in srgb, var(--gray-300) 60%, transparent)',
+              boxShadow: 'var(--shadow-md-token)',
+              y: -1,
+            }
+          : undefined
+      }
     >
       {children}
-    </motion.section>
+    </Component>
   )
 }

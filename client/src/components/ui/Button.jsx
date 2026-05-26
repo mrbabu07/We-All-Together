@@ -1,38 +1,72 @@
 import { useState } from 'react'
+import Spinner from './Spinner'
+
+const variants = {
+  danger:
+    'bg-[var(--danger)] text-[var(--text-inverted)] shadow-[var(--shadow-sm-token)] hover:bg-[var(--danger-dark)]',
+  ghost:
+    'bg-transparent text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]',
+  primary:
+    'bg-[var(--brand-600)] text-[var(--text-inverted)] shadow-[var(--shadow-brand)] hover:bg-[var(--brand-700)] hover:shadow-[var(--shadow-lg-token)]',
+  secondary:
+    'border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[var(--surface-0)] text-[var(--text-primary)] shadow-[var(--shadow-xs)] hover:bg-[var(--surface-2)]',
+  success:
+    'bg-[var(--success)] text-[var(--text-inverted)] shadow-[var(--shadow-sm-token)] hover:bg-[var(--success-dark)]',
+}
+
+const sizes = {
+  lg: 'min-h-12 px-5 py-3 text-base',
+  md: 'min-h-10 px-4 py-2 text-sm',
+  sm: 'min-h-8 px-3 py-1.5 text-xs',
+}
+
+const iconSizes = {
+  lg: 'h-5 w-5',
+  md: 'h-4 w-4',
+  sm: 'h-3.5 w-3.5',
+}
 
 export default function Button({
   as: Component = 'button',
   children,
   className = '',
-  icon: Icon,
+  icon: LeftIcon,
+  iconOnly = false,
   loading = false,
+  rightIcon: RightIcon,
+  size = 'md',
   type = 'button',
   variant = 'primary',
   ...props
 }) {
   const [ripples, setRipples] = useState([])
-  const variants = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
-    secondary: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
-  }
+  const isDisabled = Boolean(loading || props.disabled)
+  const selectedSize = sizes[size] || sizes.md
+  const selectedIconSize = iconSizes[size] || iconSizes.md
 
-  const isDisabled = loading || props.disabled
   const elementProps =
     Component === 'button'
       ? {
           disabled: isDisabled,
           type,
         }
-      : {}
+      : {
+          'aria-disabled': isDisabled || undefined,
+        }
+
   const handleClick = (event) => {
+    if (isDisabled) {
+      event.preventDefault()
+      return
+    }
+
     const rect = event.currentTarget.getBoundingClientRect()
-    const size = Math.max(rect.width, rect.height)
+    const rippleSize = Math.max(rect.width, rect.height)
     const ripple = {
-      id: Date.now(),
-      size,
-      x: event.clientX - rect.left - size / 2,
-      y: event.clientY - rect.top - size / 2,
+      id: `${Date.now()}-${Math.random()}`,
+      size: rippleSize,
+      x: event.clientX - rect.left - rippleSize / 2,
+      y: event.clientY - rect.top - rippleSize / 2,
     }
 
     setRipples((current) => [...current.slice(-2), ripple])
@@ -44,7 +78,9 @@ export default function Button({
 
   return (
     <Component
-      className={`relative inline-flex min-h-11 items-center justify-center gap-2 overflow-hidden rounded-lg px-4 py-2 text-sm font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 ${variants[variant]} ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-[var(--radius-md)] font-medium transition-all duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${
+        variants[variant] || variants.primary
+      } ${selectedSize} ${iconOnly ? 'aspect-square px-0' : ''} ${className}`}
       {...props}
       onClick={handleClick}
       {...elementProps}
@@ -63,14 +99,18 @@ export default function Button({
         />
       ))}
       {loading ? (
-        <span
-          aria-hidden="true"
-          className="relative z-10 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-        />
-      ) : Icon ? (
-        <Icon aria-hidden="true" className="relative z-10 h-4 w-4" />
+        <Spinner className={`${selectedIconSize} relative z-10`} />
+      ) : LeftIcon ? (
+        <LeftIcon aria-hidden="true" className={`${selectedIconSize} relative z-10 shrink-0`} />
       ) : null}
-      <span className="relative z-10">{children}</span>
+      {iconOnly ? (
+        <span className="sr-only">{children}</span>
+      ) : (
+        <span className={loading ? 'relative z-10 opacity-0' : 'relative z-10'}>{children}</span>
+      )}
+      {!loading && RightIcon ? (
+        <RightIcon aria-hidden="true" className={`${selectedIconSize} relative z-10 shrink-0`} />
+      ) : null}
     </Component>
   )
 }

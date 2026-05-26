@@ -110,6 +110,9 @@ const getMonthName = (value) =>
 
 const estimateReadTime = (text = '') => Math.max(Math.ceil(plainText(text).split(' ').length / 180), 1)
 
+const cssVar = (name) =>
+  window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
 export default function PublicHomePage() {
   const navigate = useNavigate()
   const { noticeId } = useParams()
@@ -288,7 +291,7 @@ export default function PublicHomePage() {
       setDonationForm(initialDonationForm)
       setSuccessMessage('ধন্যবাদ। আপনার দানের তথ্য যাচাইয়ের জন্য জমা হয়েছে।')
       confetti({
-        colors: ['#4F46E5', '#10B981', '#F59E0B'],
+        colors: [cssVar('--brand-600'), cssVar('--success'), cssVar('--warning')],
         particleCount: 110,
         spread: 70,
         startVelocity: 38,
@@ -335,7 +338,7 @@ export default function PublicHomePage() {
     <main
       className="overflow-hidden bg-white text-gray-900"
       style={{
-        '--color-primary': appearance.primaryColor || '#4F46E5',
+        '--color-primary': appearance.primaryColor || 'var(--brand-600)',
       }}
     >
       <HomepageNavbar controls={homepageControls} orgName={orgName} user={user} />
@@ -603,7 +606,7 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
       className="relative min-h-screen overflow-hidden bg-white pt-28"
       id="home"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(#c7d2fe_1px,transparent_1px)] [background-size:24px_24px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle,var(--brand-200)_1px,transparent_1px)] [background-size:24px_24px]" />
       <div className="absolute right-0 top-0 h-72 w-72 rounded-bl-[120px] bg-indigo-50 blur-3xl" />
       <div className="absolute bottom-0 left-0 h-80 w-80 rounded-tr-[140px] bg-violet-50 blur-3xl" />
       <div className="relative mx-auto grid min-h-[calc(100vh-7rem)] max-w-7xl items-center gap-12 px-4 pb-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
