@@ -16,6 +16,10 @@ const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   mongodbUri: process.env.MONGODB_URI || '',
+  mongodbDnsServers: (process.env.MONGODB_DNS_SERVERS || '8.8.8.8,1.1.1.1')
+    .split(',')
+    .map((server) => server.trim())
+    .filter(Boolean),
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET || '',
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '7d',
   imgbbApiKey: process.env.IMGBB_API_KEY || '',

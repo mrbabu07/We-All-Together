@@ -1,3 +1,4 @@
+const dns = require('node:dns')
 const mongoose = require('mongoose')
 const env = require('./env')
 
@@ -7,6 +8,10 @@ const connectDB = async () => {
   }
 
   mongoose.set('strictQuery', true)
+
+  if (env.mongodbUri.startsWith('mongodb+srv://') && env.mongodbDnsServers.length) {
+    dns.setServers(env.mongodbDnsServers)
+  }
 
   const connection = await mongoose.connect(env.mongodbUri)
   return connection
