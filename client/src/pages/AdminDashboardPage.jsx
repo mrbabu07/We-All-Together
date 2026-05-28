@@ -961,8 +961,29 @@ export default function AdminDashboardPage() {
           }
           onLoadMonthlyStatus={loadMonthlyStatus}
           onMonthChange={setMonthlyStatusMonth}
-          onPaymentReject={(id) =>
-            runAction(() => api.patch(`/payments/${id}/reject`), 'Payment rejected.')
+          onPaymentReject={(id, reason) => {
+            const trimmedReason = reason?.trim() || window.prompt('Payment rejection reason')?.trim()
+            if (!trimmedReason) {
+              setMessage('Payment rejection reason is required.')
+              return Promise.resolve()
+            }
+
+            return runAction(
+              () => api.patch(`/payments/${id}/reject`, { reason: trimmedReason }),
+              'Payment rejected.',
+            )
+          }}
+          onPaymentBulkReject={(paymentIds, reason) =>
+            runAction(
+              () => api.patch('/payments/bulk-reject', { paymentIds, reason }),
+              `${paymentIds.length} payments rejected.`,
+            )
+          }
+          onPaymentBulkVerify={(paymentIds) =>
+            runAction(
+              () => api.patch('/payments/bulk-verify', { paymentIds }),
+              `${paymentIds.length} payments verified.`,
+            )
           }
           onPaymentReceipt={(id) => printReceipt(`/receipts/payments/${id}`)}
           onPaymentVerify={(id) =>
@@ -1294,6 +1315,8 @@ function FinanceTab({
   onExpenseChange,
   onLoadMonthlyStatus,
   onMonthChange,
+  onPaymentBulkReject,
+  onPaymentBulkVerify,
   onPaymentReject,
   onPaymentReceipt,
   onPaymentVerify,
@@ -1529,6 +1552,8 @@ function FinanceTab({
         onDonationVerify={onDonationVerify}
         onEditExpense={onEditExpense}
         onDeleteExpense={onDeleteExpense}
+        onPaymentBulkReject={onPaymentBulkReject}
+        onPaymentBulkVerify={onPaymentBulkVerify}
         onPaymentReceipt={onPaymentReceipt}
         onPaymentReject={onPaymentReject}
         onPaymentVerify={onPaymentVerify}
@@ -3481,6 +3506,8 @@ function FinanceRecordsTabs({
   onDonationReject,
   onDonationVerify,
   onEditExpense,
+  onPaymentBulkReject,
+  onPaymentBulkVerify,
   onPaymentReceipt,
   onPaymentReject,
   onPaymentVerify,
@@ -3517,6 +3544,8 @@ function FinanceRecordsTabs({
         {activeTab === 'payments' ? (
           <VerificationList
             items={payments}
+            onBulkReject={onPaymentBulkReject}
+            onBulkVerify={onPaymentBulkVerify}
             onReceipt={onPaymentReceipt}
             onReject={onPaymentReject}
             onVerify={onPaymentVerify}
@@ -3564,7 +3593,7 @@ function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
         placeholder="শিরোনাম, ক্যাটাগরি, নোট"
         value={query}
       />
-      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -3617,10 +3646,20 @@ function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
   )
 }
 
-function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
+function VerificationList({
+  items,
+  onBulkReject,
+  onBulkVerify,
+  onReceipt,
+  onReject,
+  onVerify,
+  title,
+}) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
+  const [rejectModal, setRejectModal] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([])
   const normalizedQuery = query.trim().toLowerCase()
   const pageSize = 6
   const visibleItems = items.filter((item) => {
@@ -3645,6 +3684,66 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
   const pageCount = Math.max(Math.ceil(visibleItems.length / pageSize), 1)
   const currentPage = Math.min(page, pageCount)
   const pagedItems = visibleItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const supportsBulk = Boolean(onBulkReject && onBulkVerify)
+  const pagedPendingIds = pagedItems
+    .filter((item) => item.status === 'pending')
+    .map((item) => item._id)
+  const selectedPendingIds = selectedIds.filter((id) =>
+    visibleItems.some((item) => item._id === id && item.status === 'pending'),
+  )
+  const statusTabs = [
+    ['', 'All'],
+    ['pending', 'Pending'],
+    ['verified', 'Approved'],
+    ['rejected', 'Rejected'],
+  ]
+
+  const toggleSelected = (id) => {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  const togglePageSelection = () => {
+    setSelectedIds((current) =>
+      pagedPendingIds.every((id) => current.includes(id))
+        ? current.filter((id) => !pagedPendingIds.includes(id))
+        : [...new Set([...current, ...pagedPendingIds])],
+    )
+  }
+
+  const resetFilters = (nextStatus) => {
+    setStatusFilter(nextStatus)
+    setPage(1)
+    setSelectedIds([])
+  }
+
+  const openRejectModal = (ids) => {
+    setRejectModal({
+      error: '',
+      ids,
+      reason: '',
+    })
+  }
+
+  const submitReject = async (event) => {
+    event.preventDefault()
+    const reason = rejectModal?.reason?.trim()
+
+    if (!reason) {
+      setRejectModal((current) => ({ ...current, error: 'Reason is required.' }))
+      return
+    }
+
+    if (rejectModal.ids.length === 1) {
+      await onReject(rejectModal.ids[0], reason)
+    } else {
+      await onBulkReject(rejectModal.ids, reason)
+    }
+
+    setSelectedIds((current) => current.filter((id) => !rejectModal.ids.includes(id)))
+    setRejectModal(null)
+  }
 
   return (
     <div>
@@ -3656,6 +3755,7 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
           onChange={(event) => {
             setQuery(event.target.value)
             setPage(1)
+            setSelectedIds([])
           }}
           placeholder="নাম, ফোন, ট্রানজেকশন, স্ট্যাটাস"
           value={query}
@@ -3665,8 +3765,7 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
           label="স্ট্যাটাস"
           name={`${title}-status`}
           onChange={(event) => {
-            setStatusFilter(event.target.value)
-            setPage(1)
+            resetFilters(event.target.value)
           }}
           value={statusFilter}
         >
@@ -3675,12 +3774,107 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
           <option value="verified">Verified</option>
           <option value="rejected">Rejected</option>
         </SelectField>
+        <div className="flex min-h-11 items-end rounded-md border border-gray-200 bg-gray-50 p-1">
+          {statusTabs.map(([key, label]) => (
+            <button
+              className={`h-9 rounded-md px-3 text-sm font-semibold transition ${
+                statusFilter === key ? 'bg-[var(--brand-600)] text-white shadow-sm' : 'text-gray-600'
+              }`}
+              key={key || 'all'}
+              onClick={() => resetFilters(key)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {supportsBulk ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <Button
+              disabled={selectedPendingIds.length === 0}
+              icon={CheckCircle2}
+              onClick={async () => {
+                if (
+                  selectedPendingIds.length &&
+                  window.confirm(`Approve ${selectedPendingIds.length} selected payments?`)
+                ) {
+                  await onBulkVerify(selectedPendingIds)
+                  setSelectedIds([])
+                }
+              }}
+              variant="success"
+            >
+              Bulk approve
+            </Button>
+            <Button
+              disabled={selectedPendingIds.length === 0}
+              icon={XCircle}
+              onClick={() => openRejectModal(selectedPendingIds)}
+              variant="danger"
+            >
+              Bulk reject
+            </Button>
+          </div>
+        ) : null}
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <Modal
+        onClose={() => setRejectModal(null)}
+        open={Boolean(rejectModal)}
+        title="Reject payment"
+      >
+        {rejectModal ? (
+          <form className="grid gap-4" onSubmit={submitReject}>
+            <p className="text-sm text-gray-600">
+              Add a reason for rejecting {rejectModal.ids.length} selected payment
+              {rejectModal.ids.length > 1 ? 's' : ''}. The member will see this reason.
+            </p>
+            <Field
+              error={rejectModal.error}
+              label="Reason"
+              name="paymentRejectionReason"
+              onChange={(event) =>
+                setRejectModal((current) => ({
+                  ...current,
+                  error: '',
+                  reason: event.target.value,
+                }))
+              }
+              required
+              textarea
+              value={rejectModal.reason}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setRejectModal(null)} variant="secondary">
+                Cancel
+              </Button>
+              <Button icon={XCircle} type="submit" variant="danger">
+                Reject
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              {supportsBulk ? (
+                <th className="w-12 px-4 py-3 text-left">
+                  <input
+                    aria-label="Select visible pending payments"
+                    checked={
+                      pagedPendingIds.length > 0 &&
+                      pagedPendingIds.every((id) => selectedIds.includes(id))
+                    }
+                    className="h-4 w-4 accent-[var(--brand-600)]"
+                    disabled={pagedPendingIds.length === 0}
+                    onChange={togglePageSelection}
+                    type="checkbox"
+                  />
+                </th>
+              ) : null}
               {['নাম', 'পরিমাণ', 'মাধ্যম', 'ট্রানজেকশন', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
                 <th
                   className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
@@ -3694,22 +3888,70 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
           <tbody className="divide-y divide-gray-100">
             {pagedItems.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
+                <td className="px-4 py-6 text-sm text-gray-500" colSpan={supportsBulk ? 7 : 6}>
                   No {title.toLowerCase()} found.
                 </td>
               </tr>
             ) : null}
             {pagedItems.map((item) => (
               <tr className="transition hover:bg-gray-50" key={item._id}>
+                {supportsBulk ? (
+                  <td className="px-4 py-3">
+                    <input
+                      aria-label={`Select ${item.user?.name || item.donorName || item.transactionId}`}
+                      checked={selectedIds.includes(item._id)}
+                      className="h-4 w-4 accent-[var(--brand-600)]"
+                      disabled={item.status !== 'pending'}
+                      onChange={() => toggleSelected(item._id)}
+                      type="checkbox"
+                    />
+                  </td>
+                ) : null}
                 <td className="px-4 py-3">
-                  <p className="font-semibold text-gray-900">
-                    {item.user?.name || item.donorName || item.transactionId}
-                  </p>
-                  <p className="text-xs text-gray-500">{item.user?.phone || item.phone}</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      name={item.user?.name || item.donorName || item.transactionId}
+                      size="sm"
+                      src={item.user?.profilePhotoUrl}
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {item.user?.name || item.donorName || item.transactionId}
+                      </p>
+                      <p className="text-xs text-gray-500">{item.user?.phone || item.phone}</p>
+                      <p className="text-xs text-gray-500">Submitted {toReadableDate(item.createdAt)}</p>
+                    </div>
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-gray-900">{money(item.amount)}</td>
+                <td className="px-4 py-3">
+                  <p className="text-sm font-bold text-gray-900">{money(item.amount)}</p>
+                  {item.coveredMonths?.length ? (
+                    <p className="mt-1 max-w-56 text-xs text-gray-500">
+                      {formatCoveredMonths(item.coveredMonths)}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">{item.month}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{item.method}</td>
-                <td className="px-4 py-3 text-sm text-gray-600">{item.transactionId}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  <p>{item.transactionId}</p>
+                  {item.proofImageUrl ? (
+                    <a
+                      className="mt-1 inline-flex text-xs font-semibold text-[var(--brand-600)] hover:text-[var(--brand-700)]"
+                      href={item.proofImageUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      View receipt
+                    </a>
+                  ) : null}
+                  {item.rejectionReason ? (
+                    <p className="mt-1 max-w-48 text-xs text-[var(--danger)]">
+                      Reason: {item.rejectionReason}
+                    </p>
+                  ) : null}
+                </td>
                 <td className="px-4 py-3">
                   <Badge value={item.status}>{item.status}</Badge>
                 </td>
@@ -3720,7 +3962,13 @@ function VerificationList({ items, onReceipt, onReject, onVerify, title }) {
                         <Button icon={CheckCircle2} onClick={() => onVerify(item._id)}>
                           Verify
                         </Button>
-                        <Button icon={XCircle} onClick={() => onReject(item._id)} variant="danger">
+                        <Button
+                          icon={XCircle}
+                          onClick={() =>
+                            supportsBulk ? openRejectModal([item._id]) : onReject(item._id)
+                          }
+                          variant="danger"
+                        >
                           Reject
                         </Button>
                       </>

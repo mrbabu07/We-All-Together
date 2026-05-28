@@ -163,6 +163,21 @@ const paymentSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: [500, 'Rejection reason cannot exceed 500 characters.'],
+      default: '',
+    },
   },
   {
     timestamps: true,

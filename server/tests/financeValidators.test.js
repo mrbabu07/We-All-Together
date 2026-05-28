@@ -1,10 +1,12 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const {
+  validateBulkPaymentAction,
   validateDonation,
   validateExpense,
   validateMonth,
   validateMonthlyPayment,
+  validatePaymentRejection,
 } = require('../src/validators/financeValidators')
 
 test('validateMonth accepts YYYY-MM values', () => {
@@ -26,6 +28,37 @@ test('validateMonthlyPayment accepts required payment fields', () => {
   assert.equal(payload.month, '2026-05')
   assert.equal(payload.method, 'bKash')
   assert.equal(payload.senderPhone, '01711111111')
+})
+
+test('validatePaymentRejection requires a reason', () => {
+  assert.throws(() => validatePaymentRejection({}), /Rejection reason/)
+  assert.equal(validatePaymentRejection({ reason: 'Receipt image is unreadable.' }).reason, 'Receipt image is unreadable.')
+})
+
+test('validateBulkPaymentAction accepts selected payment IDs', () => {
+  const payload = validateBulkPaymentAction({
+    paymentIds: [
+      '665000000000000000000001',
+      '665000000000000000000001',
+      '665000000000000000000002',
+    ],
+  })
+
+  assert.deepEqual(payload.paymentIds, [
+    '665000000000000000000001',
+    '665000000000000000000002',
+  ])
+})
+
+test('validateBulkPaymentAction requires reason for bulk rejection', () => {
+  assert.throws(
+    () =>
+      validateBulkPaymentAction(
+        { paymentIds: ['665000000000000000000001'] },
+        { requireReason: true },
+      ),
+    /Rejection reason/,
+  )
 })
 
 test('validateExpense parses expense date and amount', () => {

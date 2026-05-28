@@ -30,9 +30,9 @@ const createPaymentReceiptBuffer = async ({ organizationName, payment, settings 
     lateFee: payment.lateFeeApplied || payment.lateFeeAmount || 0,
     method: payment.method,
     organization: {
-      address: settings.address,
-      contactNumber: settings.contactNumber,
-      logoUrl: settings.logoUrl,
+      address: settings.siteSettings?.address || settings.address,
+      contactNumber: settings.siteSettings?.contactNumber || settings.contactNumber,
+      logoUrl: settings.siteSettings?.logoUrl || settings.logoUrl,
       name: organizationName,
     },
     payerAddress: payment.user?.address,

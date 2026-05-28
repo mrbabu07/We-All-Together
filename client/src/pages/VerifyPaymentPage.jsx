@@ -91,6 +91,9 @@ export default function VerifyPaymentPage() {
               <Info label="Transaction ID" value={payment.transactionId} />
               <Info label="Sender Phone" value={payment.senderPhone} />
               <Info label="Receipt" value={payment.receiptNumber || `PAY-${payment._id}`} />
+              {payment.rejectionReason ? (
+                <Info label="Rejection Reason" value={payment.rejectionReason} />
+              ) : null}
             </div>
 
             {payment.qrCodeDataUrl ? (
@@ -128,12 +131,18 @@ export default function VerifyPaymentPage() {
               <Button
                 disabled={payment.status === 'rejected'}
                 icon={XCircle}
-                onClick={() =>
+                onClick={() => {
+                  const reason = window.prompt('Payment rejection reason')?.trim()
+                  if (!reason) {
+                    setMessage('Payment rejection reason is required.')
+                    return
+                  }
+
                   runAction(
-                    () => api.patch(`/payments/${payment._id}/reject`),
+                    () => api.patch(`/payments/${payment._id}/reject`, { reason }),
                     'Payment rejected successfully.',
                   )
-                }
+                }}
                 variant="danger"
               >
                 Reject Payment

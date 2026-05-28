@@ -5,33 +5,55 @@ const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
-const { recordAuditLog } = require('../services/auditService')
-const { createNotification } = require('../services/notificationService')
 const { ensurePaymentQrCode } = require('../services/paymentQrService')
-const { generatePaymentReceiptFile } = require('../services/paymentReceiptFileService')
-const { BENGALI_MONTHS, getPaymentCoveredMonths } = require('../utils/feeCalculator')
 const {
+  approvePaymentById,
+  bulkApprovePayments,
+  bulkRejectPayments,
+  rejectPaymentById,
+} = require('../services/paymentModerationService')
+const {
+  validateBulkPaymentAction,
   validateMonth,
   validateMonthlyPayment,
+  validatePaymentRejection,
 } = require('../validators/financeValidators')
+
+const resetModerationFields = (payment) => {
+  payment.status = PAYMENT_STATUSES.PENDING
+  payment.verifiedAt = null
+  payment.verifiedBy = null
+  payment.rejectedAt = null
+  payment.rejectedBy = null
+  payment.rejectionReason = ''
+}
 
 const submitMonthlyPayment = asyncHandler(async (req, res) => {
   const payload = validateMonthlyPayment(req.body)
   const settings = await getSettings()
-
-  const payment = new Payment({
-    user: req.user._id,
-    type: PAYMENT_TYPES.MONTHLY_FEE,
+  const existingRejectedPayment = await Payment.findOne({
     month: payload.month,
-    amount: settings.monthlyFee,
-    amountPaisa: Math.round(Number(settings.monthlyFee || 0) * 100),
-    method: payload.method,
-    transactionId: payload.transactionId,
-    senderPhone: payload.senderPhone,
-    note: payload.note,
-    proofImageUrl: payload.proofImageUrl,
+    status: PAYMENT_STATUSES.REJECTED,
+    type: PAYMENT_TYPES.MONTHLY_FEE,
+    user: req.user._id,
   })
-  payment.receiptNumber = `PAY-${payment._id}`
+  const payment =
+    existingRejectedPayment ||
+    new Payment({
+      month: payload.month,
+      type: PAYMENT_TYPES.MONTHLY_FEE,
+      user: req.user._id,
+    })
+
+  payment.amount = settings.monthlyFee
+  payment.amountPaisa = Math.round(Number(settings.monthlyFee || 0) * 100)
+  payment.method = payload.method
+  payment.transactionId = payload.transactionId
+  payment.senderPhone = payload.senderPhone
+  payment.note = payload.note
+  payment.proofImageUrl = payload.proofImageUrl
+  resetModerationFields(payment)
+  payment.receiptNumber = payment.receiptNumber || `PAY-${payment._id}`
   payment.receiptGeneratedAt = new Date()
   await payment.save()
   await ensurePaymentQrCode(payment)
@@ -60,7 +82,9 @@ const getMyPayments = asyncHandler(async (req, res) => {
 
 const getAllPayments = asyncHandler(async (req, res) => {
   const payments = await Payment.find()
-    .populate('user', 'name phone address role status')
+    .populate('user', 'name phone address role status profilePhotoUrl')
+    .populate('verifiedBy', 'name phone role')
+    .populate('rejectedBy', 'name phone role')
     .sort({ createdAt: -1 })
   await Promise.all(payments.map((payment) => ensurePaymentQrCode(payment)))
 
@@ -77,6 +101,7 @@ const getPaymentById = asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.params.id)
     .populate('user', 'name phone address role status profilePhotoUrl')
     .populate('verifiedBy', 'name phone role')
+    .populate('rejectedBy', 'name phone role')
 
   if (!payment) {
     throw new AppError('Payment not found.', 404)
@@ -94,49 +119,7 @@ const getPaymentById = asyncHandler(async (req, res) => {
 })
 
 const verifyPayment = asyncHandler(async (req, res) => {
-  const payment = await Payment.findById(req.params.id)
-  const settings = await getSettings()
-
-  if (!payment) {
-    throw new AppError('Payment not found.', 404)
-  }
-
-  payment.status = PAYMENT_STATUSES.VERIFIED
-  payment.verifiedAt = new Date()
-  payment.verifiedBy = req.user._id
-  payment.receiptNumber =
-    payment.receiptNumber && payment.receiptNumber.startsWith('DP-')
-      ? payment.receiptNumber
-      : `DP-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
-  payment.receiptGeneratedAt = new Date()
-  payment.receiptPdfPath = `/api/v1/receipts/${payment._id}`
-  await payment.save()
-  await generatePaymentReceiptFile({
-    organizationName: 'Dargah Para OIkko Porishod',
-    payment,
-    settings,
-  })
-  await createNotification({
-    createdBy: req.user,
-    link: '/member/fee-history',
-    message: `${getPaymentCoveredMonths(payment)
-      .map((item) => `${BENGALI_MONTHS[item.month - 1]} ${item.year}`)
-      .join(', ')} মাসের ৳${Number(payment.amount || 0).toLocaleString('bn-BD')} ফি অনুমোদিত হয়েছে।`,
-    title: 'ফি অনুমোদিত',
-    type: 'fee_approved',
-    user: payment.user,
-  })
-  await recordAuditLog({
-    action: 'payment.verify',
-    actor: req.user,
-    entityId: payment._id,
-    entityType: 'Payment',
-    metadata: {
-      amount: payment.amount,
-      month: payment.month,
-      user: payment.user,
-    },
-  })
+  const payment = await approvePaymentById({ actor: req.user, paymentId: req.params.id })
 
   res.status(200).json({
     success: true,
@@ -148,41 +131,42 @@ const verifyPayment = asyncHandler(async (req, res) => {
 })
 
 const rejectPayment = asyncHandler(async (req, res) => {
-  const payment = await Payment.findById(req.params.id)
-
-  if (!payment) {
-    throw new AppError('Payment not found.', 404)
-  }
-
-  payment.status = PAYMENT_STATUSES.REJECTED
-  payment.verifiedAt = null
-  payment.verifiedBy = null
-  await payment.save()
-  await createNotification({
-    createdBy: req.user,
-    link: '/member',
-    message: `Your monthly payment for ${payment.month} was rejected. Please review and submit again.`,
-    title: 'Payment rejected',
-    type: 'payment',
-    user: payment.user,
-  })
-  await recordAuditLog({
-    action: 'payment.reject',
-    actor: req.user,
-    entityId: payment._id,
-    entityType: 'Payment',
-    metadata: {
-      amount: payment.amount,
-      month: payment.month,
-      user: payment.user,
-    },
-  })
+  const { reason } = validatePaymentRejection(req.body)
+  const payment = await rejectPaymentById({ actor: req.user, paymentId: req.params.id, reason })
 
   res.status(200).json({
     success: true,
     message: 'Payment rejected successfully.',
     data: {
       payment,
+    },
+  })
+})
+
+const bulkVerifyPayments = asyncHandler(async (req, res) => {
+  const { paymentIds } = validateBulkPaymentAction(req.body)
+  const payments = await bulkApprovePayments({ actor: req.user, paymentIds })
+
+  res.status(200).json({
+    success: true,
+    message: 'Payments verified successfully.',
+    data: {
+      count: payments.length,
+      payments,
+    },
+  })
+})
+
+const bulkRejectSelectedPayments = asyncHandler(async (req, res) => {
+  const { paymentIds, reason } = validateBulkPaymentAction(req.body, { requireReason: true })
+  const payments = await bulkRejectPayments({ actor: req.user, paymentIds, reason })
+
+  res.status(200).json({
+    success: true,
+    message: 'Payments rejected successfully.',
+    data: {
+      count: payments.length,
+      payments,
     },
   })
 })
@@ -209,19 +193,21 @@ const getMonthlyPaymentStatus = asyncHandler(async (req, res) => {
     message: 'Monthly payment status loaded successfully.',
     data: {
       month,
-      paidMembers,
-      unpaidMembers,
       paidCount: paidMembers.length,
+      paidMembers,
       unpaidCount: unpaidMembers.length,
+      unpaidMembers,
     },
   })
 })
 
 module.exports = {
+  bulkRejectSelectedPayments,
+  bulkVerifyPayments,
   getAllPayments,
-  getPaymentById,
   getMonthlyPaymentStatus,
   getMyPayments,
+  getPaymentById,
   rejectPayment,
   submitMonthlyPayment,
   verifyPayment,

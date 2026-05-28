@@ -2,6 +2,7 @@ const AppError = require('../utils/appError')
 const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i
 
 const requireString = (body, fieldName, label = fieldName) => {
   const value = body[fieldName]
@@ -63,6 +64,34 @@ const validateMonthlyPayment = (body) => ({
   proofImageUrl: optionalString(body, 'proofImageUrl'),
 })
 
+const validatePaymentRejection = (body) => {
+  const reason = requireString(body, 'reason', 'Rejection reason')
+
+  if (reason.length > 300) {
+    throw new AppError('Rejection reason cannot exceed 300 characters.', 400)
+  }
+
+  return { reason }
+}
+
+const validateBulkPaymentAction = (body, { requireReason = false } = {}) => {
+  const paymentIds = Array.isArray(body.paymentIds) ? body.paymentIds : body.ids
+
+  if (!Array.isArray(paymentIds) || paymentIds.length === 0) {
+    throw new AppError('At least one payment is required.', 400)
+  }
+
+  const ids = [...new Set(paymentIds.map((id) => String(id).trim()))]
+  if (ids.some((id) => !OBJECT_ID_PATTERN.test(id))) {
+    throw new AppError('One or more payment IDs are invalid.', 400)
+  }
+
+  return {
+    paymentIds: ids,
+    ...(requireReason ? validatePaymentRejection(body) : {}),
+  }
+}
+
 const validateExpense = (body) => {
   const date = new Date(requireString(body, 'date', 'Date'))
 
@@ -117,4 +146,6 @@ module.exports = {
   validateMonthlyFee,
   validateMonthlyPayment,
   validateNotificationSettings,
+  validateBulkPaymentAction,
+  validatePaymentRejection,
 }

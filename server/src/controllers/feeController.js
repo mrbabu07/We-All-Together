@@ -318,33 +318,47 @@ const payFees = asyncHandler(async (req, res) => {
   )
   const totalPaisa = baseAmountPaisa + lateFeePaisa
   const firstMonth = months[0]
-
-  const payment = new Payment({
-    amount: toTaka(totalPaisa),
-    amountPaisa: totalPaisa,
-    coveredMonths: months,
-    forMonth: firstMonth.month,
-    forYear: firstMonth.year,
-    isLate: lateFeePaisa > 0,
-    lateFeeAmount: toTaka(lateFeePaisa),
-    lateFeeApplied: toTaka(lateFeePaisa),
-    lateFeeAppliedPaisa: lateFeePaisa,
-    method: String(req.body.method || '').trim(),
-    month: monthKey(firstMonth),
-    note: typeof req.body.note === 'string' ? req.body.note.trim() : '',
-    proofImageUrl: typeof req.body.proofImageUrl === 'string' ? req.body.proofImageUrl.trim() : '',
-    senderPhone: String(req.body.senderPhone || '').trim(),
-    status: PAYMENT_STATUSES.PENDING,
-    transactionId: String(req.body.transactionId || '').trim(),
+  const paymentMonth = monthKey(firstMonth)
+  const existingRejectedPayment = await Payment.findOne({
+    month: paymentMonth,
+    status: PAYMENT_STATUSES.REJECTED,
     type: PAYMENT_TYPES.MONTHLY_FEE,
     user: member._id,
   })
+  const payment =
+    existingRejectedPayment ||
+    new Payment({
+      month: paymentMonth,
+      type: PAYMENT_TYPES.MONTHLY_FEE,
+      user: member._id,
+    })
+
+  payment.amount = toTaka(totalPaisa)
+  payment.amountPaisa = totalPaisa
+  payment.coveredMonths = months
+  payment.forMonth = firstMonth.month
+  payment.forYear = firstMonth.year
+  payment.isLate = lateFeePaisa > 0
+  payment.lateFeeAmount = toTaka(lateFeePaisa)
+  payment.lateFeeApplied = toTaka(lateFeePaisa)
+  payment.lateFeeAppliedPaisa = lateFeePaisa
+  payment.method = String(req.body.method || '').trim()
+  payment.note = typeof req.body.note === 'string' ? req.body.note.trim() : ''
+  payment.proofImageUrl = typeof req.body.proofImageUrl === 'string' ? req.body.proofImageUrl.trim() : ''
+  payment.senderPhone = String(req.body.senderPhone || '').trim()
+  payment.status = PAYMENT_STATUSES.PENDING
+  payment.transactionId = String(req.body.transactionId || '').trim()
+  payment.verifiedAt = null
+  payment.verifiedBy = null
+  payment.rejectedAt = null
+  payment.rejectedBy = null
+  payment.rejectionReason = ''
 
   if (!payment.method || !payment.transactionId || !payment.senderPhone) {
     throw new AppError('Payment method, transaction ID, and sender phone are required.', 400)
   }
 
-  payment.receiptNumber = `PAY-${payment._id}`
+  payment.receiptNumber = payment.receiptNumber || `PAY-${payment._id}`
   payment.receiptGeneratedAt = new Date()
   await payment.save()
   await ensurePaymentQrCode(payment)

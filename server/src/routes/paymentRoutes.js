@@ -1,6 +1,8 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
+  bulkRejectSelectedPayments,
+  bulkVerifyPayments,
   getAllPayments,
   getMonthlyPaymentStatus,
   getMyPayments,
@@ -28,6 +30,8 @@ router.get(
 )
 router.get('/', protect, authorize(USER_ROLES.ADMIN), getAllPayments)
 router.get('/monthly-status', protect, authorize(USER_ROLES.ADMIN), getMonthlyPaymentStatus)
+router.patch('/bulk-verify', protect, authorize(USER_ROLES.ADMIN), bulkVerifyPayments)
+router.patch('/bulk-reject', protect, authorize(USER_ROLES.ADMIN), bulkRejectSelectedPayments)
 router.get('/:id', protect, authorize(USER_ROLES.ADMIN), getPaymentById)
 router.patch('/:id/verify', protect, authorize(USER_ROLES.ADMIN), verifyPayment)
 router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectPayment)
