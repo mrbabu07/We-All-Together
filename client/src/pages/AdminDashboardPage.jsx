@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Bell,
@@ -79,6 +79,7 @@ const formatCoveredMonths = (months = []) =>
 
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
+const toDate = (value) => (value ? new Date(value).toLocaleDateString('en-GB') : 'N/A')
 const toExportDate = (value) => (value ? new Date(value).toISOString() : '')
 const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
 
@@ -204,9 +205,11 @@ const tabLabels = [
 export default function AdminDashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
-  const activeTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : 'overview'
+  const defaultTab = location.pathname === '/admin/members' ? 'members' : 'overview'
+  const activeTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [data, setData] = useState({
@@ -1030,6 +1033,7 @@ export default function AdminDashboardPage() {
           onResetPassword={resetUserPassword}
           onUpdateAccess={updateUserAccess}
           onUpdateProfile={updateMemberProfile}
+          payments={data.payments}
           users={data.users}
         />
       ) : null}
@@ -2851,10 +2855,14 @@ function TourWorkflowPanel({ members, onSave, tours }) {
   )
 }
 
-function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdateProfile, users }) {
+function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdateProfile, payments, users }) {
   const [editingUserId, setEditingUserId] = useState(null)
   const [newPassword, setNewPassword] = useState('')
   const [query, setQuery] = useState('')
+  const [feeStatusFilter, setFeeStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [roleFilter, setRoleFilter] = useState('')
+  const [sortBy, setSortBy] = useState('joinDate')
   const [statusFilter, setStatusFilter] = useState('')
   const [viewMode, setViewMode] = useState('grid')
   const [memberForm, setMemberForm] = useState({
@@ -2933,16 +2941,96 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   }
 
   const normalizedQuery = query.trim().toLowerCase()
-  const visibleUsers = users.filter((item) => {
-    const matchesStatus = statusFilter ? item.status === statusFilter : true
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const paymentStats = useMemo(() => {
+    const statsByUser = new Map()
+
+    payments.forEach((payment) => {
+      const userId = payment.user?._id || payment.user
+
+      if (!userId) {
+        return
+      }
+
+      const current = statsByUser.get(userId) || {
+        currentMonthStatus: '',
+        lastPaymentAt: '',
+        totalPaid: 0,
+      }
+
+      if (payment.status === 'verified') {
+        current.totalPaid += Number(payment.amount || 0)
+        const paidAt = payment.verifiedAt || payment.createdAt
+
+        if (paidAt && (!current.lastPaymentAt || new Date(paidAt) > new Date(current.lastPaymentAt))) {
+          current.lastPaymentAt = paidAt
+        }
+      }
+
+      if (payment.month === currentMonth && ['pending', 'verified'].includes(payment.status)) {
+        current.currentMonthStatus = payment.status === 'verified' ? 'paid' : 'pending'
+      }
+
+      statsByUser.set(userId.toString(), current)
+    })
+
+    return statsByUser
+  }, [currentMonth, payments])
+  const visibleUsers = users
+    .filter((item) => {
+    const memberStats = paymentStats.get(item._id) || {}
+    const feeStatus =
+      memberStats.currentMonthStatus || (item.status === 'approved' ? 'overdue' : 'not_applicable')
+    const matchesStatus =
+      statusFilter === 'suspended'
+        ? Boolean(item.suspendedAt)
+        : statusFilter
+          ? item.status === statusFilter
+          : true
+    const matchesRole = roleFilter ? item.role === roleFilter : true
+    const matchesFee = feeStatusFilter ? feeStatus === feeStatusFilter : true
     const matchesQuery = normalizedQuery
-      ? [item.name, item.phone, item.address, item.role, item.status]
+      ? [item._id, item.name, item.phone, item.address, item.role, item.status]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(normalizedQuery))
       : true
 
-    return matchesStatus && matchesQuery
+    return matchesStatus && matchesRole && matchesFee && matchesQuery
   })
+    .sort((left, right) => {
+      const leftStats = paymentStats.get(left._id) || {}
+      const rightStats = paymentStats.get(right._id) || {}
+
+      if (sortBy === 'name') {
+        return left.name.localeCompare(right.name)
+      }
+
+      if (sortBy === 'lastPayment') {
+        return new Date(rightStats.lastPaymentAt || 0) - new Date(leftStats.lastPaymentAt || 0)
+      }
+
+      if (sortBy === 'totalPaid') {
+        return Number(rightStats.totalPaid || 0) - Number(leftStats.totalPaid || 0)
+      }
+
+      return new Date(right.approvedAt || right.createdAt || 0) - new Date(left.approvedAt || left.createdAt || 0)
+    })
+  const totalPages = Math.max(1, Math.ceil(visibleUsers.length / 20))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedUsers = visibleUsers.slice((currentPage - 1) * 20, currentPage * 20)
+  const getMemberPaymentStats = (member) => {
+    const memberStats = paymentStats.get(member._id) || {}
+    const feeStatus =
+      memberStats.currentMonthStatus || (member.status === 'approved' ? 'overdue' : 'not_applicable')
+
+    return {
+      feeStatus,
+      lastPaymentAt: memberStats.lastPaymentAt || '',
+      totalPaid: memberStats.totalPaid || 0,
+    }
+  }
+  const getFeeBadgeValue = (feeStatus) =>
+    feeStatus === 'paid' ? 'approved' : feeStatus === 'pending' ? 'pending' : 'rejected'
 
   return (
     <div className="mt-6 grid gap-6">
@@ -3082,12 +3170,49 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
+            <option value="suspended">Suspended</option>
+          </SelectField>
+          <SelectField
+            className="min-w-48"
+            label="Role"
+            name="memberRoleFilter"
+            onChange={(event) => setRoleFilter(event.target.value)}
+            value={roleFilter}
+          >
+            <option value="">All roles</option>
+            <option value="member">Member</option>
+            <option value="moderator">Moderator</option>
+            <option value="admin">Admin</option>
+          </SelectField>
+          <SelectField
+            className="min-w-48"
+            label="Fee status"
+            name="memberFeeStatusFilter"
+            onChange={(event) => setFeeStatusFilter(event.target.value)}
+            value={feeStatusFilter}
+          >
+            <option value="">All fee statuses</option>
+            <option value="paid">Paid this month</option>
+            <option value="pending">Pending this month</option>
+            <option value="overdue">Overdue</option>
+          </SelectField>
+          <SelectField
+            className="min-w-48"
+            label="Sort"
+            name="memberSort"
+            onChange={(event) => setSortBy(event.target.value)}
+            value={sortBy}
+          >
+            <option value="joinDate">Join date</option>
+            <option value="name">Name</option>
+            <option value="lastPayment">Last payment</option>
+            <option value="totalPaid">Total paid</option>
           </SelectField>
         </div>
 
         {viewMode === 'grid' ? (
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleUsers.map((item) => (
+            {paginatedUsers.map((item) => (
               <div
                 className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
                 key={item._id}
@@ -3103,6 +3228,18 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                     <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.address}</p>
                     <p className="mt-2 text-xs font-semibold uppercase text-indigo-600">
                       {item.role}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                      <Badge value={getFeeBadgeValue(getMemberPaymentStats(item).feeStatus)}>
+                        {getMemberPaymentStats(item).feeStatus}
+                      </Badge>
+                      <span className="rounded-full bg-gray-50 px-2.5 py-1 text-gray-600">
+                        Paid {money(getMemberPaymentStats(item).totalPaid)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Joined {toDate(item.approvedAt || item.createdAt)} | Last payment{' '}
+                      {toDate(getMemberPaymentStats(item).lastPaymentAt)}
                     </p>
                   </div>
                 </div>
@@ -3133,7 +3270,7 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {visibleUsers.map((item) => (
+                {paginatedUsers.map((item) => (
                   <tr className="transition hover:bg-gray-50" key={item._id}>
                     <td className="px-4 py-3 font-medium text-gray-900">
                       <div className="flex items-center gap-2">
@@ -3163,7 +3300,29 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
             </table>
           </div>
         )}
-          {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+          <span>
+            Showing {visibleUsers.length ? (currentPage - 1) * 20 + 1 : 0}-
+            {Math.min(currentPage * 20, visibleUsers.length)} of {visibleUsers.length}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              disabled={currentPage === 1}
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              variant="secondary"
+            >
+              Previous
+            </Button>
+            <Button
+              disabled={currentPage === totalPages}
+              onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+              variant="secondary"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+        {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
       </Panel>
     </div>
   )

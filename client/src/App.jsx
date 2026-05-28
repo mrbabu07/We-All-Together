@@ -71,6 +71,7 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route path="admin" element={page(<AdminDashboardPage />)} />
+                <Route path="admin/members" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/controls" element={page(<AdminControlsPage />)} />
                 <Route path="verify/:paymentId" element={page(<VerifyPaymentPage />)} />
                 <Route path="verify/receipt/:paymentId" element={page(<VerifyPaymentPage />)} />
