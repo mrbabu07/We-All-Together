@@ -6,6 +6,7 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
+import { getAccountStatusPath, getDashboardPath, isSafeReturnUrl } from '../utils/authState'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -36,7 +37,14 @@ export default function LoginPage() {
       return
     }
 
-    const target = result.user.role === 'admin' ? '/admin' : location.state?.from?.pathname || '/member'
+    const params = new URLSearchParams(location.search)
+    const stateReturnUrl = location.state?.from
+      ? `${location.state.from.pathname}${location.state.from.search || ''}`
+      : ''
+    const returnUrl = params.get('returnUrl') || stateReturnUrl
+    const canUseReturnUrl =
+      isSafeReturnUrl(returnUrl) && (!returnUrl.startsWith('/admin') || result.user.role === 'admin')
+    const target = getAccountStatusPath(result.user) || (canUseReturnUrl ? returnUrl : getDashboardPath(result.user))
     toast.success('লগইন সফল হয়েছে')
     navigate(target, { replace: true })
   }

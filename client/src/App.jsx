@@ -5,10 +5,12 @@ import NProgress from 'nprogress'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import PageTransition from './components/ui/PageTransition'
 import Skeleton from './components/ui/Skeleton'
-import ProtectedRoute from './routes/ProtectedRoute'
+import AdminRoute from './routes/AdminRoute'
+import PrivateRoute from './routes/PrivateRoute'
 import RoleRoute from './routes/RoleRoute'
 
 const AccountPage = lazy(() => import('./pages/AccountPage'))
+const AccountStatusPage = lazy(() => import('./pages/AccountStatusPage'))
 const AdminControlsPage = lazy(() => import('./pages/AdminControlsPage'))
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
@@ -58,12 +60,15 @@ function App() {
             <Route path="register" element={page(<RegisterPage />)} />
             <Route path="*" element={page(<NotFoundPage />)} />
           </Route>
-          <Route element={<ProtectedRoute />}>
+          <Route element={<PrivateRoute />}>
+            <Route path="pending" element={page(<AccountStatusPage />)} />
+            <Route path="rejected" element={page(<AccountStatusPage />)} />
+            <Route path="suspended" element={page(<AccountStatusPage />)} />
             <Route element={<AuthenticatedLayout />}>
               <Route path="account" element={page(<AccountPage />)} />
               <Route path="notifications" element={page(<NotificationsPage />)} />
             </Route>
-            <Route element={<RoleRoute allowedRoles={['admin']} />}>
+            <Route element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route path="admin" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/controls" element={page(<AdminControlsPage />)} />
@@ -74,6 +79,7 @@ function App() {
             <Route element={<RoleRoute allowedRoles={['admin', 'member', 'moderator']} />}>
               <Route element={<MemberLayout />}>
                 <Route path="member" element={page(<MemberDashboardPage />)} />
+                <Route path="member/dashboard" element={page(<MemberDashboardPage />)} />
                 <Route path="member/fee-history" element={page(<MemberFeeHistoryPage />)} />
               </Route>
             </Route>

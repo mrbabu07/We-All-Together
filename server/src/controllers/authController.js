@@ -60,19 +60,15 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError('Invalid email/phone or password.', 401)
   }
 
-  if (user.status !== USER_STATUSES.APPROVED) {
-    throw new AppError('Your account is not approved yet.', 403)
-  }
-
-  if (user.suspendedAt) {
-    throw new AppError(user.suspensionReason || 'Your account is suspended.', 403)
-  }
-
   user.lastLoginAt = new Date()
   user.lastLoginIp = req.ip || ''
   await user.save()
 
   sendAuthResponse(res, user)
+})
+
+const refreshToken = asyncHandler(async (req, res) => {
+  sendAuthResponse(res, req.user)
 })
 
 const getMe = asyncHandler(async (req, res) => {
@@ -146,5 +142,6 @@ module.exports = {
   changePassword,
   getMe,
   login,
+  refreshToken,
   updateMe,
 }

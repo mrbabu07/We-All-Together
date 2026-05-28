@@ -4,15 +4,17 @@ const {
   changePassword,
   getMe,
   login,
+  refreshToken,
   updateMe,
 } = require('../controllers/authController')
-const { protect } = require('../middlewares/authMiddleware')
+const { authenticate, protect } = require('../middlewares/authMiddleware')
 
 const router = express.Router()
 
 router.post('/bootstrap-admin', bootstrapAdmin)
 router.post('/login', login)
-router.get('/me', protect, getMe)
+router.get('/me', authenticate, getMe)
+router.post('/refresh', authenticate, refreshToken)
 router.patch('/me', protect, updateMe)
 router.patch('/change-password', protect, changePassword)
 

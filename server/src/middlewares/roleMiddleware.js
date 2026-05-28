@@ -1,4 +1,5 @@
 const AppError = require('../utils/appError')
+const { requireAdmin, requireMember } = require('./authMiddleware')
 
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
@@ -18,4 +19,6 @@ const authorize = (...allowedRoles) => {
 
 module.exports = {
   authorize,
+  requireAdmin,
+  requireMember,
 }
