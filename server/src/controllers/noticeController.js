@@ -8,18 +8,69 @@ const { validateNotice } = require('../validators/contentValidators')
 const controllers = createContentController({
   model: Notice,
   validate: validateNotice,
-  sort: { pinned: -1, createdAt: -1 },
+  sort: { pinned: -1, scheduledFor: -1, createdAt: -1 },
   name: 'Notice',
 })
 
+const getVisibleNoticeFilter = ({ publicOnly = false } = {}) => {
+  const now = new Date()
+  const filter = {
+    archivedAt: null,
+    $and: [
+      { $or: [{ scheduledFor: null }, { scheduledFor: { $lte: now } }] },
+      { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
+    ],
+  }
+
+  if (publicOnly) {
+    filter.audience = 'public'
+  }
+
+  return filter
+}
+
 const getNotices = asyncHandler(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100)
-  const filter = req.query.public === 'true' ? { audience: 'public' } : {}
-  const items = await Notice.find(filter).sort({ pinned: -1, createdAt: -1 }).limit(limit)
+  const includeArchived = req.query.archived === 'true' && req.user?.role === 'admin'
+  const includeFuture = req.query.future === 'true' && req.user?.role === 'admin'
+  const filter =
+    includeArchived || includeFuture
+      ? {
+          ...(req.query.public === 'true' ? { audience: 'public' } : {}),
+          ...(includeArchived ? {} : { archivedAt: null }),
+        }
+      : getVisibleNoticeFilter({ publicOnly: req.query.public === 'true' })
+  const items = await Notice.find(filter).sort({ pinned: -1, scheduledFor: -1, createdAt: -1 }).limit(limit)
 
   res.status(200).json({
     success: true,
     message: 'Notices loaded successfully.',
+    data: { items },
+  })
+})
+
+const getPublicNotices = asyncHandler(async (req, res) => {
+  const items = await Notice.find(getVisibleNoticeFilter({ publicOnly: true }))
+    .sort({ pinned: -1, scheduledFor: -1, createdAt: -1 })
+
+  res.status(200).json({
+    success: true,
+    message: 'Notice loaded successfully.',
+    data: { items },
+  })
+})
+
+const getMemberNotices = asyncHandler(async (req, res) => {
+  const includeArchived = req.query.archived === 'true' && req.user.role === 'admin'
+  const filter = includeArchived ? {} : getVisibleNoticeFilter()
+  const items = await Notice.find(filter)
+    .populate('comments.user', 'name phone profilePhotoUrl')
+    .populate('readReceipts.user', 'name phone profilePhotoUrl')
+    .sort({ pinned: -1, scheduledFor: -1, createdAt: -1 })
+
+  res.status(200).json({
+    success: true,
+    message: 'Notice loaded successfully.',
     data: { items },
   })
 })
@@ -137,7 +188,9 @@ module.exports = {
   ...controllers,
   addNoticeComment,
   archiveNotices,
+  getMemberItems: getMemberNotices,
   getNotices,
+  getPublicItems: getPublicNotices,
   markNoticeRead,
   reactToNotice,
 }

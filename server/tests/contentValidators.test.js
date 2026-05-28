@@ -19,6 +19,25 @@ test('validateNotice defaults notices to public audience', () => {
   assert.equal(payload.pinned, false)
 })
 
+test('validateNotice accepts moderation and scheduling fields', () => {
+  const payload = validateNotice({
+    audience: 'members',
+    body: 'Members only update.',
+    category: 'Meeting',
+    expiresAt: '2026-06-30T18:00:00.000Z',
+    pinned: true,
+    richBody: '<p>Members only update.</p>',
+    scheduledFor: '2026-06-01T12:00:00.000Z',
+    title: 'Scheduled notice',
+  })
+
+  assert.equal(payload.audience, 'members')
+  assert.equal(payload.category, 'Meeting')
+  assert.equal(payload.pinned, true)
+  assert.equal(payload.scheduledFor instanceof Date, true)
+  assert.equal(payload.expiresAt instanceof Date, true)
+})
+
 test('validateMeeting defaults meetings to members audience', () => {
   const payload = validateMeeting({
     title: 'Weekly meeting',

@@ -98,7 +98,18 @@ const cssVar = (name) =>
   window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 const emptyContentForms = {
-  notices: { title: '', body: '', audience: 'public', imageUrl: '', pinned: false },
+  notices: {
+    title: '',
+    body: '',
+    audience: 'public',
+    archivedAt: '',
+    category: 'General',
+    expiresAt: '',
+    imageUrl: '',
+    pinned: false,
+    richBody: '',
+    scheduledFor: '',
+  },
   meetings: {
     title: '',
     agenda: '',
@@ -145,8 +156,13 @@ const getContentEditForm = (key, item) => {
       title: item.title || '',
       body: item.body || '',
       audience: item.audience || 'public',
+      archivedAt: toDateTimeInput(item.archivedAt),
+      category: item.category || 'General',
+      expiresAt: toDateTimeInput(item.expiresAt),
       imageUrl: item.imageUrl || '',
       pinned: Boolean(item.pinned),
+      richBody: item.richBody || '',
+      scheduledFor: toDateTimeInput(item.scheduledFor),
     }
   }
 
@@ -327,7 +343,7 @@ export default function AdminDashboardPage() {
         api.get('/payments'),
         api.get('/donations'),
         api.get('/expenses'),
-        api.get('/notices/members'),
+        api.get('/notices/members', { params: { archived: 'true' } }),
         api.get('/meetings/members'),
         api.get('/tours/members'),
         api.get('/activities/members'),
@@ -645,11 +661,18 @@ export default function AdminDashboardPage() {
     event.preventDefault()
     await runAction(async () => {
       const editingId = editingContent[config.key]
+      const payload = { ...contentForms[config.key] }
+
+      if (config.key === 'notices') {
+        payload.archivedAt = payload.archivedAt || null
+        payload.expiresAt = payload.expiresAt || null
+        payload.scheduledFor = payload.scheduledFor || null
+      }
 
       if (editingId) {
-        await api.patch(`${config.endpoint}/${editingId}`, contentForms[config.key])
+        await api.patch(`${config.endpoint}/${editingId}`, payload)
       } else {
-        await api.post(config.endpoint, contentForms[config.key])
+        await api.post(config.endpoint, payload)
       }
 
       setEditingContent((current) => ({
@@ -661,6 +684,13 @@ export default function AdminDashboardPage() {
         [config.key]: emptyContentForms[config.key],
       }))
     }, editingContent[config.key] ? `${config.title} item updated successfully.` : `${config.title} item created successfully.`)
+  }
+
+  const archiveNotices = async (payload) => {
+    await runAction(
+      () => api.post('/notices/archive-bulk', payload),
+      'Matching notices archived successfully.',
+    )
   }
 
   const deleteContent = async (config, id) => {
@@ -1146,6 +1176,7 @@ export default function AdminDashboardPage() {
           onCreate={createContent}
           onDelete={deleteContent}
           onEdit={editContent}
+          onArchiveNotices={archiveNotices}
           onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
           onPollChange={(field, value) =>
@@ -2787,6 +2818,7 @@ function ContentTab({
   data,
   editingContent,
   onCancelEdit,
+  onArchiveNotices,
   onCreate,
   onDelete,
   onEdit,
@@ -2828,6 +2860,9 @@ function ContentTab({
               </Button>
             ) : null}
           </form>
+          {config.key === 'notices' ? (
+            <NoticeArchiveControls onArchive={onArchiveNotices} />
+          ) : null}
           <div className="mt-5 grid gap-3">
             {data.content[config.key].length === 0 ? <Empty text={`No ${config.title.toLowerCase()}.`} /> : null}
             {data.content[config.key].map((item) => (
@@ -2847,8 +2882,13 @@ function ContentTab({
                     <h3 className="font-semibold text-gray-950">{item.title}</h3>
                     {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
                     {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
+                    {item.pinned ? <Badge value="verified">Pinned</Badge> : null}
+                    {item.archivedAt ? <Badge value="rejected">Archived</Badge> : null}
                   </div>
                   <p className="mt-1 text-sm text-gray-600">{item[config.main]}</p>
+                  {config.key === 'notices' ? (
+                    <NoticeMeta item={item} />
+                  ) : null}
                   {['meetings', 'tours'].includes(config.key) ? (
                     <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
                   ) : null}
@@ -2889,6 +2929,70 @@ function ContentTab({
           ) : null}
         </Panel>
       ))}
+    </div>
+  )
+}
+
+function NoticeArchiveControls({ onArchive }) {
+  const [form, setForm] = useState({ from: '', to: '' })
+
+  const submitArchive = async (event) => {
+    event.preventDefault()
+
+    if (!window.confirm('Archive notices in the selected date range?')) {
+      return
+    }
+
+    await onArchive(form)
+    setForm({ from: '', to: '' })
+  }
+
+  return (
+    <form
+      className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto]"
+      onSubmit={submitArchive}
+    >
+      <Field
+        label="Archive From"
+        name="archiveNoticeFrom"
+        onChange={(event) => setForm((current) => ({ ...current, from: event.target.value }))}
+        type="date"
+        value={form.from}
+      />
+      <Field
+        label="Archive To"
+        name="archiveNoticeTo"
+        onChange={(event) => setForm((current) => ({ ...current, to: event.target.value }))}
+        type="date"
+        value={form.to}
+      />
+      <div className="flex items-end">
+        <Button className="w-full" icon={DatabaseBackup} type="submit" variant="secondary">
+          Archive
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function NoticeMeta({ item }) {
+  const reactions = (item.reactions || []).reduce(
+    (summary, row) => ({
+      ...summary,
+      [row.type]: (summary[row.type] || 0) + 1,
+    }),
+    { like: 0, love: 0 },
+  )
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-500">
+      <span>Category: {item.category || 'General'}</span>
+      <span>Reads: {item.readReceipts?.length || 0}</span>
+      <span>Like: {reactions.like || 0}</span>
+      <span>Love: {reactions.love || 0}</span>
+      <span>Comments: {item.comments?.length || 0}</span>
+      {item.scheduledFor ? <span>Publish: {toReadableDate(item.scheduledFor)}</span> : null}
+      {item.expiresAt ? <span>Expires: {toReadableDate(item.expiresAt)}</span> : null}
     </div>
   )
 }
@@ -3786,10 +3890,18 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
     return (
       <>
         <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
+        <Field label="Category" name="category" onChange={(e) => onChange(key, 'category', e.target.value)} value={form.category} />
         <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
+        <ToggleField
+          checked={Boolean(form.pinned)}
+          label="Pin notice"
+          onChange={(value) => onChange(key, 'pinned', value)}
+        />
+        <Field label="Schedule Publish" name="scheduledFor" onChange={(e) => onChange(key, 'scheduledFor', e.target.value)} type="datetime-local" value={form.scheduledFor} />
+        <Field label="Expiry Date" name="expiresAt" onChange={(e) => onChange(key, 'expiresAt', e.target.value)} type="datetime-local" value={form.expiresAt} />
         <ImageUploadControl
           form={form}
           itemKey={key}
@@ -3798,6 +3910,8 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
           uploading={uploading}
         />
         <Field className="md:col-span-2" label="Body" name="body" onChange={(e) => onChange(key, 'body', e.target.value)} required textarea value={form.body} />
+        <Field className="md:col-span-2" label="Rich Body" name="richBody" onChange={(e) => onChange(key, 'richBody', e.target.value)} textarea value={form.richBody} />
+        <Field className="md:col-span-2" label="Archived At" name="archivedAt" onChange={(e) => onChange(key, 'archivedAt', e.target.value)} type="datetime-local" value={form.archivedAt} />
       </>
     )
   }

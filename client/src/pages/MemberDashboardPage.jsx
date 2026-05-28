@@ -108,6 +108,7 @@ export default function MemberDashboardPage() {
   const [blogForm, setBlogForm] = useState(initialBlogForm)
   const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
   const [commentForms, setCommentForms] = useState({})
+  const [noticeCommentForms, setNoticeCommentForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
   const [data, setData] = useState({
@@ -372,6 +373,43 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const markNoticeRead = async (id) => {
+    try {
+      setMessage('')
+      await api.post(`/notices/${id}/read`)
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
+  const reactToNotice = async (id, type) => {
+    try {
+      setMessage('')
+      await api.post(`/notices/${id}/reactions`, { type })
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
+  const addNoticeComment = async (id) => {
+    const body = noticeCommentForms[id]
+
+    if (!body?.trim()) {
+      return
+    }
+
+    try {
+      setMessage('')
+      await api.post(`/notices/${id}/comments`, { body })
+      setNoticeCommentForms((current) => ({ ...current, [id]: '' }))
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   const printPaymentReceipt = async (id) => {
     try {
       setMessage('')
@@ -587,7 +625,14 @@ export default function MemberDashboardPage() {
         <Updates
           data={data}
           onMeetingRsvp={(id, status) => submitRsvp('meetings', id, status)}
+          onNoticeCommentChange={(id, value) =>
+            setNoticeCommentForms((current) => ({ ...current, [id]: value }))
+          }
+          onNoticeCommentSubmit={addNoticeComment}
+          onNoticeRead={markNoticeRead}
+          onNoticeReact={reactToNotice}
           onTourRsvp={(id, status) => submitRsvp('tours', id, status)}
+          noticeCommentForms={noticeCommentForms}
           user={user}
         />
       ) : null}
@@ -1217,10 +1262,31 @@ function PaymentTargetInfo({ label, value }) {
   )
 }
 
-function Updates({ data, onMeetingRsvp, onTourRsvp, user }) {
+function Updates({
+  data,
+  noticeCommentForms,
+  onMeetingRsvp,
+  onNoticeCommentChange,
+  onNoticeCommentSubmit,
+  onNoticeRead,
+  onNoticeReact,
+  onTourRsvp,
+  user,
+}) {
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
-      <UpdateList items={data.notices} title="Notices" textKey="body" />
+      <UpdateList
+        commentForms={noticeCommentForms}
+        items={data.notices}
+        noticeActions
+        onCommentChange={onNoticeCommentChange}
+        onCommentSubmit={onNoticeCommentSubmit}
+        onNoticeRead={onNoticeRead}
+        onNoticeReact={onNoticeReact}
+        title="Notices"
+        textKey="body"
+        user={user}
+      />
       <UpdateList
         items={data.meetings}
         onRsvp={onMeetingRsvp}
@@ -1347,7 +1413,20 @@ function MemberDirectory({ members }) {
   )
 }
 
-function UpdateList({ items, onRsvp, rsvpEnabled = false, textKey, title, user }) {
+function UpdateList({
+  commentForms = {},
+  items,
+  noticeActions = false,
+  onCommentChange,
+  onCommentSubmit,
+  onNoticeRead,
+  onNoticeReact,
+  onRsvp,
+  rsvpEnabled = false,
+  textKey,
+  title,
+  user,
+}) {
   return (
     <Panel>
       <SectionTitle icon={CalendarDays} title={title} />
@@ -1387,10 +1466,90 @@ function UpdateList({ items, onRsvp, rsvpEnabled = false, textKey, title, user }
             {rsvpEnabled ? (
               <RsvpActions item={item} onRsvp={onRsvp} user={user} />
             ) : null}
+            {noticeActions ? (
+              <NoticeActions
+                commentValue={commentForms[item._id] || ''}
+                item={item}
+                onCommentChange={onCommentChange}
+                onCommentSubmit={onCommentSubmit}
+                onRead={onNoticeRead}
+                onReact={onNoticeReact}
+                user={user}
+              />
+            ) : null}
           </div>
         ))}
       </div>
     </Panel>
+  )
+}
+
+function NoticeActions({
+  commentValue,
+  item,
+  onCommentChange,
+  onCommentSubmit,
+  onRead,
+  onReact,
+  user,
+}) {
+  const myId = String(user?._id || '')
+  const read = (item.readReceipts || []).some((row) => String(row.user?._id || row.user) === myId)
+  const myReaction = (item.reactions || []).find((row) => String(row.user?._id || row.user) === myId)
+  const reactions = (item.reactions || []).reduce(
+    (summary, row) => ({
+      ...summary,
+      [row.type]: (summary[row.type] || 0) + 1,
+    }),
+    { like: 0, love: 0 },
+  )
+
+  return (
+    <div className="mt-4 rounded-md bg-gray-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button disabled={read} onClick={() => onRead(item._id)} size="sm" variant="secondary">
+          {read ? 'Read' : 'Mark read'}
+        </Button>
+        <Button
+          onClick={() => onReact(item._id, 'like')}
+          size="sm"
+          variant={myReaction?.type === 'like' ? 'primary' : 'secondary'}
+        >
+          Like {reactions.like || 0}
+        </Button>
+        <Button
+          onClick={() => onReact(item._id, 'love')}
+          size="sm"
+          variant={myReaction?.type === 'love' ? 'primary' : 'secondary'}
+        >
+          Love {reactions.love || 0}
+        </Button>
+        <span className="text-xs font-semibold uppercase text-gray-500">
+          Reads {item.readReceipts?.length || 0}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {(item.comments || []).slice(-3).map((comment) => (
+          <div className="rounded-md bg-white px-3 py-2 text-sm text-gray-600" key={comment._id || comment.createdAt}>
+            <span className="font-semibold text-gray-900">
+              {comment.user?.name || 'Member'}:
+            </span>{' '}
+            {comment.body}
+          </div>
+        ))}
+        <div className="flex flex-wrap gap-2">
+          <input
+            className="min-h-10 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            onChange={(event) => onCommentChange(item._id, event.target.value)}
+            placeholder="Ask a question"
+            value={commentValue}
+          />
+          <Button onClick={() => onCommentSubmit(item._id)} size="sm">
+            Comment
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

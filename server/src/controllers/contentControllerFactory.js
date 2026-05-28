@@ -45,7 +45,11 @@ const createContentController = ({ model, validate, sort = { createdAt: -1 }, na
         title: item.title,
       },
     })
-    if (name === 'Notice') {
+    if (
+      name === 'Notice' &&
+      !item.archivedAt &&
+      (!item.scheduledFor || item.scheduledFor <= new Date())
+    ) {
       await sendContentTriggerMessages({
         actor: req.user,
         body: item.body,
