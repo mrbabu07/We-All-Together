@@ -253,11 +253,21 @@ export default function AdminDashboardPage() {
     feeOverdueAlertEnabled: true,
     registrationFee: 0,
   })
+  const [donationForm, setDonationForm] = useState({
+    amount: '',
+    anonymous: false,
+    donorName: '',
+    method: 'Cash',
+    note: '',
+    phone: '',
+    transactionId: '',
+  })
   const [expenseForm, setExpenseForm] = useState({
     amount: '',
     category: '',
     date: new Date().toISOString().slice(0, 10),
     note: '',
+    receiptImageUrl: '',
     title: '',
   })
   const [monthlyStatusMonth, setMonthlyStatusMonth] = useState(
@@ -268,6 +278,7 @@ export default function AdminDashboardPage() {
   const [editingContent, setEditingContent] = useState({})
   const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [uploadingContentKey, setUploadingContentKey] = useState('')
+  const [uploadingExpenseReceipt, setUploadingExpenseReceipt] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [notificationForm, setNotificationForm] = useState({
     link: '',
@@ -474,9 +485,26 @@ export default function AdminDashboardPage() {
         category: '',
         date: new Date().toISOString().slice(0, 10),
         note: '',
+        receiptImageUrl: '',
         title: '',
       })
     }, editingExpenseId ? 'Expense updated successfully.' : 'Expense added successfully.')
+  }
+
+  const saveManualDonation = async (event) => {
+    event.preventDefault()
+    await runAction(async () => {
+      await api.post('/donations/manual', donationForm)
+      setDonationForm({
+        amount: '',
+        anonymous: false,
+        donorName: '',
+        method: 'Cash',
+        note: '',
+        phone: '',
+        transactionId: '',
+      })
+    }, 'Manual donation recorded successfully.')
   }
 
   const editExpense = (expense) => {
@@ -486,6 +514,7 @@ export default function AdminDashboardPage() {
       category: expense.category || '',
       date: toDateInput(expense.date),
       note: expense.note || '',
+      receiptImageUrl: expense.receiptImageUrl || '',
       title: expense.title || '',
     })
   }
@@ -497,8 +526,34 @@ export default function AdminDashboardPage() {
       category: '',
       date: new Date().toISOString().slice(0, 10),
       note: '',
+      receiptImageUrl: '',
       title: '',
     })
+  }
+
+  const uploadExpenseReceipt = async (file) => {
+    if (!file) {
+      return
+    }
+
+    try {
+      setMessage('')
+      setUploadingExpenseReceipt(true)
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/image', {
+        image,
+        name: `expense-receipt-${Date.now()}`,
+      })
+      setExpenseForm((current) => ({
+        ...current,
+        receiptImageUrl: response.data.data.image.url,
+      }))
+      setMessage('Expense receipt uploaded successfully.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingExpenseReceipt(false)
+    }
   }
 
   const deleteExpense = async (id) => {
@@ -715,10 +770,13 @@ export default function AdminDashboardPage() {
       'dargah-donations.csv',
       data.donations.map((item) => ({
         amount: item.amount,
+        anonymous: item.anonymous ? 'yes' : 'no',
         createdAt: toExportDate(item.createdAt),
         donorName: item.donorName,
+        manualEntry: item.manualEntry ? 'yes' : 'no',
         method: item.method,
         phone: item.phone,
+        rejectionReason: item.rejectionReason || '',
         status: item.status,
         transactionId: item.transactionId,
         proofImageUrl: item.proofImageUrl || '',
@@ -735,6 +793,7 @@ export default function AdminDashboardPage() {
         category: item.category,
         date: toExportDate(item.date),
         note: item.note || '',
+        receiptImageUrl: item.receiptImageUrl || '',
         title: item.title,
       })),
     )
@@ -948,6 +1007,7 @@ export default function AdminDashboardPage() {
       {!loading && activeTab === 'finance' ? (
         <FinanceTab
           data={data}
+          donationForm={donationForm}
           expenseForm={expenseForm}
           editingExpenseId={editingExpenseId}
           monthlyStatus={monthlyStatus}
@@ -959,6 +1019,10 @@ export default function AdminDashboardPage() {
           onExpenseChange={(field, value) =>
             setExpenseForm((current) => ({ ...current, [field]: value }))
           }
+          onDonationChange={(field, value) =>
+            setDonationForm((current) => ({ ...current, [field]: value }))
+          }
+          onExpenseReceiptUpload={uploadExpenseReceipt}
           onLoadMonthlyStatus={loadMonthlyStatus}
           onMonthChange={setMonthlyStatusMonth}
           onPaymentReject={(id, reason) => {
@@ -1010,9 +1074,18 @@ export default function AdminDashboardPage() {
           onMemberFeeHistory={(memberId, year) =>
             api.get(`/fees/member/${memberId}/history`, { params: { year } })
           }
-          onDonationReject={(id) =>
-            runAction(() => api.patch(`/donations/${id}/reject`), 'Donation rejected.')
-          }
+          onDonationReject={(id, reason) => {
+            const trimmedReason = reason?.trim() || window.prompt('Donation rejection reason')?.trim()
+            if (!trimmedReason) {
+              setMessage('Donation rejection reason is required.')
+              return Promise.resolve()
+            }
+
+            return runAction(
+              () => api.patch(`/donations/${id}/reject`, { reason: trimmedReason }),
+              'Donation rejected.',
+            )
+          }}
           onDonationReceipt={(id) => printReceipt(`/receipts/donations/${id}`)}
           onDonationVerify={(id) =>
             runAction(() => api.patch(`/donations/${id}/verify`), 'Donation verified.')
@@ -1021,8 +1094,10 @@ export default function AdminDashboardPage() {
             setSettingsForm((current) => ({ ...current, [field]: value }))
           }
           onNotificationSettingChange={updateNotificationSetting}
+          onSaveManualDonation={saveManualDonation}
           onUpdateSettings={updateSettings}
           settingsForm={settingsForm}
+          uploadingExpenseReceipt={uploadingExpenseReceipt}
         />
       ) : null}
 
@@ -1303,6 +1378,7 @@ function OverviewTab({
 
 function FinanceTab({
   data,
+  donationForm,
   editingExpenseId,
   expenseForm,
   monthlyStatus,
@@ -1312,7 +1388,9 @@ function FinanceTab({
   onEditExpense,
   onDonationReject,
   onDonationVerify,
+  onDonationChange,
   onExpenseChange,
+  onExpenseReceiptUpload,
   onLoadMonthlyStatus,
   onMonthChange,
   onPaymentBulkReject,
@@ -1327,11 +1405,13 @@ function FinanceTab({
   onFeeWaiverRemove,
   onMemberFeeHistory,
   onDonationReceipt,
+  onSaveManualDonation,
   onSaveExpense,
   onNotificationSettingChange,
   onSettingsChange,
   onUpdateSettings,
   settingsForm,
+  uploadingExpenseReceipt,
 }) {
   const verifiedPayments = data.payments.filter((payment) => payment.status === 'verified')
   const verifiedDonations = data.donations.filter((donation) => donation.status === 'verified')
@@ -1346,6 +1426,11 @@ function FinanceTab({
     }, {}),
   ).sort((left, right) => right[1] - left[1])
   const [activeFinanceTab, setActiveFinanceTab] = useState('payments')
+  const expenseCategoryOptions = ['ভাড়া', 'খাবার', 'অনুষ্ঠান', 'অন্যান্য']
+  const expenseCategoriesForSelect =
+    expenseForm.category && !expenseCategoryOptions.includes(expenseForm.category)
+      ? [expenseForm.category, ...expenseCategoryOptions]
+      : expenseCategoryOptions
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1494,6 +1579,67 @@ function FinanceTab({
       </Panel>
 
       <Panel>
+        <SectionTitle icon={DollarSign} title="Add Manual Donation" />
+        <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onSaveManualDonation}>
+          <ToggleField
+            checked={donationForm.anonymous}
+            label="Anonymous donor"
+            onChange={(value) => onDonationChange('anonymous', value)}
+          />
+          <Field
+            disabled={donationForm.anonymous}
+            label="Donor Name"
+            name="manualDonorName"
+            onChange={(event) => onDonationChange('donorName', event.target.value)}
+            value={donationForm.donorName}
+          />
+          <Field
+            label="Phone"
+            name="manualDonorPhone"
+            onChange={(event) => onDonationChange('phone', event.target.value)}
+            value={donationForm.phone}
+          />
+          <Field
+            label="Amount"
+            min="1"
+            name="manualDonationAmount"
+            onChange={(event) => onDonationChange('amount', event.target.value)}
+            required
+            type="number"
+            value={donationForm.amount}
+          />
+          <SelectField
+            label="Method"
+            name="manualDonationMethod"
+            onChange={(event) => onDonationChange('method', event.target.value)}
+            value={donationForm.method}
+          >
+            <option value="Cash">Cash</option>
+            <option value="bKash">bKash</option>
+            <option value="Nagad">Nagad</option>
+            <option value="Bank">Bank</option>
+          </SelectField>
+          <Field
+            label="Transaction ID"
+            name="manualDonationTransactionId"
+            onChange={(event) => onDonationChange('transactionId', event.target.value)}
+            placeholder="Auto-generated for cash if blank"
+            value={donationForm.transactionId}
+          />
+          <Field
+            className="md:col-span-2 xl:col-span-3"
+            label="Note"
+            name="manualDonationNote"
+            onChange={(event) => onDonationChange('note', event.target.value)}
+            value={donationForm.note}
+          />
+          <Button className="md:col-span-2 xl:col-span-5" icon={DollarSign} type="submit">
+            Record Donation
+          </Button>
+        </form>
+      </Panel>
+
+      <Panel>
         <SectionTitle icon={FilePlus2} title={editingExpenseId ? 'Edit Expense' : 'Add Expense'} />
         <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onSaveExpense}>
           <Field
@@ -1511,13 +1657,20 @@ function FinanceTab({
             type="number"
             value={expenseForm.amount}
           />
-          <Field
+          <SelectField
             label="Category"
             name="category"
             onChange={(event) => onExpenseChange('category', event.target.value)}
             required
             value={expenseForm.category}
-          />
+          >
+            <option value="">Select category</option>
+            {expenseCategoriesForSelect.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </SelectField>
           <Field
             label="Date"
             name="date"
@@ -1532,6 +1685,27 @@ function FinanceTab({
             onChange={(event) => onExpenseChange('note', event.target.value)}
             value={expenseForm.note}
           />
+          <div className="grid gap-3 md:col-span-2 xl:col-span-5">
+            <Field
+              label="Receipt Image URL"
+              name="receiptImageUrl"
+              onChange={(event) => onExpenseChange('receiptImageUrl', event.target.value)}
+              value={expenseForm.receiptImageUrl}
+            />
+            <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+              <span>Upload Receipt Image</span>
+              <input
+                accept="image/*"
+                className="min-h-11 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
+                disabled={uploadingExpenseReceipt}
+                onChange={(event) => onExpenseReceiptUpload(event.target.files?.[0])}
+                type="file"
+              />
+            </label>
+            {uploadingExpenseReceipt ? (
+              <p className="text-sm font-medium text-indigo-700">Uploading receipt...</p>
+            ) : null}
+          </div>
           <Button className="md:col-span-2 xl:col-span-4" icon={FilePlus2} type="submit">
             {editingExpenseId ? 'Update Expense' : 'Add Expense'}
           </Button>
@@ -3558,6 +3732,8 @@ function FinanceRecordsTabs({
             onReceipt={onDonationReceipt}
             onReject={onDonationReject}
             onVerify={onDonationVerify}
+            recordLabel="donation"
+            requireRejectReason
             title="দান"
           />
         ) : null}
@@ -3597,7 +3773,7 @@ function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              {['শিরোনাম', 'ক্যাটাগরি', 'তারিখ', 'পরিমাণ', 'অ্যাকশন'].map((heading) => (
+              {['শিরোনাম', 'ক্যাটাগরি', 'তারিখ', 'পরিমাণ', 'অ্যাকশন', 'রসিদ'].map((heading) => (
                 <th
                   className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
                   key={heading}
@@ -3610,7 +3786,7 @@ function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
           <tbody className="divide-y divide-gray-100">
             {visibleExpenses.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
                   No expenses found.
                 </td>
               </tr>
@@ -3633,6 +3809,20 @@ function ExpenseRecordsTable({ expenses, onDeleteExpense, onEditExpense }) {
                     </Button>
                   </div>
                 </td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {expense.receiptImageUrl ? (
+                    <a
+                      className="font-semibold text-[var(--brand-600)] hover:text-[var(--brand-700)]"
+                      href={expense.receiptImageUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    'N/A'
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -3653,6 +3843,8 @@ function VerificationList({
   onReceipt,
   onReject,
   onVerify,
+  recordLabel = 'payment',
+  requireRejectReason = false,
   title,
 }) {
   const [query, setQuery] = useState('')
@@ -3685,6 +3877,7 @@ function VerificationList({
   const currentPage = Math.min(page, pageCount)
   const pagedItems = visibleItems.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const supportsBulk = Boolean(onBulkReject && onBulkVerify)
+  const usesRejectReason = supportsBulk || requireRejectReason
   const pagedPendingIds = pagedItems
     .filter((item) => item.status === 'pending')
     .map((item) => item._id)
@@ -3796,7 +3989,7 @@ function VerificationList({
               onClick={async () => {
                 if (
                   selectedPendingIds.length &&
-                  window.confirm(`Approve ${selectedPendingIds.length} selected payments?`)
+                  window.confirm(`Approve ${selectedPendingIds.length} selected ${recordLabel}s?`)
                 ) {
                   await onBulkVerify(selectedPendingIds)
                   setSelectedIds([])
@@ -3821,13 +4014,13 @@ function VerificationList({
       <Modal
         onClose={() => setRejectModal(null)}
         open={Boolean(rejectModal)}
-        title="Reject payment"
+        title={`Reject ${recordLabel}`}
       >
         {rejectModal ? (
           <form className="grid gap-4" onSubmit={submitReject}>
             <p className="text-sm text-gray-600">
-              Add a reason for rejecting {rejectModal.ids.length} selected payment
-              {rejectModal.ids.length > 1 ? 's' : ''}. The member will see this reason.
+              Add a reason for rejecting {rejectModal.ids.length} selected {recordLabel}
+              {rejectModal.ids.length > 1 ? 's' : ''}. The reason will stay with this record.
             </p>
             <Field
               error={rejectModal.error}
@@ -3920,6 +4113,11 @@ function VerificationList({
                       </p>
                       <p className="text-xs text-gray-500">{item.user?.phone || item.phone}</p>
                       <p className="text-xs text-gray-500">Submitted {toReadableDate(item.createdAt)}</p>
+                      {item.manualEntry ? (
+                        <p className="text-xs font-semibold text-[var(--brand-600)]">
+                          Manual entry by {item.createdBy?.name || 'admin'}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </td>
@@ -3929,8 +4127,12 @@ function VerificationList({
                     <p className="mt-1 max-w-56 text-xs text-gray-500">
                       {formatCoveredMonths(item.coveredMonths)}
                     </p>
-                  ) : (
+                  ) : item.month ? (
                     <p className="mt-1 text-xs text-gray-500">{item.month}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {item.manualEntry ? 'Manual donation' : 'Donation'}
+                    </p>
                   )}
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{item.method}</td>
@@ -3965,7 +4167,7 @@ function VerificationList({
                         <Button
                           icon={XCircle}
                           onClick={() =>
-                            supportsBulk ? openRejectModal([item._id]) : onReject(item._id)
+                            usesRejectReason ? openRejectModal([item._id]) : onReject(item._id)
                           }
                           variant="danger"
                         >

@@ -3,7 +3,9 @@ const assert = require('node:assert/strict')
 const {
   validateBulkPaymentAction,
   validateDonation,
+  validateDonationRejection,
   validateExpense,
+  validateManualDonation,
   validateMonth,
   validateMonthlyPayment,
   validatePaymentRejection,
@@ -67,10 +69,24 @@ test('validateExpense parses expense date and amount', () => {
     amount: 1200,
     category: 'Meeting',
     date: '2026-05-25',
+    receiptImageUrl: 'https://example.com/receipt.jpg',
   })
 
   assert.equal(payload.amount, 1200)
   assert.equal(payload.date instanceof Date, true)
+  assert.equal(payload.receiptImageUrl, 'https://example.com/receipt.jpg')
+})
+
+test('validateManualDonation defaults cash donation fields', () => {
+  const payload = validateManualDonation({
+    amount: 500,
+    anonymous: true,
+  })
+
+  assert.equal(payload.anonymous, true)
+  assert.equal(payload.donorName, 'Anonymous')
+  assert.equal(payload.method, 'Cash')
+  assert.match(payload.transactionId, /^CASH-/)
 })
 
 test('validateDonation rejects zero donation amount', () => {
@@ -85,4 +101,8 @@ test('validateDonation rejects zero donation amount', () => {
       }),
     /greater than zero/,
   )
+})
+
+test('validateDonationRejection requires a reason', () => {
+  assert.throws(() => validateDonationRejection({}), /Rejection reason/)
 })

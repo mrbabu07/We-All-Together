@@ -4,7 +4,11 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { getSettings } = require('../services/settingsService')
-const { validateDonation } = require('../validators/financeValidators')
+const {
+  validateDonation,
+  validateDonationRejection,
+  validateManualDonation,
+} = require('../validators/financeValidators')
 
 const submitDonation = asyncHandler(async (req, res) => {
   const payload = validateDonation(req.body)
@@ -14,7 +18,10 @@ const submitDonation = asyncHandler(async (req, res) => {
     throw new AppError('Public donations are currently disabled.', 403)
   }
 
-  const donation = new Donation(payload)
+  const donation = new Donation({
+    ...payload,
+    donorName: payload.anonymous ? 'Anonymous' : payload.donorName,
+  })
   donation.receiptNumber = `DON-${donation._id}`
   donation.receiptGeneratedAt = new Date()
   await donation.save()
@@ -28,8 +35,47 @@ const submitDonation = asyncHandler(async (req, res) => {
   })
 })
 
+const createManualDonation = asyncHandler(async (req, res) => {
+  const payload = validateManualDonation(req.body)
+  const donation = new Donation({
+    ...payload,
+    createdBy: req.user._id,
+    manualEntry: true,
+    status: PAYMENT_STATUSES.VERIFIED,
+    verifiedAt: new Date(),
+    verifiedBy: req.user._id,
+  })
+
+  donation.receiptNumber = `DON-${donation._id}`
+  donation.receiptGeneratedAt = new Date()
+  await donation.save()
+  await recordAuditLog({
+    action: 'donation.manual.create',
+    actor: req.user,
+    entityId: donation._id,
+    entityType: 'Donation',
+    metadata: {
+      amount: donation.amount,
+      donorName: donation.donorName,
+      method: donation.method,
+      phone: donation.phone,
+    },
+  })
+
+  res.status(201).json({
+    success: true,
+    message: 'Manual donation recorded successfully.',
+    data: {
+      donation,
+    },
+  })
+})
+
 const getDonations = asyncHandler(async (req, res) => {
   const donations = await Donation.find()
+    .populate('createdBy', 'name phone')
+    .populate('rejectedBy', 'name phone')
+    .populate('user', 'name phone')
     .populate('verifiedBy', 'name phone')
     .sort({ createdAt: -1 })
 
@@ -44,7 +90,7 @@ const getDonations = asyncHandler(async (req, res) => {
 
 const getVerifiedDonations = asyncHandler(async (req, res) => {
   const donations = await Donation.find({ status: PAYMENT_STATUSES.VERIFIED })
-    .select('donorName amount method note verifiedAt createdAt')
+    .select('anonymous donorName amount manualEntry method note verifiedAt createdAt')
     .sort({ verifiedAt: -1, createdAt: -1 })
     .limit(30)
 
@@ -63,10 +109,16 @@ const verifyDonation = asyncHandler(async (req, res) => {
   if (!donation) {
     throw new AppError('Donation not found.', 404)
   }
+  if (donation.status !== PAYMENT_STATUSES.PENDING) {
+    throw new AppError('Only pending donations can be verified.', 400)
+  }
 
   donation.status = PAYMENT_STATUSES.VERIFIED
   donation.verifiedAt = new Date()
   donation.verifiedBy = req.user._id
+  donation.rejectedAt = null
+  donation.rejectedBy = null
+  donation.rejectionReason = ''
   await donation.save()
   await recordAuditLog({
     action: 'donation.verify',
@@ -90,15 +142,22 @@ const verifyDonation = asyncHandler(async (req, res) => {
 })
 
 const rejectDonation = asyncHandler(async (req, res) => {
+  const { reason } = validateDonationRejection(req.body)
   const donation = await Donation.findById(req.params.id)
 
   if (!donation) {
     throw new AppError('Donation not found.', 404)
   }
+  if (donation.status !== PAYMENT_STATUSES.PENDING) {
+    throw new AppError('Only pending donations can be rejected.', 400)
+  }
 
   donation.status = PAYMENT_STATUSES.REJECTED
   donation.verifiedAt = null
   donation.verifiedBy = null
+  donation.rejectedAt = new Date()
+  donation.rejectedBy = req.user._id
+  donation.rejectionReason = reason
   await donation.save()
   await recordAuditLog({
     action: 'donation.reject',
@@ -109,6 +168,7 @@ const rejectDonation = asyncHandler(async (req, res) => {
       amount: donation.amount,
       donorName: donation.donorName,
       phone: donation.phone,
+      reason,
     },
   })
 
@@ -122,6 +182,7 @@ const rejectDonation = asyncHandler(async (req, res) => {
 })
 
 module.exports = {
+  createManualDonation,
   getDonations,
   getVerifiedDonations,
   rejectDonation,

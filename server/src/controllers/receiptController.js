@@ -15,6 +15,12 @@ const { verifyAccessToken } = require('../utils/tokenUtils')
 
 const organizationName = 'Dargah Para OIkko Porishod'
 
+const buildReceiptOrganization = (settings) => ({
+  donationNumber: settings.donationNumber,
+  donationProvider: settings.donationProvider,
+  name: settings.siteSettings?.orgName || organizationName,
+})
+
 const canReadUserReceipt = (req, userId) =>
   req.user.role === USER_ROLES.ADMIN || req.user._id.toString() === userId.toString()
 
@@ -70,11 +76,7 @@ const getPaymentReceipt = asyncHandler(async (req, res) => {
     data: {
       receipt: {
         issuedAt: new Date(),
-        organization: {
-          donationNumber: settings.donationNumber,
-          donationProvider: settings.donationProvider,
-          name: organizationName,
-        },
+        organization: buildReceiptOrganization(settings),
         payment,
         receiptNo: payment.receiptNumber || `PAY-${payment._id}`,
         type: 'monthly-payment',
@@ -103,11 +105,7 @@ const getRegistrationReceipt = asyncHandler(async (req, res) => {
     data: {
       receipt: {
         issuedAt: new Date(),
-        organization: {
-          donationNumber: settings.donationNumber,
-          donationProvider: settings.donationProvider,
-          name: organizationName,
-        },
+        organization: buildReceiptOrganization(settings),
         receiptNo: `REG-${user._id}`,
         registrationPayment: user.registrationPayment,
         type: 'registration-fee',
@@ -119,7 +117,11 @@ const getRegistrationReceipt = asyncHandler(async (req, res) => {
 
 const getDonationReceipt = asyncHandler(async (req, res) => {
   const [donation, settings] = await Promise.all([
-    Donation.findById(req.params.id).populate('verifiedBy', 'name phone role'),
+    Donation.findById(req.params.id)
+      .populate('createdBy', 'name phone role')
+      .populate('rejectedBy', 'name phone role')
+      .populate('user', 'name phone role')
+      .populate('verifiedBy', 'name phone role'),
     getSettings(),
   ])
 
@@ -134,11 +136,7 @@ const getDonationReceipt = asyncHandler(async (req, res) => {
       receipt: {
         donation,
         issuedAt: new Date(),
-        organization: {
-          donationNumber: settings.donationNumber,
-          donationProvider: settings.donationProvider,
-          name: organizationName,
-        },
+        organization: buildReceiptOrganization(settings),
         receiptNo: donation.receiptNumber || `DON-${donation._id}`,
         type: 'donation',
       },
@@ -198,11 +196,7 @@ const downloadReceiptPdf = asyncHandler(async (req, res) => {
       amount: donation.amount,
       date: donation.createdAt,
       method: donation.method,
-      organization: {
-        donationNumber: settings.donationNumber,
-        donationProvider: settings.donationProvider,
-        name: organizationName,
-      },
+      organization: buildReceiptOrganization(settings),
       payerName: donation.donorName,
       payerPhone: donation.phone,
       receiptNo: donation.receiptNumber,

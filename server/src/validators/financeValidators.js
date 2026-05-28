@@ -105,10 +105,12 @@ const validateExpense = (body) => {
     category: requireString(body, 'category', 'Category'),
     date,
     note: optionalString(body, 'note'),
+    receiptImageUrl: optionalString(body, 'receiptImageUrl'),
   }
 }
 
 const validateDonation = (body) => ({
+  anonymous: body.anonymous === true || body.anonymous === 'true',
   donorName: requireString(body, 'donorName', 'Donor name'),
   phone: requirePhone(body, 'phone', 'Phone'),
   amount: readPositiveAmount(body, 'amount', 'Amount'),
@@ -117,6 +119,25 @@ const validateDonation = (body) => ({
   note: optionalString(body, 'note'),
   proofImageUrl: optionalString(body, 'proofImageUrl'),
 })
+
+const validateManualDonation = (body) => {
+  const anonymous = body.anonymous === true || body.anonymous === 'true'
+  const donorName = anonymous ? 'Anonymous' : optionalString(body, 'donorName') || 'Anonymous'
+  const transactionId = optionalString(body, 'transactionId')
+
+  return {
+    anonymous,
+    amount: readPositiveAmount(body, 'amount', 'Amount'),
+    donorName,
+    method: optionalString(body, 'method') || 'Cash',
+    note: optionalString(body, 'note'),
+    phone: optionalString(body, 'phone') || 'N/A',
+    proofImageUrl: optionalString(body, 'proofImageUrl'),
+    transactionId: transactionId || `CASH-${Date.now()}`,
+  }
+}
+
+const validateDonationRejection = validatePaymentRejection
 
 const validateMonthlyFee = (body) => ({
   monthlyFee: readAmount(body, 'monthlyFee', 'Monthly fee'),
@@ -140,8 +161,10 @@ const validateNotificationSettings = (body) => ({
 
 module.exports = {
   validateDonation,
+  validateDonationRejection,
   validateDonationNumber,
   validateExpense,
+  validateManualDonation,
   validateMonth,
   validateMonthlyFee,
   validateMonthlyPayment,

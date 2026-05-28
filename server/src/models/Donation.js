@@ -3,6 +3,12 @@ const { PAYMENT_STATUSES } = require('../constants/paymentConstants')
 
 const donationSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
     donorName: {
       type: String,
       required: true,
@@ -41,6 +47,20 @@ const donationSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    anonymous: {
+      type: Boolean,
+      default: false,
+    },
+    manualEntry: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     receiptNumber: {
       type: String,
       trim: true,
@@ -65,6 +85,21 @@ const donationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    rejectionReason: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Rejection reason cannot exceed 300 characters.'],
+      default: '',
     },
   },
   {

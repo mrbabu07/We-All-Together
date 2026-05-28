@@ -29,6 +29,11 @@ const expenseSchema = new mongoose.Schema(
       maxlength: [300, 'Expense note cannot exceed 300 characters.'],
       default: '',
     },
+    receiptImageUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

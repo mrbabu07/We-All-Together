@@ -1,6 +1,7 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
+  createManualDonation,
   getDonations,
   getVerifiedDonations,
   rejectDonation,
@@ -15,6 +16,7 @@ const router = express.Router()
 router.post('/', submitDonation)
 router.get('/verified', getVerifiedDonations)
 router.get('/', protect, authorize(USER_ROLES.ADMIN), getDonations)
+router.post('/manual', protect, authorize(USER_ROLES.ADMIN), createManualDonation)
 router.patch('/:id/verify', protect, authorize(USER_ROLES.ADMIN), verifyDonation)
 router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectDonation)
 
