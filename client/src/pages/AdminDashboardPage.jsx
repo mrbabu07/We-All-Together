@@ -44,9 +44,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -216,8 +219,10 @@ export default function AdminDashboardPage() {
     auditLogs: [],
     analytics: {
       donationTrend: [],
+      expenseBreakdown: [],
       monthly: [],
       overdue: { amount: 0, count: 0, members: [] },
+      range: {},
       summary: {},
     },
     content: { activities: [], meetings: [], notices: [], rules: [], tours: [] },
@@ -252,6 +257,11 @@ export default function AdminDashboardPage() {
     feeLateFeeAmount: 0,
     feeOverdueAlertEnabled: true,
     registrationFee: 0,
+  })
+  const [financeFilter, setFinanceFilter] = useState({
+    from: '',
+    range: 'last_6_months',
+    to: '',
   })
   const [donationForm, setDonationForm] = useState({
     amount: '',
@@ -464,6 +474,27 @@ export default function AdminDashboardPage() {
         [field]: value,
       },
     }))
+  }
+
+  const loadFinanceAnalytics = async () => {
+    try {
+      setMessage('')
+      const response = await api.get('/finance/analytics', {
+        params: {
+          range: financeFilter.range,
+          ...(financeFilter.range === 'custom'
+            ? { from: financeFilter.from, to: financeFilter.to }
+            : {}),
+        },
+      })
+      setData((current) => ({
+        ...current,
+        analytics: response.data.data,
+      }))
+      setMessage('Finance analytics updated.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
   }
 
   const changeTab = (tab) => {
@@ -1010,6 +1041,7 @@ export default function AdminDashboardPage() {
           donationForm={donationForm}
           expenseForm={expenseForm}
           editingExpenseId={editingExpenseId}
+          financeFilter={financeFilter}
           monthlyStatus={monthlyStatus}
           monthlyStatusMonth={monthlyStatusMonth}
           onCancelExpenseEdit={cancelExpenseEdit}
@@ -1023,7 +1055,11 @@ export default function AdminDashboardPage() {
             setDonationForm((current) => ({ ...current, [field]: value }))
           }
           onExpenseReceiptUpload={uploadExpenseReceipt}
+          onFinanceFilterChange={(field, value) =>
+            setFinanceFilter((current) => ({ ...current, [field]: value }))
+          }
           onLoadMonthlyStatus={loadMonthlyStatus}
+          onLoadFinanceAnalytics={loadFinanceAnalytics}
           onMonthChange={setMonthlyStatusMonth}
           onPaymentReject={(id, reason) => {
             const trimmedReason = reason?.trim() || window.prompt('Payment rejection reason')?.trim()
@@ -1381,6 +1417,7 @@ function FinanceTab({
   donationForm,
   editingExpenseId,
   expenseForm,
+  financeFilter,
   monthlyStatus,
   monthlyStatusMonth,
   onCancelExpenseEdit,
@@ -1391,7 +1428,9 @@ function FinanceTab({
   onDonationChange,
   onExpenseChange,
   onExpenseReceiptUpload,
+  onFinanceFilterChange,
   onLoadMonthlyStatus,
+  onLoadFinanceAnalytics,
   onMonthChange,
   onPaymentBulkReject,
   onPaymentBulkVerify,
@@ -1434,7 +1473,12 @@ function FinanceTab({
 
   return (
     <div className="mt-6 grid gap-6">
-      <FinanceAnalytics analytics={data.analytics} />
+      <FinanceAnalytics
+        analytics={data.analytics}
+        filter={financeFilter}
+        onFilterChange={onFinanceFilterChange}
+        onLoad={onLoadFinanceAnalytics}
+      />
 
       <FinanceSummary
         expenseCategories={expenseCategories}
@@ -1752,13 +1796,165 @@ function ToggleField({ checked, label, onChange }) {
   )
 }
 
-function FinanceAnalytics({ analytics }) {
+function FinanceAnalytics({ analytics, filter, onFilterChange, onLoad }) {
   const monthly = analytics?.monthly || []
   const donationTrend = analytics?.donationTrend || []
+  const expenseBreakdown = analytics?.expenseBreakdown || []
   const overdueMembers = analytics?.overdue?.members || []
+  const summary = analytics?.summary || {}
+  const range = analytics?.range || {}
+  const pieColors = ['#00ADB5', '#393E46', '#10B981', '#F59E0B', '#EF4444', '#6366F1']
+
+  const exportReport = () => {
+    const ok = downloadCsv(
+      `finance-report-${range.from || 'start'}-${range.to || 'end'}.csv`,
+      monthly.map((row) => ({
+        balance: row.balance,
+        donationIncome: row.donationIncome,
+        expense: row.expense,
+        income: row.income,
+        month: row.month,
+        paymentIncome: row.paymentIncome,
+        rangeFrom: range.from || '',
+        rangeTo: range.to || '',
+      })),
+    )
+
+    if (!ok) {
+      window.alert('No finance report data to export.')
+    }
+  }
+
+  const printReport = () => {
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+    if (!printWindow) return
+
+    const rows = monthly
+      .map(
+        (row) => `
+          <tr>
+            <td>${escapeHtml(row.month)}</td>
+            <td>${escapeHtml(money(row.paymentIncome))}</td>
+            <td>${escapeHtml(money(row.donationIncome))}</td>
+            <td>${escapeHtml(money(row.expense))}</td>
+            <td>${escapeHtml(money(row.balance))}</td>
+          </tr>
+        `,
+      )
+      .join('')
+    const categories = expenseBreakdown
+      .map(
+        (item) => `
+          <tr>
+            <td>${escapeHtml(item.category)}</td>
+            <td>${escapeHtml(money(item.amount))}</td>
+          </tr>
+        `,
+      )
+      .join('')
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Finance Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 32px; color: ${cssVar('--text-primary')}; }
+            h1 { margin: 0 0 4px; font-size: 22px; }
+            h2 { margin: 24px 0 8px; font-size: 16px; }
+            .muted { color: ${cssVar('--text-secondary')}; margin: 0 0 16px; }
+            .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0; }
+            .stat { border: 1px solid ${cssVar('--gray-200')}; border-radius: 8px; padding: 12px; }
+            .label { color: ${cssVar('--text-secondary')}; display: block; font-size: 11px; text-transform: uppercase; }
+            .value { display: block; font-size: 16px; font-weight: 700; margin-top: 4px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid ${cssVar('--gray-200')}; padding: 10px; text-align: left; }
+            th { background: ${cssVar('--surface-1')}; font-size: 12px; text-transform: uppercase; color: ${cssVar('--text-secondary')}; }
+          </style>
+        </head>
+        <body>
+          <h1>Dargah Para OIkko Porishod - Finance Report</h1>
+          <p class="muted">${escapeHtml(range.from || '')} to ${escapeHtml(range.to || '')}</p>
+          <div class="stats">
+            <div class="stat"><span class="label">Income</span><span class="value">${escapeHtml(money(summary.totalIncome))}</span></div>
+            <div class="stat"><span class="label">Expense</span><span class="value">${escapeHtml(money(summary.totalExpense))}</span></div>
+            <div class="stat"><span class="label">Net Balance</span><span class="value">${escapeHtml(money(summary.netBalance))}</span></div>
+            <div class="stat"><span class="label">Collection Rate</span><span class="value">${escapeHtml(summary.collectionRate || 0)}%</span></div>
+          </div>
+          <h2>Monthly Report</h2>
+          <table>
+            <thead><tr><th>Month</th><th>Fees</th><th>Donations</th><th>Expenses</th><th>Balance</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <h2>Expense Breakdown</h2>
+          <table>
+            <thead><tr><th>Category</th><th>Amount</th></tr></thead>
+            <tbody>${categories || '<tr><td colspan="2">No expense data.</td></tr>'}</tbody>
+          </table>
+          <script>window.print();</script>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
 
   return (
     <div className="grid gap-6 xl:grid-cols-2">
+      <Panel className="xl:col-span-2">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <SectionTitle icon={ClipboardList} title="Finance Analytics" />
+          <div className="flex flex-wrap gap-2">
+            <Button icon={Download} onClick={exportReport} variant="secondary">
+              CSV
+            </Button>
+            <Button icon={FileDown} onClick={printReport} variant="secondary">
+              PDF
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <SelectField
+            label="Date Range"
+            name="financeRange"
+            onChange={(event) => onFilterChange('range', event.target.value)}
+            value={filter.range}
+          >
+            <option value="last_6_months">Last 6 months</option>
+            <option value="this_month">This month</option>
+            <option value="last_3_months">Last 3 months</option>
+            <option value="this_year">This year</option>
+            <option value="custom">Custom</option>
+          </SelectField>
+          <Field
+            disabled={filter.range !== 'custom'}
+            label="From"
+            name="financeFrom"
+            onChange={(event) => onFilterChange('from', event.target.value)}
+            type="date"
+            value={filter.from}
+          />
+          <Field
+            disabled={filter.range !== 'custom'}
+            label="To"
+            name="financeTo"
+            onChange={(event) => onFilterChange('to', event.target.value)}
+            type="date"
+            value={filter.to}
+          />
+          <div className="flex items-end">
+            <Button className="w-full" icon={RefreshCw} onClick={onLoad}>
+              Apply
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <SummaryStat label="Income" value={money(summary.totalIncome || 0)} />
+          <SummaryStat label="Expense" value={money(summary.totalExpense || 0)} />
+          <SummaryStat label="Net Balance" value={money(summary.netBalance || 0)} />
+          <SummaryStat label="Collection Rate" value={`${summary.collectionRate || 0}%`} />
+        </div>
+      </Panel>
+
       <Panel>
         <SectionTitle icon={ClipboardList} title="Income vs Expense" />
         <div className="mt-4 h-72">
@@ -1807,12 +2003,44 @@ function FinanceAnalytics({ analytics }) {
         </div>
       </Panel>
 
+      <Panel>
+        <SectionTitle icon={ClipboardList} title="Expense Breakdown" />
+        <div className="mt-4 h-72">
+          {expenseBreakdown.length === 0 ? (
+            <Empty text="No expense breakdown yet." />
+          ) : (
+            <ResponsiveContainer height="100%" minHeight={0} minWidth={0} width="100%">
+              <PieChart>
+                <Pie
+                  data={expenseBreakdown}
+                  dataKey="amount"
+                  innerRadius={58}
+                  nameKey="category"
+                  outerRadius={92}
+                  paddingAngle={2}
+                >
+                  {expenseBreakdown.map((item, index) => (
+                    <Cell fill={pieColors[index % pieColors.length]} key={item.category} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => money(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Panel>
+
       <Panel className="xl:col-span-2">
         <SectionTitle icon={ClipboardList} title="Current Month Overdue Fees" />
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <SummaryStat label="Overdue Members" value={analytics?.overdue?.count || 0} />
           <SummaryStat label="Expected Collection" value={money(analytics?.overdue?.amount || 0)} />
           <SummaryStat label="This Month Income" value={money(analytics?.summary?.thisMonthIncome || 0)} />
+          <SummaryStat
+            label="Paid This Month"
+            value={`${summary.paidThisMonth || 0}/${summary.totalMembers || 0}`}
+          />
         </div>
         <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
           {overdueMembers.length === 0 ? <Empty text="No overdue members this month." /> : null}

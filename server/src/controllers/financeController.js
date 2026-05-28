@@ -6,11 +6,8 @@ const Payment = require('../models/Payment')
 const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const { getSettings } = require('../services/settingsService')
-const {
-  getRecentMonthKeys,
-  monthKeyFromDate,
-  monthStartFromKey,
-} = require('../utils/monthUtils')
+const { monthKeyFromDate } = require('../utils/monthUtils')
+const { resolveFinanceDateRange } = require('../utils/financeRange')
 
 const createEmptyMonthRow = (month) => ({
   balance: 0,
@@ -22,10 +19,9 @@ const createEmptyMonthRow = (month) => ({
 })
 
 const getFinanceAnalytics = asyncHandler(async (req, res) => {
-  const months = getRecentMonthKeys(6)
+  const range = resolveFinanceDateRange(req.query)
+  const { currentMonth, endDate, months, startDate } = range
   const monthSet = new Set(months)
-  const firstMonthStart = monthStartFromKey(months[0])
-  const currentMonth = months[months.length - 1]
 
   const [
     donations,
@@ -38,9 +34,12 @@ const getFinanceAnalytics = asyncHandler(async (req, res) => {
   ] = await Promise.all([
     Donation.find({
       status: PAYMENT_STATUSES.VERIFIED,
-      $or: [{ verifiedAt: { $gte: firstMonthStart } }, { createdAt: { $gte: firstMonthStart } }],
+      $or: [
+        { verifiedAt: { $gte: startDate, $lte: endDate } },
+        { verifiedAt: null, createdAt: { $gte: startDate, $lte: endDate } },
+      ],
     }).select('amount verifiedAt createdAt status'),
-    Expense.find({ date: { $gte: firstMonthStart } }).select('amount category date'),
+    Expense.find({ date: { $gte: startDate, $lte: endDate } }).select('amount category date'),
     User.find({ role: USER_ROLES.MEMBER, status: USER_STATUSES.APPROVED }).select(
       'name phone address profilePhotoUrl',
     ),
@@ -94,6 +93,15 @@ const getFinanceAnalytics = asyncHandler(async (req, res) => {
     row.expense += Number(expense.amount || 0)
   })
 
+  const expenseBreakdown = Object.entries(
+    expenses.reduce((totals, expense) => {
+      const category = expense.category || 'Other'
+      totals[category] = (totals[category] || 0) + Number(expense.amount || 0)
+      return totals
+    }, {}),
+  )
+    .map(([category, amount]) => ({ amount, category }))
+    .sort((left, right) => right.amount - left.amount)
   const monthly = [...monthMap.values()].map((row) => ({
     ...row,
     balance: row.income - row.expense,
@@ -105,6 +113,14 @@ const getFinanceAnalytics = asyncHandler(async (req, res) => {
     (member) => !paidCurrentMemberIds.has(member._id.toString()),
   )
   const thisMonth = monthly[monthly.length - 1] || createEmptyMonthRow(currentMonth)
+  const totalPayments = monthly.reduce((sum, row) => sum + row.paymentIncome, 0)
+  const totalDonations = monthly.reduce((sum, row) => sum + row.donationIncome, 0)
+  const totalExpense = monthly.reduce((sum, row) => sum + row.expense, 0)
+  const totalIncome = totalPayments + totalDonations
+  const monthlyFee = Number(settings.monthlyFee || settings.monthlyFeeAmount / 100 || 0)
+  const collectionRate = members.length
+    ? Math.round((verifiedCurrentPayments.length / members.length) * 100)
+    : 0
 
   res.status(200).json({
     success: true,
@@ -115,18 +131,27 @@ const getFinanceAnalytics = asyncHandler(async (req, res) => {
         donations: row.donationIncome,
         month: row.month,
       })),
+      expenseBreakdown,
       monthly,
       overdue: {
-        amount: overdueMembers.length * Number(settings.monthlyFee || 0),
+        amount: overdueMembers.length * monthlyFee,
         count: overdueMembers.length,
         members: overdueMembers,
       },
+      range,
       summary: {
-        overdueFees: overdueMembers.length * Number(settings.monthlyFee || 0),
+        collectionRate,
+        netBalance: totalIncome - totalExpense,
+        overdueFees: overdueMembers.length * monthlyFee,
+        paidThisMonth: verifiedCurrentPayments.length,
         pendingApprovals: pendingApprovalCount,
         thisMonthExpense: thisMonth.expense,
         thisMonthIncome: thisMonth.income,
+        totalDonations,
+        totalExpense,
+        totalIncome,
         totalMembers: members.length,
+        totalPayments,
       },
     },
   })
