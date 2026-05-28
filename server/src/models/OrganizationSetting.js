@@ -160,7 +160,7 @@ const organizationSettingSchema = new mongoose.Schema(
       primaryColor: {
         type: String,
         trim: true,
-        default: '#4F46E5',
+        default: '#00ADB5',
       },
       colorMode: {
         type: String,

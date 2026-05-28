@@ -4,8 +4,8 @@
   "description": "Village organization management system",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F9FAFB",
-  "theme_color": "#4F46E5",
+  "background_color": "#EEEEEE",
+  "theme_color": "#00ADB5",
   "icons": [
     {
       "src": "/pwa-icon.svg",

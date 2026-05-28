@@ -5,49 +5,49 @@
   color-scheme: light;
   --app-font-size: 16px;
 
-  --brand-50: #EEF2FF;
-  --brand-100: #E0E7FF;
-  --brand-200: #C7D2FE;
-  --brand-300: #A5B4FC;
-  --brand-400: #818CF8;
-  --brand-500: #6366F1;
-  --brand-600: #4F46E5;
-  --brand-700: #4338CA;
-  --brand-800: #3730A3;
-  --brand-900: #312E81;
+  --brand-50: #E6FAFB;
+  --brand-100: #CCF5F7;
+  --brand-200: #99EBEF;
+  --brand-300: #66E0E7;
+  --brand-400: #33D6DF;
+  --brand-500: #00ADB5;
+  --brand-600: #00ADB5;
+  --brand-700: #008B91;
+  --brand-800: #393E46;
+  --brand-900: #222831;
 
-  --gray-50: #FAFAF9;
-  --gray-100: #F5F5F4;
-  --gray-200: #E7E5E4;
-  --gray-300: #D6D3D1;
-  --gray-400: #A8A29E;
-  --gray-500: #78716C;
-  --gray-600: #57534E;
-  --gray-700: #44403C;
-  --gray-800: #292524;
-  --gray-900: #1C1917;
+  --gray-50: #F8F9FA;
+  --gray-100: #EEEEEE;
+  --gray-200: #DDE2E4;
+  --gray-300: #C5CDD1;
+  --gray-400: #8D989F;
+  --gray-500: #6F7A82;
+  --gray-600: #535D65;
+  --gray-700: #393E46;
+  --gray-800: #2D333A;
+  --gray-900: #222831;
 
-  --success-light: #F0FDF4;
-  --success: #16A34A;
-  --success-dark: #14532D;
+  --success-light: #E6FAFB;
+  --success: #00ADB5;
+  --success-dark: #008B91;
   --warning-light: #FFFBEB;
   --warning: #D97706;
   --warning-dark: #78350F;
   --danger-light: #FFF1F2;
   --danger: #E11D48;
   --danger-dark: #881337;
-  --info-light: #EFF6FF;
-  --info: #2563EB;
-  --info-dark: #1E3A5F;
+  --info-light: #E6FAFB;
+  --info: #00ADB5;
+  --info-dark: #393E46;
 
   --surface-0: #FFFFFF;
-  --surface-1: #FAFAF9;
-  --surface-2: #F5F5F4;
-  --surface-3: #E7E5E4;
+  --surface-1: #EEEEEE;
+  --surface-2: #F8F9FA;
+  --surface-3: #DDE2E4;
 
-  --text-primary: #1C1917;
-  --text-secondary: #57534E;
-  --text-muted: #A8A29E;
+  --text-primary: #222831;
+  --text-secondary: #393E46;
+  --text-muted: #6F7A82;
   --text-inverted: #FFFFFF;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -55,7 +55,7 @@
   --shadow-md-token: 0 4px 6px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
   --shadow-lg-token: 0 10px 15px rgba(0, 0, 0, 0.07), 0 4px 6px rgba(0, 0, 0, 0.04);
   --shadow-xl-token: 0 20px 25px rgba(0, 0, 0, 0.08), 0 8px 10px rgba(0, 0, 0, 0.03);
-  --shadow-brand: 0 4px 14px rgba(99, 102, 241, 0.25);
+  --shadow-brand: 0 4px 14px rgba(0, 173, 181, 0.25);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -72,15 +72,15 @@
 
 [data-theme='dark'] {
   color-scheme: dark;
-  --surface-0: #1C1917;
-  --surface-1: #292524;
-  --surface-2: #292524;
-  --surface-3: #44403C;
-  --text-primary: #FAFAF9;
-  --text-secondary: #A8A29E;
-  --text-muted: #A8A29E;
-  --gray-200: #44403C;
-  --gray-300: #57534E;
+  --surface-0: #222831;
+  --surface-1: #1B2027;
+  --surface-2: #2D333A;
+  --surface-3: #393E46;
+  --text-primary: #EEEEEE;
+  --text-secondary: #C5CDD1;
+  --text-muted: #8D989F;
+  --gray-200: #393E46;
+  --gray-300: #535D65;
   --shadow-sm-token: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md-token: 0 4px 6px rgba(0, 0, 0, 0.3);
   --shadow-lg-token: 0 10px 15px rgba(0, 0, 0, 0.4);
@@ -393,13 +393,13 @@ img {
 
 @keyframes whatsapp-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.42);
+    box-shadow: 0 0 0 0 rgba(0, 173, 181, 0.42);
   }
   70% {
-    box-shadow: 0 0 0 18px rgba(22, 163, 74, 0);
+    box-shadow: 0 0 0 18px rgba(0, 173, 181, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+    box-shadow: 0 0 0 0 rgba(0, 173, 181, 0);
   }
 }
 

@@ -1084,7 +1084,7 @@ function BlogSection({ blogs, loading }) {
 function MembershipCta() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-indigo-950 to-violet-950 px-4 py-24 text-white sm:px-6" id="membership">
-      <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(135deg,rgba(99,102,241,0.25)_25%,transparent_25%,transparent_50%,rgba(99,102,241,0.25)_50%,rgba(99,102,241,0.25)_75%,transparent_75%,transparent)] bg-[length:42px_42px] opacity-40" />
+      <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(135deg,rgba(0,173,181,0.25)_25%,transparent_25%,transparent_50%,rgba(0,173,181,0.25)_50%,rgba(0,173,181,0.25)_75%,transparent_75%,transparent)] bg-[length:42px_42px] opacity-40" />
       <motion.div
         className="relative mx-auto max-w-4xl text-center"
         initial="hidden"
