@@ -13,7 +13,10 @@ const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
-const { createNotification } = require('../services/notificationService')
+const {
+  approvePendingRegistrations,
+  rejectPendingRegistrations,
+} = require('../services/registrationModerationService')
 const { getSettings } = require('../services/settingsService')
 const { getOnlineSnapshot } = require('../services/presenceService')
 const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
@@ -34,6 +37,8 @@ const safeAssign = (target, source = {}, allowedFields = []) => {
     }
   })
 }
+
+const getBodyUserIds = (body) => body.userIds || body.ids || body.memberIds
 
 const getControls = asyncHandler(async (req, res) => {
   const settings = await getSettings()
@@ -177,25 +182,9 @@ const updateControls = asyncHandler(async (req, res) => {
 })
 
 const bulkApprovePending = asyncHandler(async (req, res) => {
-  const result = await User.updateMany(
-    { status: USER_STATUSES.PENDING },
-    {
-      $set: {
-        approvedAt: new Date(),
-        approvedBy: req.user._id,
-        status: USER_STATUSES.APPROVED,
-        'registrationPayment.status': PAYMENT_STATUSES.VERIFIED,
-        'registrationPayment.verifiedAt': new Date(),
-        'registrationPayment.verifiedBy': req.user._id,
-      },
-    },
-  )
-
-  await recordAuditLog({
-    action: 'member.bulk.approve',
+  const result = await approvePendingRegistrations({
     actor: req.user,
-    entityType: 'User',
-    metadata: { modifiedCount: result.modifiedCount },
+    userIds: getBodyUserIds(req.body),
   })
 
   res.status(200).json({
@@ -207,43 +196,16 @@ const bulkApprovePending = asyncHandler(async (req, res) => {
 
 const bulkRejectPending = asyncHandler(async (req, res) => {
   const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : ''
-  const users = await User.find({ status: USER_STATUSES.PENDING })
-
-  await User.updateMany(
-    { status: USER_STATUSES.PENDING },
-    {
-      $set: {
-        rejectedAt: new Date(),
-        rejectedBy: req.user._id,
-        status: USER_STATUSES.REJECTED,
-        'registrationPayment.note': reason,
-        'registrationPayment.status': PAYMENT_STATUSES.REJECTED,
-      },
-    },
-  )
-  await Promise.all(
-    users.map((user) =>
-      createNotification({
-        createdBy: req.user,
-        link: '/',
-        message: reason || 'Your registration was rejected by admin.',
-        title: 'Registration rejected',
-        type: 'registration',
-        user,
-      }),
-    ),
-  )
-  await recordAuditLog({
-    action: 'member.bulk.reject',
+  const result = await rejectPendingRegistrations({
     actor: req.user,
-    entityType: 'User',
-    metadata: { count: users.length, reason },
+    reason,
+    userIds: getBodyUserIds(req.body),
   })
 
   res.status(200).json({
     success: true,
     message: 'Pending members rejected successfully.',
-    data: { modifiedCount: users.length },
+    data: { modifiedCount: result.modifiedCount },
   })
 })
 

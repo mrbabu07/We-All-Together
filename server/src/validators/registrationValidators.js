@@ -61,7 +61,7 @@ const validateRegistrationFee = (body) => ({
 })
 
 const validateRejectRegistration = (body) => ({
-  reason: readOptionalString(body, 'reason'),
+  reason: requireString(body, 'reason', 'Reject reason'),
 })
 
 module.exports = {

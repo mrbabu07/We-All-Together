@@ -1,6 +1,8 @@
 const express = require('express')
 const {
   approveRegistration,
+  bulkApproveRegistrations,
+  bulkRejectRegistrations,
   getPendingRegistrations,
   registerMember,
   rejectRegistration,
@@ -13,6 +15,8 @@ const router = express.Router()
 
 router.post('/', registerMember)
 router.get('/pending', protect, authorize(USER_ROLES.ADMIN), getPendingRegistrations)
+router.post('/bulk-approve', protect, authorize(USER_ROLES.ADMIN), bulkApproveRegistrations)
+router.post('/bulk-reject', protect, authorize(USER_ROLES.ADMIN), bulkRejectRegistrations)
 router.patch('/:id/approve', protect, authorize(USER_ROLES.ADMIN), approveRegistration)
 router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectRegistration)
 

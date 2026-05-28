@@ -909,17 +909,32 @@ export default function AdminDashboardPage() {
             })
           }
           onReject={(id) =>
-            requestConfirm({
-              action: () =>
-                runAction(
-                  () => api.patch(`/registrations/${id}/reject`),
-                  'Registration rejected.',
-                ),
-              confirmLabel: 'Reject',
-              message: 'This registration will be rejected and cannot access member features.',
-              title: 'Reject registration?',
-              variant: 'danger',
-            })
+            {
+              const reason = window.prompt('Reject reason')
+
+              if (reason === null) {
+                return
+              }
+
+              const trimmedReason = reason.trim()
+
+              if (!trimmedReason) {
+                setMessage('Reject reason is required.')
+                return
+              }
+
+              requestConfirm({
+                action: () =>
+                  runAction(
+                    () => api.patch(`/registrations/${id}/reject`, { reason: trimmedReason }),
+                    'Registration rejected.',
+                  ),
+                confirmLabel: 'Reject',
+                message: `This registration will be rejected. Reason: ${trimmedReason}`,
+                title: 'Reject registration?',
+                variant: 'danger',
+              })
+            }
           }
           onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
           onTabChange={changeTab}
@@ -1061,6 +1076,21 @@ function OverviewTab({
     ['মোট ব্যয়', money(stats.totalExpense)],
     ['নেট ব্যালেন্স', money(stats.balance)],
   ]
+  const [pendingFilter, setPendingFilter] = useState({ address: '', from: '', to: '' })
+  const filteredPendingRegistrations = useMemo(() => {
+    const fromTime = pendingFilter.from ? new Date(pendingFilter.from).setHours(0, 0, 0, 0) : null
+    const toTime = pendingFilter.to ? new Date(pendingFilter.to).setHours(23, 59, 59, 999) : null
+    const address = pendingFilter.address.trim().toLowerCase()
+
+    return data.pendingRegistrations.filter((item) => {
+      const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0
+      const matchesFrom = !fromTime || createdAt >= fromTime
+      const matchesTo = !toTime || createdAt <= toTime
+      const matchesAddress = !address || item.address?.toLowerCase().includes(address)
+
+      return matchesFrom && matchesTo && matchesAddress
+    })
+  }, [data.pendingRegistrations, pendingFilter])
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1095,7 +1125,35 @@ function OverviewTab({
         <Panel>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <SectionTitle icon={ClipboardList} title="সাম্প্রতিক নিবন্ধন" />
-            <Badge value="pending">{data.pendingRegistrations.length} pending</Badge>
+            <Badge value="pending">{filteredPendingRegistrations.length} pending</Badge>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <Field
+              label="From"
+              name="pendingFrom"
+              onChange={(event) =>
+                setPendingFilter((current) => ({ ...current, from: event.target.value }))
+              }
+              type="date"
+              value={pendingFilter.from}
+            />
+            <Field
+              label="To"
+              name="pendingTo"
+              onChange={(event) =>
+                setPendingFilter((current) => ({ ...current, to: event.target.value }))
+              }
+              type="date"
+              value={pendingFilter.to}
+            />
+            <Field
+              label="Area / address"
+              name="pendingAddress"
+              onChange={(event) =>
+                setPendingFilter((current) => ({ ...current, address: event.target.value }))
+              }
+              value={pendingFilter.address}
+            />
           </div>
           <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1112,14 +1170,14 @@ function OverviewTab({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {data.pendingRegistrations.length === 0 ? (
+                {filteredPendingRegistrations.length === 0 ? (
                   <tr>
                     <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
                       No pending registrations.
                     </td>
                   </tr>
                 ) : null}
-                {data.pendingRegistrations.slice(0, 6).map((item) => (
+                {filteredPendingRegistrations.slice(0, 6).map((item) => (
                   <tr className="transition hover:bg-gray-50" key={item._id}>
                     <td className="px-4 py-3">
                       <p className="font-semibold text-gray-900">{item.name}</p>

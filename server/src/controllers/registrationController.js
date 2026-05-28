@@ -4,12 +4,74 @@ const User = require('../models/User')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { getSettings } = require('../services/settingsService')
-const { recordAuditLog } = require('../services/auditService')
-const { createNotification } = require('../services/notificationService')
+const {
+  approvePendingRegistrations,
+  rejectPendingRegistrations,
+} = require('../services/registrationModerationService')
 const {
   validateRegistration,
   validateRejectRegistration,
 } = require('../validators/registrationValidators')
+
+const RE_REGISTRATION_WAIT_MS = 30 * 24 * 60 * 60 * 1000
+
+const getBodyUserIds = (body) => body.userIds || body.ids || body.memberIds
+
+const getReRegistrationDate = (user) =>
+  new Date((user.rejectedAt || user.updatedAt || user.createdAt).getTime() + RE_REGISTRATION_WAIT_MS)
+
+const assertCanUsePhoneForRegistration = async (payload) => {
+  const existingUser = await User.findOne({ phone: payload.phone }).select('+password')
+
+  if (!existingUser) {
+    return null
+  }
+
+  if (existingUser.status !== USER_STATUSES.REJECTED) {
+    throw new AppError('This phone number is already registered.', 409)
+  }
+
+  const nextRegistrationAt = getReRegistrationDate(existingUser)
+
+  if (nextRegistrationAt > new Date()) {
+    throw new AppError(
+      `This phone number can re-register after ${nextRegistrationAt.toISOString().slice(0, 10)}.`,
+      409,
+    )
+  }
+
+  return existingUser
+}
+
+const buildRegistrationFields = ({ payload, registrationFee }) => ({
+  address: payload.address,
+  name: payload.name,
+  password: payload.password,
+  role: USER_ROLES.MEMBER,
+  status: USER_STATUSES.PENDING,
+  approvedAt: null,
+  approvedBy: null,
+  rejectedAt: null,
+  rejectedBy: null,
+  softDeletedAt: null,
+  suspendedAt: null,
+  suspendedBy: null,
+  suspensionReason: '',
+  deleteRequestedAt: null,
+  deleteRequestReason: '',
+  registrationPayment: {
+    amount: registrationFee,
+    method: payload.payment.method,
+    transactionId: payload.payment.transactionId,
+    senderPhone: payload.payment.senderPhone,
+    note: payload.payment.note,
+    proofImageUrl: payload.payment.proofImageUrl,
+    status: PAYMENT_STATUSES.PENDING,
+    paidAt: new Date(),
+    verifiedAt: null,
+    verifiedBy: null,
+  },
+})
 
 const registerMember = asyncHandler(async (req, res) => {
   const payload = validateRegistration(req.body)
@@ -19,24 +81,15 @@ const registerMember = asyncHandler(async (req, res) => {
     throw new AppError('New registrations are currently disabled.', 403)
   }
 
-  const user = await User.create({
-    name: payload.name,
-    phone: payload.phone,
-    address: payload.address,
-    password: payload.password,
-    role: USER_ROLES.MEMBER,
-    status: USER_STATUSES.PENDING,
-    registrationPayment: {
-      amount: settings.registrationFee,
-      method: payload.payment.method,
-      transactionId: payload.payment.transactionId,
-      senderPhone: payload.payment.senderPhone,
-      note: payload.payment.note,
-      proofImageUrl: payload.payment.proofImageUrl,
-      status: PAYMENT_STATUSES.PENDING,
-      paidAt: new Date(),
-    },
+  const reusableRejectedUser = await assertCanUsePhoneForRegistration(payload)
+  const registrationFields = buildRegistrationFields({
+    payload,
+    registrationFee: settings.registrationFee,
   })
+  const user = reusableRejectedUser || new User({ phone: payload.phone })
+
+  Object.assign(user, registrationFields)
+  await user.save()
 
   res.status(201).json({
     success: true,
@@ -48,7 +101,31 @@ const registerMember = asyncHandler(async (req, res) => {
 })
 
 const getPendingRegistrations = asyncHandler(async (req, res) => {
-  const users = await User.find({ status: USER_STATUSES.PENDING }).sort({
+  const filter = { status: USER_STATUSES.PENDING }
+  const createdAt = {}
+  const from = req.query.from || req.query.dateFrom
+  const to = req.query.to || req.query.dateTo
+  const address = req.query.address || req.query.area
+
+  if (from) {
+    createdAt.$gte = new Date(from)
+  }
+
+  if (to) {
+    const end = new Date(to)
+    end.setHours(23, 59, 59, 999)
+    createdAt.$lte = end
+  }
+
+  if (Object.keys(createdAt).length) {
+    filter.createdAt = createdAt
+  }
+
+  if (typeof address === 'string' && address.trim()) {
+    filter.address = { $regex: address.trim(), $options: 'i' }
+  }
+
+  const users = await User.find(filter).sort({
     createdAt: -1,
   })
 
@@ -62,41 +139,11 @@ const getPendingRegistrations = asyncHandler(async (req, res) => {
 })
 
 const approveRegistration = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id)
-
-  if (!user) {
-    throw new AppError('Registration not found.', 404)
-  }
-
-  if (user.status !== USER_STATUSES.PENDING) {
-    throw new AppError('Only pending registrations can be approved.', 400)
-  }
-
-  user.status = USER_STATUSES.APPROVED
-  user.approvedAt = new Date()
-  user.approvedBy = req.user._id
-  user.registrationPayment.status = PAYMENT_STATUSES.VERIFIED
-  user.registrationPayment.verifiedAt = new Date()
-  user.registrationPayment.verifiedBy = req.user._id
-  await user.save()
-  await createNotification({
-    createdBy: req.user,
-    link: '/member',
-    message: 'Your registration has been approved. You can now access member features.',
-    title: 'Registration approved',
-    type: 'registration',
-    user,
-  })
-  await recordAuditLog({
-    action: 'registration.approve',
+  const result = await approvePendingRegistrations({
     actor: req.user,
-    entityId: user._id,
-    entityType: 'User',
-    metadata: {
-      phone: user.phone,
-      registrationFee: user.registrationPayment.amount,
-    },
+    userIds: [req.params.id],
   })
+  const user = result.users[0]
 
   res.status(200).json({
     success: true,
@@ -109,33 +156,12 @@ const approveRegistration = asyncHandler(async (req, res) => {
 
 const rejectRegistration = asyncHandler(async (req, res) => {
   const payload = validateRejectRegistration(req.body)
-
-  const user = await User.findById(req.params.id)
-
-  if (!user) {
-    throw new AppError('Registration not found.', 404)
-  }
-
-  if (user.status !== USER_STATUSES.PENDING) {
-    throw new AppError('Only pending registrations can be rejected.', 400)
-  }
-
-  user.status = USER_STATUSES.REJECTED
-  user.rejectedAt = new Date()
-  user.rejectedBy = req.user._id
-  user.registrationPayment.status = PAYMENT_STATUSES.REJECTED
-  user.registrationPayment.note = payload.reason || user.registrationPayment.note
-  await user.save()
-  await recordAuditLog({
-    action: 'registration.reject',
+  const result = await rejectPendingRegistrations({
     actor: req.user,
-    entityId: user._id,
-    entityType: 'User',
-    metadata: {
-      phone: user.phone,
-      reason: payload.reason || '',
-    },
+    reason: payload.reason,
+    userIds: [req.params.id],
   })
+  const user = result.users[0]
 
   res.status(200).json({
     success: true,
@@ -146,8 +172,44 @@ const rejectRegistration = asyncHandler(async (req, res) => {
   })
 })
 
+const bulkApproveRegistrations = asyncHandler(async (req, res) => {
+  const result = await approvePendingRegistrations({
+    actor: req.user,
+    userIds: getBodyUserIds(req.body),
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Pending registrations approved successfully.',
+    data: {
+      modifiedCount: result.modifiedCount,
+      users: result.users,
+    },
+  })
+})
+
+const bulkRejectRegistrations = asyncHandler(async (req, res) => {
+  const payload = validateRejectRegistration(req.body)
+  const result = await rejectPendingRegistrations({
+    actor: req.user,
+    reason: payload.reason,
+    userIds: getBodyUserIds(req.body),
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Pending registrations rejected successfully.',
+    data: {
+      modifiedCount: result.modifiedCount,
+      users: result.users,
+    },
+  })
+})
+
 module.exports = {
   approveRegistration,
+  bulkApproveRegistrations,
+  bulkRejectRegistrations,
   getPendingRegistrations,
   registerMember,
   rejectRegistration,

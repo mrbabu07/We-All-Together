@@ -616,22 +616,22 @@ export default function AdminControlsPage() {
             const response = await api.get(`/members/${user._id}/activity`)
             setActivityUser({ ...user, activity: response.data.data })
           }}
-          onBulkApprove={() =>
+          onBulkApprove={(userIds) =>
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.post('/admin-controls/members/bulk-approve'),
+                  () => api.post('/admin-controls/members/bulk-approve', { userIds }),
                   'সব pending সদস্য approve হয়েছে',
                 ),
               message: 'সব pending আবেদন approve করতে চান?',
               title: 'Bulk approve',
             })
           }
-          onBulkReject={(reason) =>
+          onBulkReject={(reason, userIds) =>
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.post('/admin-controls/members/bulk-reject', { reason }),
+                  () => api.post('/admin-controls/members/bulk-reject', { reason, userIds }),
                   'সব pending সদস্য reject হয়েছে',
                 ),
               message: 'সব pending আবেদন reject করতে চান?',
@@ -1288,14 +1288,45 @@ function MemberControlsTab({
   setPasswordReset,
 }) {
   const [rejectReason, setRejectReason] = useState('')
+  const [selectedPendingIds, setSelectedPendingIds] = useState([])
+  const visiblePendingMembers = useMemo(
+    () => filteredMembers.filter((user) => user.status === 'pending'),
+    [filteredMembers],
+  )
+  const visiblePendingIds = useMemo(
+    () => new Set(visiblePendingMembers.map((user) => user._id)),
+    [visiblePendingMembers],
+  )
+  const selectedVisiblePendingIds = selectedPendingIds.filter((id) => visiblePendingIds.has(id))
+
+  const togglePendingSelection = (userId) => {
+    setSelectedPendingIds((current) =>
+      current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId],
+    )
+  }
+
+  const selectVisiblePending = () => {
+    setSelectedPendingIds(visiblePendingMembers.map((user) => user._id))
+  }
 
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
         <SectionTitle icon={UserCog} title="সদস্য নিয়ন্ত্রণ" />
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button icon={CheckCircle2} onClick={onBulkApprove}>
-            Bulk approve pending
+          <Button
+            disabled={!visiblePendingMembers.length}
+            onClick={selectVisiblePending}
+            variant="secondary"
+          >
+            Select visible pending
+          </Button>
+          <Button
+            disabled={!selectedVisiblePendingIds.length}
+            icon={CheckCircle2}
+            onClick={() => onBulkApprove(selectedVisiblePendingIds)}
+          >
+            Bulk approve ({selectedVisiblePendingIds.length})
           </Button>
           <Field
             className="min-w-72"
@@ -1304,8 +1335,13 @@ function MemberControlsTab({
             onChange={(event) => setRejectReason(event.target.value)}
             value={rejectReason}
           />
-          <Button icon={XCircle} onClick={() => onBulkReject(rejectReason)} variant="danger">
-            Bulk reject
+          <Button
+            disabled={!selectedVisiblePendingIds.length || !rejectReason.trim()}
+            icon={XCircle}
+            onClick={() => onBulkReject(rejectReason, selectedVisiblePendingIds)}
+            variant="danger"
+          >
+            Bulk reject ({selectedVisiblePendingIds.length})
           </Button>
           <Button icon={Download} onClick={onExportCsv} variant="secondary">
             CSV export
@@ -1406,6 +1442,15 @@ function MemberControlsTab({
           {filteredMembers.map((user) => (
             <div className="grid gap-3 rounded-xl border border-gray-200 p-4 lg:grid-cols-[1fr_auto]" key={user._id}>
               <div className="flex gap-3">
+                {user.status === 'pending' ? (
+                  <input
+                    aria-label={`Select ${user.name}`}
+                    checked={selectedPendingIds.includes(user._id)}
+                    className="mt-3 h-5 w-5 accent-indigo-600"
+                    onChange={() => togglePendingSelection(user._id)}
+                    type="checkbox"
+                  />
+                ) : null}
                 <Avatar name={user.name} src={user.profilePhotoUrl} />
                 <div>
                   <div className="flex flex-wrap items-center gap-2">

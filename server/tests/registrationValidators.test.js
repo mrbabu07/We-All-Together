@@ -3,6 +3,7 @@ const assert = require('node:assert/strict')
 const {
   validateRegistration,
   validateRegistrationFee,
+  validateRejectRegistration,
 } = require('../src/validators/registrationValidators')
 
 test('validateRegistration accepts complete registration payload', () => {
@@ -39,5 +40,13 @@ test('validateRegistration rejects short passwords', () => {
 test('validateRegistrationFee accepts zero or positive amounts', () => {
   assert.deepEqual(validateRegistrationFee({ registrationFee: 500 }), {
     registrationFee: 500,
+  })
+})
+
+test('validateRejectRegistration requires a rejection reason', () => {
+  assert.throws(() => validateRejectRegistration({ reason: '' }), /Reject reason is required/)
+
+  assert.deepEqual(validateRejectRegistration({ reason: 'Missing document' }), {
+    reason: 'Missing document',
   })
 })
