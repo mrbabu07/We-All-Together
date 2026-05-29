@@ -310,10 +310,16 @@ const validateActivity = (body) => ({
 
 const validateRule = (body) => ({
   title: requireString(body, 'title', 'Title'),
+  changeNote: optionalString(body, 'changeNote'),
   description: requireString(body, 'description', 'Description'),
   audience: readAudience(body, AUDIENCES.MEMBERS),
   imageUrl: optionalString(body, 'imageUrl'),
   order: readNumber(body, 'order', 'Order'),
+  richDescription: optionalString(body, 'richDescription'),
+})
+
+const validateRuleRestore = (body) => ({
+  changeNote: optionalString(body, 'changeNote') || 'Restored previous version',
 })
 
 module.exports = {
@@ -325,6 +331,7 @@ module.exports = {
   validateMeetingRecap,
   validateNotice,
   validateRule,
+  validateRuleRestore,
   validateRsvp,
   validateTour,
   validateTourExpense,

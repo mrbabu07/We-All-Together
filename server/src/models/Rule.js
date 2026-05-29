@@ -15,6 +15,11 @@ const ruleSchema = new mongoose.Schema(
       trim: true,
       maxlength: [2400, 'Rule description cannot exceed 2400 characters.'],
     },
+    richDescription: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     audience: {
       type: String,
       enum: Object.values(AUDIENCES),
@@ -38,7 +43,36 @@ const ruleSchema = new mongoose.Schema(
     },
     versionHistory: [
       {
+        title: {
+          type: String,
+          trim: true,
+          default: '',
+        },
         description: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        richDescription: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        audience: {
+          type: String,
+          enum: Object.values(AUDIENCES),
+          default: AUDIENCES.MEMBERS,
+        },
+        imageUrl: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        order: {
+          type: Number,
+          default: 0,
+        },
+        changeNote: {
           type: String,
           trim: true,
           default: '',

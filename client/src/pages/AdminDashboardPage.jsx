@@ -143,7 +143,15 @@ const emptyContentForms = {
     imageUrl: '',
     status: 'planned',
   },
-  rules: { title: '', description: '', audience: 'members', imageUrl: '', order: '' },
+  rules: {
+    title: '',
+    changeNote: '',
+    description: '',
+    audience: 'members',
+    imageUrl: '',
+    order: '',
+    richDescription: '',
+  },
 }
 
 const contentConfigs = [
@@ -213,10 +221,12 @@ const getContentEditForm = (key, item) => {
 
   return {
     title: item.title || '',
+    changeNote: '',
     description: item.description || '',
     audience: item.audience || 'members',
     imageUrl: item.imageUrl || '',
     order: item.order || '',
+    richDescription: item.richDescription || '',
   }
 }
 
@@ -849,6 +859,13 @@ export default function AdminDashboardPage() {
     )
   }
 
+  const restoreRuleVersion = async (id, version, changeNote = '') => {
+    await runAction(
+      () => api.post(`/rules/${id}/restore/${version}`, { changeNote }),
+      'Rule version restored successfully.',
+    )
+  }
+
   const deleteContent = async (config, id) => {
     requestConfirm({
       action: () =>
@@ -1399,6 +1416,7 @@ export default function AdminDashboardPage() {
           }
           onPollCreate={createPoll}
           onPublishMeetingRecap={publishMeetingRecap}
+          onRestoreRuleVersion={restoreRuleVersion}
           onAddTourExpense={addTourExpense}
           onCompleteTour={completeTour}
           onDeleteTourExpense={deleteTourExpense}
@@ -3056,6 +3074,7 @@ function ContentTab({
   onImageUpload,
   onPollChange,
   onPollCreate,
+  onRestoreRuleVersion,
   onAddTourExpense,
   onCompleteTour,
   onDeleteTourExpense,
@@ -3145,6 +3164,9 @@ function ContentTab({
                   ) : null}
                   {config.key === 'tours' ? (
                     <TourMeta item={item} />
+                  ) : null}
+                  {config.key === 'rules' ? (
+                    <RuleMeta item={item} onRestore={onRestoreRuleVersion} />
                   ) : null}
                   {['meetings', 'tours'].includes(config.key) ? (
                     <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
@@ -3716,6 +3738,73 @@ function TourMeta({ item }) {
       <span>Per head: {money(summary.perHeadCost)}</span>
       <span>Feedback: {item.feedback?.length || 0}</span>
       {item.albumCreated ? <span>Album: {item.galleryAlbum || item.title}</span> : null}
+    </div>
+  )
+}
+
+function RuleMeta({ item, onRestore }) {
+  const [restoreNotes, setRestoreNotes] = useState({})
+  const history = [...(item.versionHistory || [])].sort(
+    (left, right) => Number(right.version || 0) - Number(left.version || 0),
+  )
+
+  return (
+    <div className="mt-3 grid gap-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-500">
+        <span>Version: {item.version || 1}</span>
+        <span>History: {history.length}</span>
+        <span>Order: {item.order || 0}</span>
+        <span>Visibility: {item.audience || 'members'}</span>
+      </div>
+      {item.richDescription ? (
+        <div
+          className="rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600"
+          dangerouslySetInnerHTML={{ __html: item.richDescription }}
+        />
+      ) : null}
+      {history.length ? (
+        <div className="grid gap-2 rounded-md bg-gray-50 p-3">
+          <p className="text-xs font-semibold uppercase text-gray-500">Version History</p>
+          {history.slice(0, 5).map((entry) => (
+            <div className="grid gap-2 rounded-md bg-white p-3" key={`${item._id}-${entry.version}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-950">
+                    v{entry.version} | {entry.title || item.title}
+                  </p>
+                  <p className="text-xs font-semibold uppercase text-gray-500">
+                    {toReadableDate(entry.changedAt)} | {entry.changedBy?.name || 'Admin'}
+                  </p>
+                </div>
+                <Badge value={entry.audience}>{entry.audience}</Badge>
+              </div>
+              <p className="text-sm text-gray-600">{entry.changeNote || 'No change note'}</p>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Field
+                  label="Restore Note"
+                  name={`restore-note-${entry.version}-${item._id}`}
+                  onChange={(event) =>
+                    setRestoreNotes((current) => ({
+                      ...current,
+                      [entry.version]: event.target.value,
+                    }))
+                  }
+                  value={restoreNotes[entry.version] || ''}
+                />
+                <div className="flex items-end">
+                  <Button
+                    onClick={() => onRestore(item._id, entry.version, restoreNotes[entry.version] || '')}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    Restore v{entry.version}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -5256,6 +5345,7 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
     <>
       <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
       <Field label="Order" name="order" onChange={(e) => onChange(key, 'order', e.target.value)} type="number" value={form.order} />
+      <Field label="Change Note" name="changeNote" onChange={(e) => onChange(key, 'changeNote', e.target.value)} placeholder="What changed?" value={form.changeNote} />
       <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
         <option value="public">Public</option>
         <option value="members">Members</option>
@@ -5268,6 +5358,7 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
         uploading={uploading}
       />
       <Field className="md:col-span-2" label="Description" name="description" onChange={(e) => onChange(key, 'description', e.target.value)} required textarea value={form.description} />
+      <Field className="md:col-span-2" label="Rich Description" name="richDescription" onChange={(e) => onChange(key, 'richDescription', e.target.value)} textarea value={form.richDescription} />
     </>
   )
 }

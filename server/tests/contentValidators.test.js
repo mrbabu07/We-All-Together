@@ -7,6 +7,8 @@ const {
   validateMeeting,
   validateMeetingRecap,
   validateNotice,
+  validateRule,
+  validateRuleRestore,
   validateRsvp,
   validateTour,
   validateTourExpense,
@@ -170,4 +172,25 @@ test('validateRsvp accepts going maybe and not going statuses', () => {
   assert.equal(validateRsvp({ status: 'going' }).status, 'going')
   assert.equal(validateRsvp({ status: 'maybe' }).status, 'maybe')
   assert.equal(validateRsvp({ status: 'not_going' }).status, 'not_going')
+})
+
+test('validateRule accepts rich text and change note', () => {
+  const payload = validateRule({
+    audience: 'public',
+    changeNote: 'Updated wording',
+    description: 'Plain rule',
+    richDescription: '<p>Plain rule</p>',
+    title: 'Constitution rule',
+  })
+
+  assert.equal(payload.audience, 'public')
+  assert.equal(payload.changeNote, 'Updated wording')
+  assert.equal(payload.richDescription, '<p>Plain rule</p>')
+})
+
+test('validateRuleRestore defaults change note', () => {
+  assert.equal(
+    validateRuleRestore({}).changeNote,
+    'Restored previous version',
+  )
 })
