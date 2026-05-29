@@ -197,6 +197,45 @@ const defaultAnnouncementForm = {
   userIds: [],
 }
 
+const stripHtml = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+
+const announcementSchema = z
+  .object({
+    channel: z.enum(['in_app', 'sms', 'whatsapp', 'both'], {
+      message: 'Channel is required.',
+    }),
+    link: z.string().trim().optional(),
+    message: z.string().trim().min(1, 'Message is required.'),
+    recipientMode: z.enum(['all', 'active', 'overdue', 'specific', 'member', 'moderator', 'admin'], {
+      message: 'Recipients are required.',
+    }),
+    scheduledFor: z.string().trim().optional(),
+    title: z.string().trim().min(1, 'Title is required.'),
+    type: z.string().trim().min(1, 'Type is required.'),
+    userIds: z.array(z.string()).default([]),
+  })
+  .superRefine((values, context) => {
+    if (!stripHtml(values.message)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Message is required.',
+        path: ['message'],
+      })
+    }
+
+    if (values.recipientMode === 'specific' && values.userIds.length === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Select at least one member.',
+        path: ['userIds'],
+      })
+    }
+  })
+
 const tabs = [
   { icon: ShieldCheck, key: 'site', label: 'সাইট সেটিংস' },
   { icon: Home, key: 'homepage', label: 'হোমপেজ নিয়ন্ত্রণ' },
@@ -289,7 +328,18 @@ export default function AdminControlsPage() {
   })
   const [activityUser, setActivityUser] = useState(null)
   const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
-  const [announcementForm, setAnnouncementForm] = useState(defaultAnnouncementForm)
+  const {
+    control: announcementControl,
+    formState: { errors: announcementErrors, isSubmitting: isSendingAnnouncement },
+    handleSubmit: handleAnnouncementSubmit,
+    register: registerAnnouncement,
+    reset: resetAnnouncement,
+    setValue: setAnnouncementValue,
+  } = useForm({
+    defaultValues: defaultAnnouncementForm,
+    resolver: zodResolver(announcementSchema),
+  })
+  const announcementForm = useWatch({ control: announcementControl }) || defaultAnnouncementForm
 
   const loadControls = useCallback(async () => {
     setLoading(true)
@@ -854,24 +904,24 @@ export default function AdminControlsPage() {
       {activeTab === 'notifications' ? (
         <NotificationControlsTab
           announcementForm={announcementForm}
+          announcementErrors={announcementErrors}
+          announcementSubmitting={isSendingAnnouncement}
           form={settingsForm}
           notifications={controls.notifications}
-          onAnnouncement={(event) => {
-            event.preventDefault()
+          onAnnouncement={handleAnnouncementSubmit((values) =>
             runAction(
               async () => {
-                await api.post('/notifications/send', announcementForm)
-                setAnnouncementForm(defaultAnnouncementForm)
+                await api.post('/notifications/send', values)
+                resetAnnouncement(defaultAnnouncementForm)
               },
               'Announcement processed',
             )
-          }}
-          onAnnouncementChange={(field, value) =>
-            setAnnouncementForm((current) => ({ ...current, [field]: value }))
-          }
+          )}
           onChange={updateSettingsField}
+          registerAnnouncement={registerAnnouncement}
           onSave={saveSettings}
           saving={saving}
+          setAnnouncementValue={setAnnouncementValue}
           smsBalance={controls.smsBalance}
           users={approvedMembers}
         />
@@ -2143,13 +2193,16 @@ function ContentControlsTab({
 
 function NotificationControlsTab({
   announcementForm,
+  announcementErrors,
+  announcementSubmitting,
   form,
   notifications,
   onAnnouncement,
-  onAnnouncementChange,
   onChange,
+  registerAnnouncement,
   onSave,
   saving,
+  setAnnouncementValue,
   smsBalance,
   users,
 }) {
@@ -2203,17 +2256,15 @@ function NotificationControlsTab({
         <SectionTitle icon={Bell} title="Custom announcement" />
         <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onAnnouncement}>
           <Field
+            error={announcementErrors.title?.message}
             label="Title"
-            name="announcementTitle"
-            onChange={(event) => onAnnouncementChange('title', event.target.value)}
             required
-            value={announcementForm.title}
+            {...registerAnnouncement('title')}
           />
           <SelectField
+            error={announcementErrors.recipientMode?.message}
             label="Recipients"
-            name="announcementRecipientMode"
-            onChange={(event) => onAnnouncementChange('recipientMode', event.target.value)}
-            value={announcementForm.recipientMode}
+            {...registerAnnouncement('recipientMode')}
           >
             <option value="all">All active users</option>
             <option value="active">Active members</option>
@@ -2224,10 +2275,9 @@ function NotificationControlsTab({
             <option value="admin">Admins</option>
           </SelectField>
           <SelectField
+            error={announcementErrors.channel?.message}
             label="Channel"
-            name="announcementChannel"
-            onChange={(event) => onAnnouncementChange('channel', event.target.value)}
-            value={announcementForm.channel}
+            {...registerAnnouncement('channel')}
           >
             <option value="in_app">In-app only</option>
             <option value="sms">SMS</option>
@@ -2236,21 +2286,21 @@ function NotificationControlsTab({
           </SelectField>
           <Field
             label="Schedule for later"
-            name="scheduledFor"
-            onChange={(event) => onAnnouncementChange('scheduledFor', event.target.value)}
             type="datetime-local"
-            value={announcementForm.scheduledFor || ''}
+            {...registerAnnouncement('scheduledFor')}
           />
           {announcementForm.recipientMode === 'specific' ? (
             <SelectField
               className="md:col-span-2"
+              error={announcementErrors.userIds?.message}
               label="Specific members"
               multiple
               name="announcementUserIds"
               onChange={(event) =>
-                onAnnouncementChange(
+                setAnnouncementValue(
                   'userIds',
                   Array.from(event.target.selectedOptions, (option) => option.value),
+                  { shouldDirty: true, shouldValidate: true },
                 )
               }
               value={selectedUserIds}
@@ -2265,11 +2315,21 @@ function NotificationControlsTab({
           <div className="md:col-span-2">
             <RichTextEditor
               label="Message"
-              onChange={(value) => onAnnouncementChange('message', value)}
+              onChange={(value) =>
+                setAnnouncementValue('message', value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
               value={announcementForm.message}
             />
+            {announcementErrors.message?.message ? (
+              <p className="mt-1 text-xs font-medium text-[var(--danger)]">
+                {announcementErrors.message.message}
+              </p>
+            ) : null}
           </div>
-          <Button className="md:col-span-2" icon={Bell} type="submit">
+          <Button className="md:col-span-2" icon={Bell} loading={announcementSubmitting} type="submit">
             {announcementForm.scheduledFor ? 'Schedule announcement' : 'Send now'}
           </Button>
         </form>
