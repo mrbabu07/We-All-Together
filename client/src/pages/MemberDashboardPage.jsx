@@ -6,12 +6,14 @@ import Lightbox from 'yet-another-react-lightbox'
 import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
+import { FacebookShareButton, WhatsappShareButton } from 'react-share'
 import { z } from 'zod'
 import {
   AlertTriangle,
   Bell,
   BookOpen,
   CalendarDays,
+  Copy,
   CreditCard,
   Download,
   FileText,
@@ -21,6 +23,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  Share2,
   Trash2,
   Upload,
   Users,
@@ -147,6 +150,10 @@ const plainText = (value = '') =>
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
+const getNoticeShareUrl = (notice) =>
+  `${window.location.origin}/notices/${notice?._id || ''}`
+
 const monthLabel = ({ label, month, year }) =>
   label || `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
 
@@ -2387,9 +2394,14 @@ function NoticeActions({
   onReact,
   user,
 }) {
+  const [shareMessage, setShareMessage] = useState('')
   const myId = String(user?._id || '')
   const read = (item.readReceipts || []).some((row) => String(row.user?._id || row.user) === myId)
   const myReaction = (item.reactions || []).find((row) => String(row.user?._id || row.user) === myId)
+  const shareTitle = item.title || 'Notice'
+  const shareUrl = getNoticeShareUrl(item)
+  const shareButtonClass =
+    'inline-flex min-h-8 shrink-0 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100'
   const reactions = (item.reactions || []).reduce(
     (summary, row) => ({
       ...summary,
@@ -2397,6 +2409,14 @@ function NoticeActions({
     }),
     { like: 0, love: 0 },
   )
+  const handleCopyShareLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShareMessage('Link copied.')
+    } catch {
+      setShareMessage('Unable to copy link.')
+    }
+  }
 
   return (
     <div className="mt-4 rounded-md bg-gray-50 p-3">
@@ -2421,6 +2441,31 @@ function NoticeActions({
         <span className="text-xs font-semibold uppercase text-gray-500">
           Reads {item.readReceipts?.length || 0}
         </span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button icon={Copy} onClick={handleCopyShareLink} size="sm" variant="secondary">
+          Copy link
+        </Button>
+        <WhatsappShareButton
+          aria-label={`Share ${shareTitle} on WhatsApp`}
+          className={shareButtonClass}
+          title={shareTitle}
+          url={shareUrl}
+        >
+          <MessageCircle aria-hidden="true" className="h-3.5 w-3.5" />
+          WhatsApp
+        </WhatsappShareButton>
+        <FacebookShareButton
+          aria-label={`Share ${shareTitle} on Facebook`}
+          className={shareButtonClass}
+          url={shareUrl}
+        >
+          <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
+          Facebook
+        </FacebookShareButton>
+        {shareMessage ? (
+          <span className="text-xs font-semibold text-gray-500">{shareMessage}</span>
+        ) : null}
       </div>
       <div className="mt-3 grid gap-2">
         {(item.comments || []).slice(-3).map((comment) => (
