@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Download, IdCard, KeyRound, Save, Trash2, Upload } from 'lucide-react'
+import QRCode from 'qrcode'
 import { useForm, useWatch } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
@@ -168,10 +169,26 @@ const escapeHtml = (value = '') =>
 const cssVar = (name) =>
   window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
+const loadCanvasImage = (src) =>
+  new Promise((resolve) => {
+    if (!src) {
+      resolve(null)
+      return
+    }
+
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => resolve(image)
+    image.onerror = () => resolve(null)
+    image.src = src
+  })
+
 export default function AccountPage() {
   const { refreshProfile, user } = useAuth()
   const canvasRef = useRef(null)
   const [activity, setActivity] = useState(null)
+  const [idCardQrUrl, setIdCardQrUrl] = useState('')
+  const [isGeneratingIdCard, setIsGeneratingIdCard] = useState(false)
   const [message, setMessage] = useState('')
   const [uploadingField, setUploadingField] = useState('')
   const {
@@ -204,6 +221,7 @@ export default function AccountPage() {
     defaultValues: defaultDeleteForm,
     resolver: zodResolver(deleteRequestSchema),
   })
+  const verificationUrl = user?._id ? `${window.location.origin}/member/verify/${user._id}` : ''
 
   useEffect(() => {
     if (user) {
@@ -229,6 +247,43 @@ export default function AccountPage() {
 
     loadActivity()
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const generateQr = async () => {
+      if (!verificationUrl) {
+        setIdCardQrUrl('')
+        return
+      }
+
+      try {
+        const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
+          color: {
+            dark: '#222831',
+            light: '#FFFFFF',
+          },
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 240,
+        })
+
+        if (!cancelled) {
+          setIdCardQrUrl(qrDataUrl)
+        }
+      } catch {
+        if (!cancelled) {
+          setIdCardQrUrl('')
+        }
+      }
+    }
+
+    generateQr()
+
+    return () => {
+      cancelled = true
+    }
+  }, [verificationUrl])
 
   const saveProfile = async (values) => {
     setMessage('')
@@ -337,31 +392,6 @@ export default function AccountPage() {
     }
   }
 
-  const drawQrLikePattern = (context, text, x, y, size) => {
-    const cells = 21
-    const cellSize = size / cells
-    let seed = 0
-
-    for (let index = 0; index < text.length; index += 1) {
-      seed += text.charCodeAt(index) * (index + 1)
-    }
-
-    context.fillStyle = cssVar('--text-primary')
-    for (let row = 0; row < cells; row += 1) {
-      for (let col = 0; col < cells; col += 1) {
-        const finder =
-          (row < 7 && col < 7) ||
-          (row < 7 && col > cells - 8) ||
-          (row > cells - 8 && col < 7)
-        const value = (row * 31 + col * 17 + seed) % 5
-
-        if (finder || value === 0 || value === 3) {
-          context.fillRect(x + col * cellSize, y + row * cellSize, cellSize - 1, cellSize - 1)
-        }
-      }
-    }
-  }
-
   const emergencyContact = profileForm.emergencyContact || defaultProfileForm.emergencyContact
   const notificationPreferences = profileForm.notificationPreferences || defaultPreferences
   const completionItems = [
@@ -376,52 +406,108 @@ export default function AccountPage() {
   const profileCompletion = Math.round(
     (completionItems.filter(Boolean).length / completionItems.length) * 100,
   )
-  const verificationUrl = user?._id ? `${window.location.origin}/member/verify/${user._id}` : ''
 
-  const downloadIdCard = () => {
+  const downloadIdCard = async () => {
+    if (!verificationUrl) {
+      toast.error('Member verification link is not ready yet.')
+      return
+    }
+
     const canvas = canvasRef.current
-    const context = canvas.getContext('2d')
 
-    canvas.width = 880
-    canvas.height = 540
-    context.fillStyle = cssVar('--text-inverted')
-    context.fillRect(0, 0, canvas.width, canvas.height)
-    context.fillStyle = cssVar('--brand-600')
-    context.fillRect(0, 0, canvas.width, 120)
-    context.fillStyle = cssVar('--text-inverted')
-    context.font = 'bold 34px Arial'
-    context.fillText('Dargah Para OIkko Porishod', 40, 62)
-    context.font = '18px Arial'
-    context.fillText('Digital Member ID Card', 40, 94)
-    context.fillStyle = cssVar('--brand-50')
-    context.beginPath()
-    context.arc(115, 240, 74, 0, Math.PI * 2)
-    context.fill()
-    context.fillStyle = cssVar('--brand-600')
-    context.font = 'bold 58px Arial'
-    context.textAlign = 'center'
-    context.fillText(user?.name?.slice(0, 1) || 'M', 115, 260)
-    context.textAlign = 'left'
-    context.fillStyle = cssVar('--text-primary')
-    context.font = 'bold 30px Arial'
-    context.fillText(user?.name || 'Member', 230, 205)
-    context.font = '20px Arial'
-    context.fillText(`Phone: ${user?.phone || ''}`, 230, 245)
-    context.fillText(`Role: ${user?.role || 'member'}`, 230, 285)
-    context.fillText(`Status: ${user?.status || 'approved'}`, 230, 325)
-    context.fillStyle = cssVar('--text-secondary')
-    context.font = '16px Arial'
-    context.fillText(`Member ID: ${user?._id || ''}`, 40, 472)
-    drawQrLikePattern(context, verificationUrl || user?._id || user?.phone || 'member', 670, 180, 150)
-    context.fillStyle = cssVar('--text-secondary')
-    context.font = '14px Arial'
-    context.fillText('Verify:', 610, 360)
-    context.fillText(verificationUrl, 610, 382)
+    if (!canvas) {
+      toast.error('ID card canvas is not ready yet.')
+      return
+    }
 
-    const link = document.createElement('a')
-    link.download = `member-id-${user?.phone || 'card'}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    setIsGeneratingIdCard(true)
+
+    try {
+      const qrDataUrl =
+        idCardQrUrl ||
+        (await QRCode.toDataURL(verificationUrl, {
+          color: {
+            dark: '#222831',
+            light: '#FFFFFF',
+          },
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 240,
+        }))
+      const [profileImage, qrImage] = await Promise.all([
+        loadCanvasImage(user?.profilePhotoUrl),
+        loadCanvasImage(qrDataUrl),
+      ])
+      const context = canvas.getContext('2d')
+
+      canvas.width = 880
+      canvas.height = 540
+      context.fillStyle = cssVar('--gray-100')
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.fillStyle = cssVar('--brand-900')
+      context.fillRect(0, 0, canvas.width, 116)
+      context.fillStyle = cssVar('--gray-700')
+      context.fillRect(0, 116, canvas.width, 72)
+      context.fillStyle = cssVar('--brand-600')
+      context.fillRect(0, 188, canvas.width, 14)
+      context.fillStyle = cssVar('--text-inverted')
+      context.font = 'bold 34px Arial'
+      context.fillText('Dargah Para OIkko Porishod', 40, 62)
+      context.font = '18px Arial'
+      context.fillText('Digital Member ID Card', 40, 94)
+      context.fillStyle = cssVar('--text-inverted')
+      context.font = 'bold 22px Arial'
+      context.fillText(user?.status || 'approved', 704, 76)
+
+      context.fillStyle = cssVar('--surface-0')
+      context.fillRect(40, 226, 800, 248)
+
+      context.save()
+      context.fillStyle = cssVar('--brand-50')
+      context.beginPath()
+      context.arc(128, 330, 74, 0, Math.PI * 2)
+      context.fill()
+      context.clip()
+      if (profileImage) {
+        context.drawImage(profileImage, 54, 256, 148, 148)
+      }
+      context.restore()
+
+      if (!profileImage) {
+        context.fillStyle = cssVar('--brand-600')
+        context.font = 'bold 58px Arial'
+        context.textAlign = 'center'
+        context.fillText(user?.name?.slice(0, 1) || 'M', 128, 350)
+      }
+
+      context.textAlign = 'left'
+      context.fillStyle = cssVar('--text-primary')
+      context.font = 'bold 30px Arial'
+      context.fillText(user?.name || 'Member', 236, 300)
+      context.font = '20px Arial'
+      context.fillText(`Phone: ${user?.phone || ''}`, 236, 340)
+      context.fillText(`Role: ${user?.role || 'member'}`, 236, 380)
+      context.fillText(`Member ID: ${user?._id || ''}`, 236, 420)
+
+      if (qrImage) {
+        context.fillStyle = cssVar('--surface-0')
+        context.fillRect(656, 246, 150, 150)
+        context.drawImage(qrImage, 656, 246, 150, 150)
+      }
+
+      context.fillStyle = cssVar('--text-secondary')
+      context.font = '14px Arial'
+      context.fillText('Scan to verify membership', 648, 426)
+
+      const link = document.createElement('a')
+      link.download = `member-id-${user?.phone || 'card'}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    } finally {
+      setIsGeneratingIdCard(false)
+    }
   }
 
   return (
@@ -440,7 +526,12 @@ export default function AccountPage() {
           <Button icon={Download} onClick={downloadMyData} variant="secondary">
             My data PDF
           </Button>
-          <Button icon={IdCard} onClick={downloadIdCard}>
+          <Button
+            disabled={!verificationUrl}
+            icon={IdCard}
+            loading={isGeneratingIdCard}
+            onClick={downloadIdCard}
+          >
             ID card
           </Button>
         </div>
@@ -556,6 +647,24 @@ export default function AccountPage() {
 
         <div className="grid gap-6">
           <Panel>
+            <DigitalIdPreview
+              qrUrl={idCardQrUrl}
+              user={user}
+              verificationUrl={verificationUrl}
+            />
+            <Button
+              className="mt-4 w-full"
+              disabled={!verificationUrl}
+              icon={IdCard}
+              loading={isGeneratingIdCard}
+              onClick={downloadIdCard}
+              variant="secondary"
+            >
+              Download ID card
+            </Button>
+          </Panel>
+
+          <Panel>
             <h2 className="text-lg font-semibold tracking-tight text-gray-900">Activity summary</h2>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <MiniStat label="Paid months" value={activity?.paymentCount || 0} />
@@ -638,6 +747,64 @@ export default function AccountPage() {
 
       <canvas className="hidden" ref={canvasRef} />
     </main>
+  )
+}
+
+function DigitalIdPreview({ qrUrl, user, verificationUrl }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight text-gray-900">Digital ID card</h2>
+        <Badge value={user?.status || 'approved'}>{user?.status || 'approved'}</Badge>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
+        <div className="bg-gray-900 px-4 py-4 text-white">
+          <p className="text-sm font-bold">Dargah Para OIkko Porishod</p>
+          <p className="text-xs text-gray-200">Digital Member ID Card</p>
+        </div>
+        <div className="h-9 bg-gray-700" />
+        <div className="h-2 bg-indigo-600" />
+        <div className="grid gap-4 bg-white p-4">
+          <div className="flex items-start gap-3">
+            <Avatar name={user?.name} size="lg" src={user?.profilePhotoUrl} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-base font-bold text-gray-950">{user?.name || 'Member'}</p>
+              <p className="mt-1 text-sm font-medium text-gray-600">{user?.phone || 'No phone'}</p>
+              <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
+                {user?.role || 'member'}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase text-gray-500">Member ID</p>
+              <p className="mt-1 break-all text-xs font-semibold text-gray-800">
+                {user?._id || 'Pending'}
+              </p>
+            </div>
+            {qrUrl ? (
+              <img
+                alt="Member verification QR code"
+                className="h-24 w-24 shrink-0 rounded-md border border-gray-200 bg-white p-1"
+                src={qrUrl}
+              />
+            ) : (
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500">
+                QR
+              </div>
+            )}
+          </div>
+          <a
+            className="break-all text-xs font-semibold text-indigo-700 hover:text-indigo-800"
+            href={verificationUrl || '#'}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {verificationUrl || 'Verification link pending'}
+          </a>
+        </div>
+      </div>
+    </div>
   )
 }
 
