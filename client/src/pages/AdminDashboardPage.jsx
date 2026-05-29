@@ -134,8 +134,13 @@ const defaultNotificationForm = {
 const defaultMemberEditForm = {
   address: '',
   birthCertificateUrl: '',
+  email: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelation: '',
   name: '',
   nidImageUrl: '',
+  passportImageUrl: '',
   phone: '',
   profilePhotoUrl: '',
   role: 'member',
@@ -145,8 +150,16 @@ const defaultMemberEditForm = {
 const memberEditSchema = z.object({
   address: z.string().trim().optional(),
   birthCertificateUrl: z.string().trim().optional(),
+  email: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), 'Email must be valid.'),
+  emergencyContactName: z.string().trim().optional(),
+  emergencyContactPhone: z.string().trim().optional(),
+  emergencyContactRelation: z.string().trim().optional(),
   name: z.string().trim().min(1, 'Name is required.'),
   nidImageUrl: z.string().trim().optional(),
+  passportImageUrl: z.string().trim().optional(),
   phone: z.string().trim().min(1, 'Phone is required.'),
   profilePhotoUrl: z.string().trim().optional(),
   role: z.enum(['admin', 'member', 'moderator'], {
@@ -5359,8 +5372,13 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
     resetMemberForm({
       address: user.address || '',
       birthCertificateUrl: user.birthCertificateUrl || '',
+      email: user.email || '',
+      emergencyContactName: user.emergencyContact?.name || '',
+      emergencyContactPhone: user.emergencyContact?.phone || '',
+      emergencyContactRelation: user.emergencyContact?.relation || '',
       name: user.name || '',
       nidImageUrl: user.nidImageUrl || '',
+      passportImageUrl: user.passportImageUrl || '',
       phone: user.phone || '',
       profilePhotoUrl: user.profilePhotoUrl || '',
       role: user.role || 'member',
@@ -5378,8 +5396,15 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
     await onUpdateProfile(editingUserId, {
       address: values.address,
       birthCertificateUrl: values.birthCertificateUrl,
+      email: values.email,
+      emergencyContact: {
+        name: values.emergencyContactName,
+        phone: values.emergencyContactPhone,
+        relation: values.emergencyContactRelation,
+      },
       name: values.name,
       nidImageUrl: values.nidImageUrl,
+      passportImageUrl: values.passportImageUrl,
       phone: values.phone,
       profilePhotoUrl: values.profilePhotoUrl,
     })
@@ -5506,7 +5531,12 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
               {...registerMember('phone')}
             />
             <Field
-              className="md:col-span-2"
+              error={memberErrors.email?.message}
+              label="Email"
+              type="email"
+              {...registerMember('email')}
+            />
+            <Field
               error={memberErrors.address?.message}
               label="Address"
               {...registerMember('address')}
@@ -5540,10 +5570,29 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
               {...registerMember('nidImageUrl')}
             />
             <Field
-              className="md:col-span-2"
+              error={memberErrors.passportImageUrl?.message}
+              label="Passport Image URL"
+              {...registerMember('passportImageUrl')}
+            />
+            <Field
               error={memberErrors.birthCertificateUrl?.message}
               label="Birth Certificate URL"
               {...registerMember('birthCertificateUrl')}
+            />
+            <Field
+              error={memberErrors.emergencyContactName?.message}
+              label="Emergency Contact Name"
+              {...registerMember('emergencyContactName')}
+            />
+            <Field
+              error={memberErrors.emergencyContactPhone?.message}
+              label="Emergency Contact Phone"
+              {...registerMember('emergencyContactPhone')}
+            />
+            <Field
+              error={memberErrors.emergencyContactRelation?.message}
+              label="Emergency Relation"
+              {...registerMember('emergencyContactRelation')}
             />
             <Button icon={Save} loading={isSavingMember} type="submit">
               Save User

@@ -13,6 +13,8 @@ const { createNotification } = require('../services/notificationService')
 const { validateAdminPasswordReset } = require('../validators/authValidators')
 const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const getApprovedMembers = asyncHandler(async (req, res) => {
   const members = await User.find({
     role: USER_ROLES.MEMBER,
@@ -79,31 +81,66 @@ const updateMemberProfile = asyncHandler(async (req, res) => {
     throw new AppError('Member not found.', 404)
   }
 
-  const allowedFields = [
-    'name',
-    'phone',
-    'address',
-    'profilePhotoUrl',
-    'nidImageUrl',
-    'birthCertificateUrl',
-    'passportImageUrl',
-  ]
-  allowedFields.forEach((field) => {
-    if (typeof req.body[field] === 'string' && req.body[field].trim()) {
-      if (field === 'phone') {
-        const phone = normalizeBangladeshiPhone(req.body[field])
+  if (typeof req.body.name === 'string') {
+    const name = req.body.name.trim()
 
-        if (!isBangladeshiPhone(phone)) {
-          throw new AppError('Phone must use Bangladeshi format like 017XXXXXXXX.', 400)
-        }
-
-        user[field] = phone
-        return
-      }
-
-      user[field] = req.body[field].trim()
+    if (!name) {
+      throw new AppError('Name is required.', 400)
     }
-  })
+
+    user.name = name
+  }
+
+  if (typeof req.body.phone === 'string') {
+    const phone = normalizeBangladeshiPhone(req.body.phone)
+
+    if (!isBangladeshiPhone(phone)) {
+      throw new AppError('Phone must use Bangladeshi format like 017XXXXXXXX.', 400)
+    }
+
+    user.phone = phone
+  }
+
+  if (typeof req.body.email === 'string') {
+    const email = req.body.email.trim().toLowerCase()
+
+    if (email && !EMAIL_PATTERN.test(email)) {
+      throw new AppError('Email must be valid.', 400)
+    }
+
+    user.email = email || undefined
+  }
+
+  ;['address', 'profilePhotoUrl', 'nidImageUrl', 'birthCertificateUrl', 'passportImageUrl'].forEach(
+    (field) => {
+      if (typeof req.body[field] === 'string') {
+        user[field] = req.body[field].trim()
+      }
+    },
+  )
+
+  if (req.body.emergencyContact && typeof req.body.emergencyContact === 'object') {
+    const emergencyPhone =
+      typeof req.body.emergencyContact.phone === 'string'
+        ? normalizeBangladeshiPhone(req.body.emergencyContact.phone)
+        : ''
+
+    if (emergencyPhone && !isBangladeshiPhone(emergencyPhone)) {
+      throw new AppError('Emergency phone must use Bangladeshi format like 017XXXXXXXX.', 400)
+    }
+
+    user.emergencyContact = {
+      name:
+        typeof req.body.emergencyContact.name === 'string'
+          ? req.body.emergencyContact.name.trim()
+          : user.emergencyContact?.name || '',
+      phone: emergencyPhone,
+      relation:
+        typeof req.body.emergencyContact.relation === 'string'
+          ? req.body.emergencyContact.relation.trim()
+          : user.emergencyContact?.relation || '',
+    }
+  }
 
   await user.save()
   await recordAuditLog({
