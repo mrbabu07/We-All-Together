@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CreditCard, Send, UserRound } from 'lucide-react'
+import { CreditCard, Send, Upload, UserRound } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
@@ -15,6 +15,10 @@ const initialForm = {
   phone: '',
   address: '',
   password: '',
+  birthCertificateUrl: '',
+  nidImageUrl: '',
+  passportImageUrl: '',
+  profilePhotoUrl: '',
   paymentMethod: '',
   transactionId: '',
   senderPhone: '',
@@ -42,24 +46,46 @@ const bangladeshPhoneSchema = (label) =>
     })
     .refine((value) => /^01[3-9]\d{8}$/.test(value), `${label} must use Bangladeshi format like 017XXXXXXXX.`)
 
-const registrationSchema = z.object({
+const ensureIdentityDocument = (values, context) => {
+  if (![values.birthCertificateUrl, values.nidImageUrl, values.passportImageUrl].some(Boolean)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one identity document is required.',
+      path: ['nidImageUrl'],
+    })
+  }
+}
+
+const registrationBaseSchema = z.object({
   address: z.string().trim().min(1, 'Address is required.'),
+  birthCertificateUrl: z.string().trim().optional(),
   name: z.string().trim().min(1, 'Name is required.'),
+  nidImageUrl: z.string().trim().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  passportImageUrl: z.string().trim().optional(),
   paymentMethod: z.string().trim().min(1, 'Payment method is required.'),
   paymentNote: z.string().trim().max(300, 'Payment note cannot exceed 300 characters.').optional(),
   phone: bangladeshPhoneSchema('Phone'),
+  profilePhotoUrl: z.string().trim().optional(),
   proofImageUrl: z.string().trim().min(1, 'Payment proof is required.'),
   senderPhone: bangladeshPhoneSchema('Sender phone'),
   transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
 })
 
-const registrationStepOneSchema = registrationSchema.pick({
-  address: true,
-  name: true,
-  password: true,
-  phone: true,
-})
+const registrationSchema = registrationBaseSchema.superRefine(ensureIdentityDocument)
+
+const registrationStepOneSchema = registrationBaseSchema
+  .pick({
+    address: true,
+    birthCertificateUrl: true,
+    name: true,
+    nidImageUrl: true,
+    passportImageUrl: true,
+    password: true,
+    phone: true,
+    profilePhotoUrl: true,
+  })
+  .superRefine(ensureIdentityDocument)
 
 export default function RegisterPage() {
   const [paymentSettings, setPaymentSettings] = useState({
@@ -69,6 +95,7 @@ export default function RegisterPage() {
   })
   const [message, setMessage] = useState('')
   const [step, setStep] = useState(1)
+  const [uploadingImageField, setUploadingImageField] = useState('')
   const [uploadingProof, setUploadingProof] = useState(false)
   const {
     clearErrors,
@@ -140,9 +167,47 @@ export default function RegisterPage() {
     }
   }
 
+  const uploadRegistrationImage = async (fieldName, file) => {
+    if (!file) {
+      return
+    }
+
+    setUploadingImageField(fieldName)
+    setMessage('')
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/public/uploads/profile-document', {
+        image,
+        name: `registration-${fieldName}-${Date.now()}`,
+      })
+      setValue(fieldName, response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+      setMessage('Document uploaded.')
+      toast.success('ডকুমেন্ট আপলোড হয়েছে')
+    } catch (error) {
+      const errorMessage = getErrorMessage(error)
+      setMessage(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setUploadingImageField('')
+    }
+  }
+
   const goNext = () => {
     const result = registrationStepOneSchema.safeParse(getValues())
-    const stepOneFields = ['address', 'name', 'password', 'phone']
+    const stepOneFields = [
+      'address',
+      'birthCertificateUrl',
+      'name',
+      'nidImageUrl',
+      'passportImageUrl',
+      'password',
+      'phone',
+      'profilePhotoUrl',
+    ]
 
     clearErrors(stepOneFields)
 
@@ -212,6 +277,72 @@ export default function RegisterPage() {
                 type="password"
                 {...register('password')}
               />
+              <div className="grid gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 md:col-span-2">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    error={errors.profilePhotoUrl?.message}
+                    label="প্রোফাইল ছবি URL"
+                    {...register('profilePhotoUrl')}
+                  />
+                  <FileInput
+                    disabled={Boolean(uploadingImageField)}
+                    label={
+                      uploadingImageField === 'profilePhotoUrl'
+                        ? 'প্রোফাইল ছবি আপলোড হচ্ছে...'
+                        : 'প্রোফাইল ছবি আপলোড'
+                    }
+                    onChange={(file) => uploadRegistrationImage('profilePhotoUrl', file)}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    error={errors.nidImageUrl?.message}
+                    label="এনআইডি / পরিচয়পত্র URL"
+                    {...register('nidImageUrl')}
+                  />
+                  <FileInput
+                    disabled={Boolean(uploadingImageField)}
+                    label={
+                      uploadingImageField === 'nidImageUrl'
+                        ? 'পরিচয়পত্র আপলোড হচ্ছে...'
+                        : 'এনআইডি / পরিচয়পত্র আপলোড'
+                    }
+                    onChange={(file) => uploadRegistrationImage('nidImageUrl', file)}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    error={errors.passportImageUrl?.message}
+                    label="পাসপোর্ট URL"
+                    {...register('passportImageUrl')}
+                  />
+                  <FileInput
+                    disabled={Boolean(uploadingImageField)}
+                    label={
+                      uploadingImageField === 'passportImageUrl'
+                        ? 'পাসপোর্ট আপলোড হচ্ছে...'
+                        : 'পাসপোর্ট আপলোড'
+                    }
+                    onChange={(file) => uploadRegistrationImage('passportImageUrl', file)}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field
+                    error={errors.birthCertificateUrl?.message}
+                    label="জন্ম সনদ URL"
+                    {...register('birthCertificateUrl')}
+                  />
+                  <FileInput
+                    disabled={Boolean(uploadingImageField)}
+                    label={
+                      uploadingImageField === 'birthCertificateUrl'
+                        ? 'জন্ম সনদ আপলোড হচ্ছে...'
+                        : 'জন্ম সনদ আপলোড'
+                    }
+                    onChange={(file) => uploadRegistrationImage('birthCertificateUrl', file)}
+                  />
+                </div>
+              </div>
             </>
           ) : (
             <>
@@ -276,6 +407,11 @@ export default function RegisterPage() {
               পেমেন্ট প্রমাণ আপলোড হচ্ছে...
             </p>
           ) : null}
+          {uploadingImageField ? (
+            <p className="md:col-span-2 text-sm font-medium text-indigo-700">
+              ডকুমেন্ট আপলোড হচ্ছে...
+            </p>
+          ) : null}
           {message ? (
             <p className="md:col-span-2 text-sm font-medium text-indigo-700">{message}</p>
           ) : null}
@@ -286,11 +422,11 @@ export default function RegisterPage() {
               </Button>
             ) : null}
             {step === 1 ? (
-              <Button icon={Send} onClick={goNext}>
+              <Button disabled={Boolean(uploadingImageField)} icon={Send} onClick={goNext}>
                 পরবর্তী
               </Button>
             ) : (
-              <Button icon={Send} loading={isSubmitting} type="submit">
+              <Button icon={Send} loading={isSubmitting || uploadingProof} type="submit">
                 নিবন্ধন জমা দিন
               </Button>
             )}
@@ -298,6 +434,27 @@ export default function RegisterPage() {
         </form>
       </Panel>
     </main>
+  )
+}
+
+function FileInput({ disabled, label, onChange }) {
+  return (
+    <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+      <span>{label}</span>
+      <span className="relative">
+        <Upload
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+        />
+        <input
+          accept="image/*"
+          className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 pl-10 text-sm text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100"
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.files?.[0])}
+          type="file"
+        />
+      </span>
+    </label>
   )
 }
 

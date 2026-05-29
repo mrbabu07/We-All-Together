@@ -1952,7 +1952,7 @@ function OverviewTab({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  {['নাম', 'ফোন', 'পেমেন্ট', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
+                  {['আবেদনকারী', 'ফোন', 'পেমেন্ট', 'ডকুমেন্ট', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
                     <th
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
                       key={heading}
@@ -1965,48 +1965,84 @@ function OverviewTab({
               <tbody className="divide-y divide-gray-100 bg-white">
                 {filteredPendingRegistrations.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6 text-sm text-gray-500" colSpan={5}>
+                    <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
                       No pending registrations.
                     </td>
                   </tr>
                 ) : null}
-                {filteredPendingRegistrations.slice(0, 6).map((item) => (
-                  <tr className="transition hover:bg-gray-50" key={item._id}>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.address}</p>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {money(item.registrationPayment?.amount)} |{' '}
-                      {item.registrationPayment?.method || 'N/A'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge value={item.status}>{item.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          icon={FileText}
-                          onClick={() => onRegistrationReceipt(item._id)}
-                          variant="secondary"
-                        >
-                          Receipt
-                        </Button>
-                        <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
-                          Approve
-                        </Button>
-                        <Button
-                          icon={XCircle}
-                          onClick={() => setRejectingRegistration(item)}
-                          variant="danger"
-                        >
-                          Reject
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredPendingRegistrations.slice(0, 6).map((item) => {
+                  const documents = [
+                    ['এনআইডি', item.nidImageUrl],
+                    ['পাসপোর্ট', item.passportImageUrl],
+                    ['জন্ম সনদ', item.birthCertificateUrl],
+                  ].filter(([, url]) => Boolean(url))
+                  const submittedAt = item.createdAt
+                    ? new Date(item.createdAt).toLocaleDateString('en-GB')
+                    : 'N/A'
+
+                  return (
+                    <tr className="transition hover:bg-gray-50" key={item._id}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={item.name} size="sm" src={item.profilePhotoUrl} />
+                          <div>
+                            <p className="font-semibold text-gray-900">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.address}</p>
+                            <p className="text-xs text-gray-400">জমা: {submittedAt}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {money(item.registrationPayment?.amount)} |{' '}
+                        {item.registrationPayment?.method || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {documents.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {documents.map(([label, url]) => (
+                              <a
+                                className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:border-indigo-200 hover:bg-indigo-50"
+                                href={url}
+                                key={label}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {label}
+                              </a>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">ডকুমেন্ট নেই</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge value={item.status}>{item.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            icon={FileText}
+                            onClick={() => onRegistrationReceipt(item._id)}
+                            variant="secondary"
+                          >
+                            Receipt
+                          </Button>
+                          <Button icon={CheckCircle2} onClick={() => onApprove(item._id)}>
+                            Approve
+                          </Button>
+                          <Button
+                            icon={XCircle}
+                            onClick={() => setRejectingRegistration(item)}
+                            variant="danger"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

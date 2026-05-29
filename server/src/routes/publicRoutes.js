@@ -42,6 +42,7 @@ const publicAliases = [
   { method: 'get', path: '/testimonials', handler: testimonialController.getPublicItems },
   { method: 'get', path: '/tours', handler: tourController.getPublicItems },
   { method: 'post', path: '/uploads/payment-proof', handler: uploadController.uploadImage },
+  { method: 'post', path: '/uploads/profile-document', handler: uploadController.uploadImage },
 ]
 
 publicAliases.forEach(({ method, path, handler }) => {

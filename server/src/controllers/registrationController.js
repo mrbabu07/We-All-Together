@@ -45,8 +45,12 @@ const assertCanUsePhoneForRegistration = async (payload) => {
 
 const buildRegistrationFields = ({ payload, registrationFee }) => ({
   address: payload.address,
+  birthCertificateUrl: payload.birthCertificateUrl,
   name: payload.name,
+  nidImageUrl: payload.nidImageUrl,
+  passportImageUrl: payload.passportImageUrl,
   password: payload.password,
+  profilePhotoUrl: payload.profilePhotoUrl,
   role: USER_ROLES.MEMBER,
   status: USER_STATUSES.PENDING,
   approvedAt: null,

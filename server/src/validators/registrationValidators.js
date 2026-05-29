@@ -36,15 +36,26 @@ const readAmount = (body, fieldName, label = fieldName) => {
 
 const validateRegistration = (body) => {
   const password = requireString(body, 'password', 'Password')
+  const documents = {
+    birthCertificateUrl: readOptionalString(body, 'birthCertificateUrl'),
+    nidImageUrl: readOptionalString(body, 'nidImageUrl'),
+    passportImageUrl: readOptionalString(body, 'passportImageUrl'),
+  }
 
   if (password.length < 6) {
     throw new AppError('Password must be at least 6 characters.', 400)
+  }
+
+  if (!Object.values(documents).some(Boolean)) {
+    throw new AppError('At least one identity document is required.', 400)
   }
 
   return {
     name: requireString(body, 'name', 'Name'),
     phone: requirePhone(body, 'phone', 'Phone'),
     address: requireString(body, 'address', 'Address'),
+    profilePhotoUrl: readOptionalString(body, 'profilePhotoUrl'),
+    ...documents,
     password,
     payment: {
       method: requireString(body, 'paymentMethod', 'Payment method'),
