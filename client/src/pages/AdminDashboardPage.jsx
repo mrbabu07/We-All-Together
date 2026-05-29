@@ -160,6 +160,10 @@ const notificationSchema = z.object({
   type: z.string().trim().min(1, 'Type is required.'),
 })
 
+const rejectReasonSchema = z.object({
+  reason: z.string().trim().min(1, 'Reject reason is required.'),
+})
+
 const bnMonths = [
   'জানুয়ারি',
   'ফেব্রুয়ারি',
@@ -1397,33 +1401,18 @@ export default function AdminDashboardPage() {
               title: 'Approve registration?',
             })
           }
-          onReject={(id) =>
-            {
-              const reason = window.prompt('Reject reason')
-
-              if (reason === null) {
-                return
-              }
-
-              const trimmedReason = reason.trim()
-
-              if (!trimmedReason) {
-                setMessage('Reject reason is required.')
-                return
-              }
-
-              requestConfirm({
-                action: () =>
-                  runAction(
-                    () => api.patch(`/registrations/${id}/reject`, { reason: trimmedReason }),
-                    'Registration rejected.',
-                  ),
-                confirmLabel: 'Reject',
-                message: `This registration will be rejected. Reason: ${trimmedReason}`,
-                title: 'Reject registration?',
-                variant: 'danger',
-              })
-            }
+          onReject={(id, reason) =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.patch(`/registrations/${id}/reject`, { reason }),
+                  'Registration rejected.',
+                ),
+              confirmLabel: 'Reject',
+              message: `This registration will be rejected. Reason: ${reason}`,
+              title: 'Reject registration?',
+              variant: 'danger',
+            })
           }
           onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
           onTabChange={changeTab}
@@ -1635,6 +1624,16 @@ function OverviewTab({
     ['নেট ব্যালেন্স', money(stats.balance)],
   ]
   const [pendingFilter, setPendingFilter] = useState({ address: '', from: '', to: '' })
+  const [rejectingRegistration, setRejectingRegistration] = useState(null)
+  const {
+    formState: { errors: registrationRejectErrors, isSubmitting: isSubmittingRegistrationReject },
+    handleSubmit: handleRegistrationRejectSubmit,
+    register: registerRegistrationReject,
+    reset: resetRegistrationReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(rejectReasonSchema),
+  })
   const filteredPendingRegistrations = useMemo(() => {
     const fromTime = pendingFilter.from ? new Date(pendingFilter.from).setHours(0, 0, 0, 0) : null
     const toTime = pendingFilter.to ? new Date(pendingFilter.to).setHours(23, 59, 59, 999) : null
@@ -1649,6 +1648,20 @@ function OverviewTab({
       return matchesFrom && matchesTo && matchesAddress
     })
   }, [data.pendingRegistrations, pendingFilter])
+
+  const closeRegistrationRejectModal = () => {
+    setRejectingRegistration(null)
+    resetRegistrationReject({ reason: '' })
+  }
+
+  const submitRegistrationReject = ({ reason }) => {
+    if (!rejectingRegistration?._id) {
+      return
+    }
+
+    onReject(rejectingRegistration._id, reason)
+    closeRegistrationRejectModal()
+  }
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1763,7 +1776,7 @@ function OverviewTab({
                         </Button>
                         <Button
                           icon={XCircle}
-                          onClick={() => onReject(item._id)}
+                          onClick={() => setRejectingRegistration(item)}
                           variant="danger"
                         >
                           Reject
@@ -1830,6 +1843,40 @@ function OverviewTab({
           </Panel>
         </div>
       </div>
+      <Modal
+        onClose={closeRegistrationRejectModal}
+        open={Boolean(rejectingRegistration)}
+        title="Reject registration"
+      >
+        {rejectingRegistration ? (
+          <form className="grid gap-4" onSubmit={handleRegistrationRejectSubmit(submitRegistrationReject)}>
+            <p className="text-sm text-gray-600">
+              Add a reason for rejecting {rejectingRegistration.name}. The applicant will receive
+              this reason in their notification.
+            </p>
+            <Field
+              error={registrationRejectErrors.reason?.message}
+              label="Reason"
+              required
+              textarea
+              {...registerRegistrationReject('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeRegistrationRejectModal} type="button" variant="secondary">
+                Cancel
+              </Button>
+              <Button
+                icon={XCircle}
+                loading={isSubmittingRegistrationReject}
+                type="submit"
+                variant="danger"
+              >
+                Continue
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
     </div>
   )
 }
