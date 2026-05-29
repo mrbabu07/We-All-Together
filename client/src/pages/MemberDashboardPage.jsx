@@ -145,6 +145,28 @@ const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleStrin
 const monthLabel = ({ label, month, year }) =>
   label || `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
 
+const paymentAmountPaisa = (payment) =>
+  Number(payment.amountPaisa || Math.round(Number(payment.amount || 0) * 100))
+
+const paymentLateFeePaisa = (payment) =>
+  Number(
+    payment.lateFeeAppliedPaisa ||
+      Math.round(Number(payment.lateFeeApplied || payment.lateFeeAmount || 0) * 100),
+  )
+
+const paymentCoveredMonthsLabel = (payment) => {
+  const coveredMonths =
+    Array.isArray(payment.coveredMonths) && payment.coveredMonths.length
+      ? payment.coveredMonths
+      : payment.forMonth && payment.forYear
+        ? [{ month: payment.forMonth, year: payment.forYear }]
+        : payment.month
+          ? [{ label: payment.month }]
+          : []
+
+  return coveredMonths.map(monthLabel).join(', ') || 'N/A'
+}
+
 const escapeHtml = (value = '') =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -1704,48 +1726,76 @@ function Payments({
         <SectionTitle icon={CreditCard} title="Payment History" />
         <div className="mt-4 grid gap-3">
           {payments.length === 0 ? <Empty text="No payments submitted yet." /> : null}
-          {payments.map((payment) => (
-            <div
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 p-4"
-              key={payment._id}
-            >
-              <div>
-                <h3 className="font-semibold text-gray-950">{payment.month}</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {money(payment.amount)} | {payment.method} | TX: {payment.transactionId}
-                </p>
-                {payment.proofImageUrl ? (
-                  <a
-                    className="mt-2 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
-                    href={payment.proofImageUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    View proof
-                  </a>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge value={payment.status}>{payment.status}</Badge>
-                {payment.status === 'verified' ? (
-                  <>
-                    <Button icon={FileText} onClick={() => onReceipt(payment._id)} variant="secondary">
-                      Print
-                    </Button>
-                    <Button
-                      icon={Download}
-                      onClick={() => onReceiptDownload(payment._id)}
-                      variant="secondary"
+          {payments.map((payment) => {
+            const amountPaisa = paymentAmountPaisa(payment)
+            const lateFeePaisa = paymentLateFeePaisa(payment)
+
+            return (
+              <div
+                className="grid gap-4 rounded-md border border-gray-200 p-4 lg:grid-cols-[1fr_auto]"
+                key={payment._id}
+              >
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-gray-950">
+                      {paymentCoveredMonthsLabel(payment)}
+                    </h3>
+                    <Badge value={payment.status}>{payment.status}</Badge>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                    <PaymentHistoryMeta label="Submitted" value={formatDate(payment.createdAt)} />
+                    <PaymentHistoryMeta label="Method" value={payment.method} />
+                    <PaymentHistoryMeta label="Transaction" value={payment.transactionId} />
+                    <PaymentHistoryMeta label="Amount" value={moneyPaisa(amountPaisa)} />
+                    <PaymentHistoryMeta label="Late fee" value={moneyPaisa(lateFeePaisa)} />
+                    <PaymentHistoryMeta label="Receipt" value={payment.receiptNumber || 'Pending'} />
+                  </div>
+                  {payment.rejectionReason ? (
+                    <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                      Reason: {payment.rejectionReason}
+                    </p>
+                  ) : null}
+                  {payment.proofImageUrl ? (
+                    <a
+                      className="mt-3 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-800"
+                      href={payment.proofImageUrl}
+                      rel="noreferrer"
+                      target="_blank"
                     >
-                      PDF
-                    </Button>
-                  </>
-                ) : null}
+                      View proof
+                    </a>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  {payment.status === 'verified' ? (
+                    <>
+                      <Button icon={FileText} onClick={() => onReceipt(payment._id)} variant="secondary">
+                        Print
+                      </Button>
+                      <Button
+                        icon={Download}
+                        onClick={() => onReceiptDownload(payment._id)}
+                        variant="secondary"
+                      >
+                        PDF
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Panel>
+    </div>
+  )
+}
+
+function PaymentHistoryMeta({ label, value }) {
+  return (
+    <div>
+      <span className="block text-xs font-semibold uppercase text-gray-500">{label}</span>
+      <span className="mt-0.5 block break-words font-semibold text-gray-800">{value || 'N/A'}</span>
     </div>
   )
 }
