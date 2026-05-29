@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Download, IdCard, KeyRound, Save, Trash2, Upload } from 'lucide-react'
+import { useForm, useWatch } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
@@ -19,6 +22,141 @@ const defaultPreferences = {
   whatsapp: false,
 }
 
+const defaultProfileForm = {
+  address: '',
+  birthCertificateUrl: '',
+  email: '',
+  emergencyContact: { name: '', phone: '', relation: '' },
+  name: '',
+  nidImageUrl: '',
+  notificationPreferences: { ...defaultPreferences },
+  passportImageUrl: '',
+  phone: '',
+  profilePhotoUrl: '',
+}
+
+const defaultPasswordForm = {
+  confirmPassword: '',
+  currentPassword: '',
+  newPassword: '',
+}
+
+const defaultDeleteForm = {
+  reason: '',
+}
+
+const normalizeBangladeshPhone = (value = '') => {
+  const phone = String(value).trim().replace(/[\s-]/g, '')
+
+  if (phone.startsWith('+88')) {
+    return phone.slice(3)
+  }
+
+  if (phone.startsWith('88') && phone.length === 13) {
+    return phone.slice(2)
+  }
+
+  return phone
+}
+
+const bangladeshPhoneSchema = (label) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required.`)
+    .transform(normalizeBangladeshPhone)
+    .refine((value) => /^01[3-9]\d{8}$/.test(value), `${label} must use Bangladeshi format like 017XXXXXXXX.`)
+
+const optionalBangladeshPhoneSchema = (label) =>
+  z
+    .string()
+    .trim()
+    .transform(normalizeBangladeshPhone)
+    .refine(
+      (value) => value === '' || /^01[3-9]\d{8}$/.test(value),
+      `${label} must use Bangladeshi format like 017XXXXXXXX.`,
+    )
+
+const optionalEmailSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toLowerCase())
+  .refine((value) => value === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), 'Email must be valid.')
+
+const optionalUrlSchema = z.string().trim().optional()
+
+const profileSchema = z.object({
+  address: z.string().trim().optional(),
+  birthCertificateUrl: optionalUrlSchema,
+  email: optionalEmailSchema,
+  emergencyContact: z.object({
+    name: z.string().trim().optional(),
+    phone: optionalBangladeshPhoneSchema('Emergency phone'),
+    relation: z.string().trim().optional(),
+  }),
+  name: z.string().trim().min(1, 'Name is required.'),
+  nidImageUrl: optionalUrlSchema,
+  notificationPreferences: z.object({
+    fees: z.boolean(),
+    meetings: z.boolean(),
+    notices: z.boolean(),
+    sms: z.boolean(),
+    tours: z.boolean(),
+    whatsapp: z.boolean(),
+  }),
+  passportImageUrl: optionalUrlSchema,
+  phone: bangladeshPhoneSchema('Phone'),
+  profilePhotoUrl: optionalUrlSchema,
+})
+
+const passwordSchema = z
+  .object({
+    confirmPassword: z.string().min(1, 'Confirm your new password.'),
+    currentPassword: z.string().min(1, 'Current password is required.'),
+    newPassword: z.string().min(6, 'New password must be at least 6 characters.'),
+  })
+  .superRefine((values, context) => {
+    if (values.currentPassword === values.newPassword) {
+      context.addIssue({
+        code: 'custom',
+        message: 'New password must be different from current password.',
+        path: ['newPassword'],
+      })
+    }
+
+    if (values.newPassword !== values.confirmPassword) {
+      context.addIssue({
+        code: 'custom',
+        message: 'পাসওয়ার্ড মিলছে না',
+        path: ['confirmPassword'],
+      })
+    }
+  })
+
+const deleteRequestSchema = z.object({
+  reason: z.string().trim().min(1, 'Reason is required.'),
+})
+
+const buildProfileDefaults = (user = {}) => ({
+  address: user.address || '',
+  birthCertificateUrl: user.birthCertificateUrl || '',
+  email: user.email || '',
+  emergencyContact: {
+    name: user.emergencyContact?.name || '',
+    phone: user.emergencyContact?.phone || '',
+    relation: user.emergencyContact?.relation || '',
+  },
+  name: user.name || '',
+  nidImageUrl: user.nidImageUrl || '',
+  notificationPreferences: {
+    ...defaultPreferences,
+    ...user.notificationPreferences,
+  },
+  passportImageUrl: user.passportImageUrl || '',
+  phone: user.phone || '',
+  profilePhotoUrl: user.profilePhotoUrl || '',
+})
+
 const escapeHtml = (value = '') =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -33,57 +171,51 @@ const cssVar = (name) =>
 export default function AccountPage() {
   const { refreshProfile, user } = useAuth()
   const canvasRef = useRef(null)
-  const [profileForm, setProfileForm] = useState({
-    address: '',
-    birthCertificateUrl: '',
-    email: '',
-    emergencyContact: { name: '', phone: '', relation: '' },
-    name: '',
-    nidImageUrl: '',
-    notificationPreferences: defaultPreferences,
-    passportImageUrl: '',
-    phone: '',
-    profilePhotoUrl: '',
-  })
-  const [passwordForm, setPasswordForm] = useState({
-    confirmPassword: '',
-    currentPassword: '',
-    newPassword: '',
-  })
   const [activity, setActivity] = useState(null)
-  const [deleteReason, setDeleteReason] = useState('')
   const [message, setMessage] = useState('')
   const [uploadingField, setUploadingField] = useState('')
+  const {
+    control: profileControl,
+    formState: { errors: profileErrors, isSubmitting: isSavingProfile },
+    handleSubmit: handleProfileSubmit,
+    register: registerProfile,
+    reset: resetProfile,
+    setValue: setProfileValue,
+  } = useForm({
+    defaultValues: defaultProfileForm,
+    resolver: zodResolver(profileSchema),
+  })
+  const profileForm = useWatch({ control: profileControl }) || defaultProfileForm
+  const {
+    formState: { errors: passwordErrors, isSubmitting: isChangingPassword },
+    handleSubmit: handlePasswordSubmit,
+    register: registerPassword,
+    reset: resetPassword,
+  } = useForm({
+    defaultValues: defaultPasswordForm,
+    resolver: zodResolver(passwordSchema),
+  })
+  const {
+    formState: { errors: deleteErrors, isSubmitting: isRequestingDelete },
+    handleSubmit: handleDeleteSubmit,
+    register: registerDelete,
+    reset: resetDelete,
+  } = useForm({
+    defaultValues: defaultDeleteForm,
+    resolver: zodResolver(deleteRequestSchema),
+  })
 
   useEffect(() => {
     if (user) {
       const timer = window.setTimeout(() => {
-        setProfileForm({
-          address: user.address || '',
-          birthCertificateUrl: user.birthCertificateUrl || '',
-          email: user.email || '',
-          emergencyContact: {
-            name: user.emergencyContact?.name || '',
-            phone: user.emergencyContact?.phone || '',
-            relation: user.emergencyContact?.relation || '',
-          },
-          name: user.name || '',
-          nidImageUrl: user.nidImageUrl || '',
-          notificationPreferences: {
-            ...defaultPreferences,
-            ...user.notificationPreferences,
-          },
-          passportImageUrl: user.passportImageUrl || '',
-          phone: user.phone || '',
-          profilePhotoUrl: user.profilePhotoUrl || '',
-        })
+        resetProfile(buildProfileDefaults(user))
       }, 0)
 
       return () => window.clearTimeout(timer)
     }
 
     return undefined
-  }, [user])
+  }, [resetProfile, user])
 
   useEffect(() => {
     const loadActivity = async () => {
@@ -98,46 +230,11 @@ export default function AccountPage() {
     loadActivity()
   }, [])
 
-  const updateProfileField = (event) => {
-    setProfileForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }))
-  }
-
-  const updateEmergencyContact = (field, value) => {
-    setProfileForm((current) => ({
-      ...current,
-      emergencyContact: {
-        ...current.emergencyContact,
-        [field]: value,
-      },
-    }))
-  }
-
-  const updatePreference = (field, value) => {
-    setProfileForm((current) => ({
-      ...current,
-      notificationPreferences: {
-        ...current.notificationPreferences,
-        [field]: value,
-      },
-    }))
-  }
-
-  const updatePasswordField = (event) => {
-    setPasswordForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }))
-  }
-
-  const saveProfile = async (event) => {
-    event.preventDefault()
+  const saveProfile = async (values) => {
     setMessage('')
 
     try {
-      await api.patch('/auth/me', profileForm)
+      await api.patch('/auth/me', values)
       await refreshProfile()
       setMessage('প্রোফাইল আপডেট হয়েছে।')
       toast.success('প্রোফাইল আপডেট হয়েছে')
@@ -162,10 +259,10 @@ export default function AccountPage() {
         image,
         name: `${field}-${Date.now()}`,
       })
-      setProfileForm((current) => ({
-        ...current,
-        [field]: response.data.data.image.url,
-      }))
+      setProfileValue(field, response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       toast.success('ফাইল আপলোড হয়েছে')
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -174,25 +271,15 @@ export default function AccountPage() {
     }
   }
 
-  const changePassword = async (event) => {
-    event.preventDefault()
+  const changePassword = async (values) => {
     setMessage('')
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setMessage('নতুন পাসওয়ার্ড এবং confirmation মিলছে না।')
-      return
-    }
 
     try {
       await api.patch('/auth/change-password', {
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
       })
-      setPasswordForm({
-        confirmPassword: '',
-        currentPassword: '',
-        newPassword: '',
-      })
+      resetPassword(defaultPasswordForm)
       setMessage('পাসওয়ার্ড পরিবর্তন হয়েছে।')
       toast.success('পাসওয়ার্ড পরিবর্তন হয়েছে')
     } catch (error) {
@@ -240,10 +327,10 @@ export default function AccountPage() {
     }
   }
 
-  const requestDelete = async () => {
+  const requestDelete = async (values) => {
     try {
-      await api.post('/members/delete-request', { reason: deleteReason })
-      setDeleteReason('')
+      await api.post('/members/delete-request', values)
+      resetDelete(defaultDeleteForm)
       toast.success('Delete request admin এর কাছে পাঠানো হয়েছে')
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -275,12 +362,14 @@ export default function AccountPage() {
     }
   }
 
+  const emergencyContact = profileForm.emergencyContact || defaultProfileForm.emergencyContact
+  const notificationPreferences = profileForm.notificationPreferences || defaultPreferences
   const completionItems = [
     profileForm.name,
     profileForm.phone,
     profileForm.email,
     profileForm.address,
-    profileForm.emergencyContact.phone,
+    emergencyContact.phone,
     profileForm.profilePhotoUrl,
     profileForm.nidImageUrl || profileForm.passportImageUrl || profileForm.birthCertificateUrl,
   ]
@@ -387,82 +476,79 @@ export default function AccountPage() {
               />
             </div>
           </div>
-          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={saveProfile}>
+          <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleProfileSubmit(saveProfile)}>
             <Field
+              error={profileErrors.email?.message}
               label="Email"
-              name="email"
-              onChange={updateProfileField}
               type="email"
-              value={profileForm.email}
+              {...registerProfile('email')}
             />
-            <Field label="নাম" name="name" onChange={updateProfileField} required value={profileForm.name} />
+            <Field error={profileErrors.name?.message} label="নাম" {...registerProfile('name')} />
             <Field
+              error={profileErrors.phone?.message}
               label="ফোন"
-              name="phone"
-              onChange={updateProfileField}
               pattern="01[3-9][0-9]{8}"
-              required
-              value={profileForm.phone}
+              {...registerProfile('phone')}
             />
             <Field
               className="md:col-span-2"
+              error={profileErrors.address?.message}
               label="ঠিকানা"
-              name="address"
-              onChange={updateProfileField}
               textarea
-              value={profileForm.address}
+              {...registerProfile('address')}
             />
             <Field
+              error={profileErrors.emergencyContact?.name?.message}
               label="Emergency name"
-              name="emergencyName"
-              onChange={(event) => updateEmergencyContact('name', event.target.value)}
-              value={profileForm.emergencyContact.name}
+              {...registerProfile('emergencyContact.name')}
             />
             <Field
+              error={profileErrors.emergencyContact?.phone?.message}
               label="Emergency phone"
-              name="emergencyPhone"
-              onChange={(event) => updateEmergencyContact('phone', event.target.value)}
-              value={profileForm.emergencyContact.phone}
+              {...registerProfile('emergencyContact.phone')}
             />
             <Field
+              error={profileErrors.emergencyContact?.relation?.message}
               label="Relation"
-              name="relation"
-              onChange={(event) => updateEmergencyContact('relation', event.target.value)}
-              value={profileForm.emergencyContact.relation}
+              {...registerProfile('emergencyContact.relation')}
             />
             <DocumentUpload
+              error={profileErrors.profilePhotoUrl?.message}
               field="profilePhotoUrl"
               label="Profile Photo"
-              onChange={updateProfileField}
               onUpload={uploadProfileDocument}
+              registration={registerProfile('profilePhotoUrl')}
               uploading={uploadingField === 'profilePhotoUrl'}
               value={profileForm.profilePhotoUrl}
             />
             <DocumentUpload
+              error={profileErrors.nidImageUrl?.message}
               field="nidImageUrl"
               label="NID Image"
-              onChange={updateProfileField}
               onUpload={uploadProfileDocument}
+              registration={registerProfile('nidImageUrl')}
               uploading={uploadingField === 'nidImageUrl'}
               value={profileForm.nidImageUrl}
             />
             <DocumentUpload
+              error={profileErrors.passportImageUrl?.message}
               field="passportImageUrl"
               label="NID/Passport"
-              onChange={updateProfileField}
               onUpload={uploadProfileDocument}
+              registration={registerProfile('passportImageUrl')}
               uploading={uploadingField === 'passportImageUrl'}
               value={profileForm.passportImageUrl}
             />
             <DocumentUpload
+              error={profileErrors.birthCertificateUrl?.message}
               field="birthCertificateUrl"
               label="Birth Certificate"
-              onChange={updateProfileField}
               onUpload={uploadProfileDocument}
+              registration={registerProfile('birthCertificateUrl')}
               uploading={uploadingField === 'birthCertificateUrl'}
               value={profileForm.birthCertificateUrl}
             />
-            <Button className="md:col-span-2" icon={Save} type="submit">
+            <Button className="md:col-span-2" icon={Save} loading={isSavingProfile} type="submit">
               প্রোফাইল সেভ
             </Button>
           </form>
@@ -491,9 +577,9 @@ export default function AccountPage() {
                 >
                   {key}
                   <input
-                    checked={Boolean(profileForm.notificationPreferences[key])}
+                    {...registerProfile(`notificationPreferences.${key}`)}
+                    checked={Boolean(notificationPreferences[key])}
                     className="h-5 w-5 accent-indigo-600"
-                    onChange={(event) => updatePreference(key, event.target.checked)}
                     type="checkbox"
                   />
                 </label>
@@ -506,38 +592,26 @@ export default function AccountPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel>
           <h2 className="text-lg font-semibold tracking-tight text-gray-900">পাসওয়ার্ড পরিবর্তন</h2>
-          <form className="mt-4 grid gap-4" onSubmit={changePassword}>
+          <form className="mt-4 grid gap-4" onSubmit={handlePasswordSubmit(changePassword)}>
             <Field
+              error={passwordErrors.currentPassword?.message}
               label="বর্তমান পাসওয়ার্ড"
-              name="currentPassword"
-              onChange={updatePasswordField}
-              required
               type="password"
-              value={passwordForm.currentPassword}
+              {...registerPassword('currentPassword')}
             />
             <Field
+              error={passwordErrors.newPassword?.message}
               label="নতুন পাসওয়ার্ড"
-              name="newPassword"
-              onChange={updatePasswordField}
-              required
               type="password"
-              value={passwordForm.newPassword}
+              {...registerPassword('newPassword')}
             />
             <Field
-              error={
-                passwordForm.confirmPassword &&
-                passwordForm.newPassword !== passwordForm.confirmPassword
-                  ? 'পাসওয়ার্ড মিলছে না'
-                  : ''
-              }
+              error={passwordErrors.confirmPassword?.message}
               label="Confirm password"
-              name="confirmPassword"
-              onChange={updatePasswordField}
-              required
               type="password"
-              value={passwordForm.confirmPassword}
+              {...registerPassword('confirmPassword')}
             />
-            <Button icon={KeyRound} type="submit">
+            <Button icon={KeyRound} loading={isChangingPassword} type="submit">
               পাসওয়ার্ড পরিবর্তন
             </Button>
           </form>
@@ -548,17 +622,17 @@ export default function AccountPage() {
           <p className="mt-2 text-sm text-gray-500">
             অ্যাডমিন approve না করা পর্যন্ত অ্যাকাউন্ট delete হবে না।
           </p>
-          <Field
-            className="mt-4"
-            label="Reason"
-            name="deleteReason"
-            onChange={(event) => setDeleteReason(event.target.value)}
-            textarea
-            value={deleteReason}
-          />
-          <Button className="mt-4" icon={Trash2} onClick={requestDelete} variant="danger">
-            Delete request পাঠান
-          </Button>
+          <form className="mt-4 grid gap-4" onSubmit={handleDeleteSubmit(requestDelete)}>
+            <Field
+              error={deleteErrors.reason?.message}
+              label="Reason"
+              textarea
+              {...registerDelete('reason')}
+            />
+            <Button icon={Trash2} loading={isRequestingDelete} type="submit" variant="danger">
+              Delete request পাঠান
+            </Button>
+          </form>
         </Panel>
       </div>
 
@@ -576,10 +650,10 @@ function MiniStat({ label, value }) {
   )
 }
 
-function DocumentUpload({ field, label, onChange, onUpload, uploading, value }) {
+function DocumentUpload({ error, field, label, onUpload, registration, uploading, value }) {
   return (
     <div className="grid gap-3 rounded-xl border border-gray-200 p-3">
-      <Field label={`${label} URL`} name={field} onChange={onChange} value={value} />
+      <Field error={error} label={`${label} URL`} {...registration} />
       <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50">
         <Upload aria-hidden="true" className="h-4 w-4" />
         <span>{uploading ? 'Uploading...' : `Upload ${label}`}</span>
