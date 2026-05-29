@@ -221,6 +221,10 @@ const rejectReasonSchema = z.object({
   reason: z.string().trim().min(1, 'Reject reason is required.'),
 })
 
+const suspensionReasonSchema = z.object({
+  reason: z.string().trim().min(1, 'Suspension reason is required.'),
+})
+
 const feeAdjustmentSchema = z.object({
   amount: z
     .string()
@@ -1278,6 +1282,17 @@ export default function AdminDashboardPage() {
     }, 'User access updated successfully.')
   }
 
+  const setUserSuspension = async (id, payload) => {
+    await runAction(
+      async () => {
+        await api.patch(`/admin/controls/members/${id}/suspension`, payload)
+      },
+      payload.suspended
+        ? 'Member suspended successfully.'
+        : 'Member unsuspended successfully.',
+    )
+  }
+
   const saveMeetingAttendance = async (id, payload) => {
     await runAction(async () => {
       await api.patch(`/admin/meetings/${id}/attendance`, payload)
@@ -1390,7 +1405,7 @@ export default function AdminDashboardPage() {
           await api.delete(`/admin/members/${id}`)
         }, 'User deleted successfully.'),
       confirmLabel: 'Delete User',
-      message: 'This account will be permanently removed from the system.',
+      message: 'This account will be soft deleted and retained for 30 days.',
       title: 'Delete user?',
       variant: 'danger',
     })
@@ -1822,6 +1837,7 @@ export default function AdminDashboardPage() {
         <MembersTab
           onDeleteUser={deleteUser}
           onResetPassword={resetUserPassword}
+          onSuspendUser={setUserSuspension}
           onUpdateAccess={updateUserAccess}
           onUpdateProfile={updateMemberProfile}
           payments={data.payments}
@@ -5508,7 +5524,15 @@ function TourWorkflowPanel({
   )
 }
 
-function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdateProfile, payments, users }) {
+function MembersTab({
+  onDeleteUser,
+  onResetPassword,
+  onSuspendUser,
+  onUpdateAccess,
+  onUpdateProfile,
+  payments,
+  users,
+}) {
   const [editingUserId, setEditingUserId] = useState(null)
   const [query, setQuery] = useState('')
   const [feeStatusFilter, setFeeStatusFilter] = useState('')
@@ -5516,6 +5540,7 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   const [roleFilter, setRoleFilter] = useState('')
   const [sortBy, setSortBy] = useState('joinDate')
   const [statusFilter, setStatusFilter] = useState('')
+  const [suspendingUser, setSuspendingUser] = useState(null)
   const [viewMode, setViewMode] = useState('grid')
   const {
     formState: { errors: memberErrors, isSubmitting: isSavingMember },
@@ -5537,6 +5562,15 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
     resolver: zodResolver(memberInlinePasswordSchema),
   })
   const passwordForm = useWatch({ control: passwordControl }) || { newPassword: '' }
+  const {
+    formState: { errors: suspensionErrors, isSubmitting: isSuspendingUser },
+    handleSubmit: handleSuspensionSubmit,
+    register: registerSuspension,
+    reset: resetSuspension,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(suspensionReasonSchema),
+  })
 
   const startEdit = (user) => {
     setEditingUserId(user._id)
@@ -5590,6 +5624,24 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   const resetPassword = async ({ newPassword }) => {
     await onResetPassword(editingUserId, newPassword)
     resetInlinePassword({ newPassword: '' })
+  }
+
+  const closeSuspensionModal = () => {
+    setSuspendingUser(null)
+    resetSuspension({ reason: '' })
+  }
+
+  const submitSuspension = async ({ reason }) => {
+    if (!suspendingUser?._id) {
+      return
+    }
+
+    await onSuspendUser(suspendingUser._id, { reason, suspended: true })
+    closeSuspensionModal()
+  }
+
+  const unsuspendUser = async (userId) => {
+    await onSuspendUser(userId, { suspended: false })
   }
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -5895,6 +5947,7 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
                       <Badge value={item.status}>{item.status}</Badge>
+                      {item.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{item.phone}</p>
                     <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.address}</p>
@@ -5918,6 +5971,15 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
                     Edit
+                  </Button>
+                  <Button
+                    icon={XCircle}
+                    onClick={() =>
+                      item.suspendedAt ? unsuspendUser(item._id) : setSuspendingUser(item)
+                    }
+                    variant={item.suspendedAt ? 'secondary' : 'danger'}
+                  >
+                    {item.suspendedAt ? 'Unsuspend' : 'Suspend'}
                   </Button>
                   <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
                     Delete
@@ -5953,13 +6015,25 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
                     <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.role}</td>
                     <td className="px-4 py-3">
-                      <Badge value={item.status}>{item.status}</Badge>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge value={item.status}>{item.status}</Badge>
+                        {item.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.address}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Button icon={Pencil} onClick={() => startEdit(item)} variant="secondary">
                           Edit
+                        </Button>
+                        <Button
+                          icon={XCircle}
+                          onClick={() =>
+                            item.suspendedAt ? unsuspendUser(item._id) : setSuspendingUser(item)
+                          }
+                          variant={item.suspendedAt ? 'secondary' : 'danger'}
+                        >
+                          {item.suspendedAt ? 'Unsuspend' : 'Suspend'}
                         </Button>
                         <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
                           Delete
@@ -5996,6 +6070,34 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
         </div>
         {visibleUsers.length === 0 ? <Empty text="No matching users found." /> : null}
       </Panel>
+      <Modal
+        onClose={closeSuspensionModal}
+        open={Boolean(suspendingUser)}
+        title="Suspend member"
+      >
+        {suspendingUser ? (
+          <form className="grid gap-4" onSubmit={handleSuspensionSubmit(submitSuspension)}>
+            <p className="text-sm text-gray-600">
+              Add a suspension reason for {suspendingUser.name}. The member will see this message
+              when trying to access the dashboard.
+            </p>
+            <Field
+              error={suspensionErrors.reason?.message}
+              label="Suspension reason"
+              textarea
+              {...registerSuspension('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeSuspensionModal} type="button" variant="secondary">
+                Cancel
+              </Button>
+              <Button icon={XCircle} loading={isSuspendingUser} type="submit" variant="danger">
+                Suspend
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
     </div>
   )
 }

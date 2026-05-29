@@ -40,6 +40,20 @@ const safeAssign = (target, source = {}, allowedFields = []) => {
 
 const getBodyUserIds = (body) => body.userIds || body.ids || body.memberIds
 
+const validateSuspensionPayload = (body) => {
+  const suspended = body.suspended === true
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+
+  if (suspended && !reason) {
+    throw new AppError('Suspension reason is required.', 400)
+  }
+
+  return {
+    reason,
+    suspended,
+  }
+}
+
 const getControls = asyncHandler(async (req, res) => {
   const settings = await getSettings()
   const [users, recentActivity] = await Promise.all([
@@ -220,10 +234,11 @@ const setMemberSuspension = asyncHandler(async (req, res) => {
     throw new AppError('Member not found.', 404)
   }
 
-  const suspended = req.body.suspended === true
+  const payload = validateSuspensionPayload(req.body)
+  const suspended = payload.suspended
   user.suspendedAt = suspended ? new Date() : null
   user.suspendedBy = suspended ? req.user._id : null
-  user.suspensionReason = suspended && typeof req.body.reason === 'string' ? req.body.reason : ''
+  user.suspensionReason = suspended ? payload.reason : ''
   await user.save()
   await recordAuditLog({
     action: suspended ? 'member.suspend' : 'member.unsuspend',
@@ -629,5 +644,6 @@ module.exports = {
   revokeMemberSessions,
   setMemberSuspension,
   updateControls,
+  validateSuspensionPayload,
   waiveFee,
 }
