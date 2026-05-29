@@ -347,11 +347,11 @@ const emptyContentForms = {
 }
 
 const contentConfigs = [
-  { key: 'notices', title: 'Notices', endpoint: '/notices', main: 'body' },
-  { key: 'meetings', title: 'Meetings', endpoint: '/meetings', main: 'agenda' },
-  { key: 'tours', title: 'Tours', endpoint: '/tours', main: 'destination' },
-  { key: 'activities', title: 'Activities', endpoint: '/activities', main: 'category' },
-  { key: 'rules', title: 'Rules', endpoint: '/rules', main: 'description' },
+  { key: 'notices', title: 'Notices', endpoint: '/admin/notices', main: 'body' },
+  { key: 'meetings', title: 'Meetings', endpoint: '/admin/meetings', main: 'agenda' },
+  { key: 'tours', title: 'Tours', endpoint: '/admin/tours', main: 'destination' },
+  { key: 'activities', title: 'Activities', endpoint: '/admin/activities', main: 'category' },
+  { key: 'rules', title: 'Rules', endpoint: '/admin/rules', main: 'description' },
 ]
 
 const optionalAmountText = z
@@ -608,6 +608,7 @@ export default function AdminDashboardPage() {
   const defaultTab = pathTabs[location.pathname] || 'overview'
   const requestedActiveTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
   const activeTab = user?.role === 'moderator' ? 'content' : requestedActiveTab
+  const moderationApiPrefix = user?.role === 'moderator' ? '/member' : '/admin'
   const visibleTabLabels = user?.role === 'moderator' ? [['content', 'Moderation']] : tabLabels
   const initialFinanceTab = financePathTabs[location.pathname] || 'payments'
   const [loading, setLoading] = useState(true)
@@ -718,8 +719,8 @@ export default function AdminDashboardPage() {
     try {
       if (user?.role === 'moderator') {
         const [blogsResponse, galleryResponse] = await Promise.all([
-          api.get('/blogs/members'),
-          api.get('/gallery/members'),
+          api.get(`${moderationApiPrefix}/blogs/members`),
+          api.get(`${moderationApiPrefix}/gallery/members`),
         ])
 
         setData((current) => ({
@@ -749,23 +750,23 @@ export default function AdminDashboardPage() {
         pollsResponse,
         feeOverdueResponse,
       ] = await Promise.all([
-        api.get('/registrations/pending'),
+        api.get('/admin/registrations/pending'),
         api.get('/public/settings'),
-        api.get('/members/users'),
-        api.get('/payments'),
-        api.get('/donations'),
-        api.get('/expenses'),
-        api.get('/notices/members', { params: { archived: 'true' } }),
-        api.get('/meetings/members'),
-        api.get('/tours/members'),
-        api.get('/activities/members'),
-        api.get('/rules/members'),
-        api.get('/blogs/members'),
-        api.get('/gallery/members'),
-        api.get('/audit-logs', { params: { limit: 80 } }),
-        api.get('/finance/analytics'),
-        api.get('/polls'),
-        api.get('/fees/overdue-members'),
+        api.get('/admin/members/users'),
+        api.get('/admin/payments'),
+        api.get('/admin/donations'),
+        api.get('/admin/expenses'),
+        api.get('/admin/notices/members', { params: { archived: 'true' } }),
+        api.get('/admin/meetings/members'),
+        api.get('/admin/tours/members'),
+        api.get('/admin/activities/members'),
+        api.get('/admin/rules/members'),
+        api.get('/admin/blogs/members'),
+        api.get('/admin/gallery/members'),
+        api.get('/admin/audit-logs', { params: { limit: 80 } }),
+        api.get('/admin/finance/analytics'),
+        api.get('/admin/polls'),
+        api.get('/admin/fees/overdue-members'),
       ])
 
       const settings = settingsResponse.data.data.settings
@@ -814,7 +815,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [setData, setLoading, setMessage, setSettingsForm, user])
+  }, [moderationApiPrefix, setData, setLoading, setMessage, setSettingsForm, user])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -883,18 +884,18 @@ export default function AdminDashboardPage() {
 
     await runAction(async () => {
       await Promise.all([
-        api.patch('/settings/registration-fee', {
+        api.patch('/admin/settings/registration-fee', {
           registrationFee: nextSettings.registrationFee,
         }),
-        api.patch('/settings/monthly-fee', {
+        api.patch('/admin/settings/monthly-fee', {
           monthlyFee: nextSettings.monthlyFee,
         }),
-        api.patch('/settings/donation-number', {
+        api.patch('/admin/settings/donation-number', {
           donationNumber: nextSettings.donationNumber,
           donationProvider: nextSettings.donationProvider,
         }),
-        api.patch('/settings/notification-settings', nextSettings.notificationSettings),
-        api.patch('/admin-controls', {
+        api.patch('/admin/settings/notification-settings', nextSettings.notificationSettings),
+        api.patch('/admin/controls', {
           feeDueDay: Number(nextSettings.feeDueDay || 1),
           feeLateFeeAmount: Math.round(Number(nextSettings.feeLateFeeAmount || 0) * 100),
           feeOverdueAlertEnabled: nextSettings.feeOverdueAlertEnabled,
@@ -916,7 +917,7 @@ export default function AdminDashboardPage() {
   const loadFinanceAnalytics = async () => {
     try {
       setMessage('')
-      const response = await api.get('/finance/analytics', {
+      const response = await api.get('/admin/finance/analytics', {
         params: {
           range: financeFilter.range,
           ...(financeFilter.range === 'custom'
@@ -941,9 +942,9 @@ export default function AdminDashboardPage() {
   const saveExpense = async (values) => {
     await runAction(async () => {
       if (editingExpenseId) {
-        await api.patch(`/expenses/${editingExpenseId}`, values)
+        await api.patch(`/admin/expenses/${editingExpenseId}`, values)
       } else {
-        await api.post('/expenses', values)
+        await api.post('/admin/expenses', values)
       }
 
       setEditingExpenseId(null)
@@ -953,7 +954,7 @@ export default function AdminDashboardPage() {
 
   const saveManualDonation = async (values) => {
     await runAction(async () => {
-      await api.post('/donations/manual', values)
+      await api.post('/admin/donations/manual', values)
       resetDonation(defaultManualDonationForm)
     }, 'Manual donation recorded successfully.')
   }
@@ -984,7 +985,7 @@ export default function AdminDashboardPage() {
       setMessage('')
       setUploadingExpenseReceipt(true)
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/image', {
+      const response = await api.post('/admin/uploads/image', {
         image,
         name: `expense-receipt-${Date.now()}`,
       })
@@ -1004,7 +1005,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/expenses/${id}`)
+          await api.delete(`/admin/expenses/${id}`)
         }, 'Expense deleted successfully.'),
       confirmLabel: 'Delete Expense',
       message: 'This expense will be removed from the finance list.',
@@ -1015,7 +1016,7 @@ export default function AdminDashboardPage() {
 
   const loadMonthlyStatus = async () => {
     await runAction(async () => {
-      const response = await api.get('/payments/monthly-status', {
+      const response = await api.get('/admin/payments/monthly-status', {
         params: { month: monthlyStatusMonth },
       })
       setMonthlyStatus(response.data.data)
@@ -1031,7 +1032,7 @@ export default function AdminDashboardPage() {
       setMessage('')
       setUploadingContentKey(key)
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/image', {
+      const response = await api.post('/admin/uploads/image', {
         image,
         name: `${key}-${Date.now()}`,
       })
@@ -1076,7 +1077,7 @@ export default function AdminDashboardPage() {
 
   const archiveNotices = async (payload) => {
     await runAction(
-      () => api.post('/notices/archive-bulk', payload),
+      () => api.post('/admin/notices/archive-bulk', payload),
       'Matching notices archived successfully.',
     )
   }
@@ -1090,7 +1091,7 @@ export default function AdminDashboardPage() {
     }
 
     await runAction(
-      () => api.patch(`/blogs/${id}/moderation`, { note: reason, status }),
+      () => api.patch(`${moderationApiPrefix}/blogs/${id}/moderation`, { note: reason, status }),
       'Blog moderation updated successfully.',
     )
   }
@@ -1108,7 +1109,7 @@ export default function AdminDashboardPage() {
     }
 
     await runAction(
-      () => api.post('/blogs/moderation/bulk', { blogIds, note: reason, status }),
+      () => api.post(`${moderationApiPrefix}/blogs/moderation/bulk`, { blogIds, note: reason, status }),
       'Selected blogs moderated successfully.',
     )
   }
@@ -1117,7 +1118,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/blogs/${id}`)
+          await api.delete(`${moderationApiPrefix}/blogs/${id}`)
         }, 'Blog deleted successfully.'),
       confirmLabel: 'Delete Blog',
       message: 'This blog and its comments will be removed.',
@@ -1135,7 +1136,7 @@ export default function AdminDashboardPage() {
     }
 
     await runAction(
-      () => api.patch(`/gallery/${id}/moderation`, { note: reason, status }),
+      () => api.patch(`${moderationApiPrefix}/gallery/${id}/moderation`, { note: reason, status }),
       'Gallery moderation updated successfully.',
     )
   }
@@ -1153,7 +1154,12 @@ export default function AdminDashboardPage() {
     }
 
     await runAction(
-      () => api.post('/gallery/moderation/bulk', { itemIds, note: reason, status }),
+      () =>
+        api.post(`${moderationApiPrefix}/gallery/moderation/bulk`, {
+          itemIds,
+          note: reason,
+          status,
+        }),
       'Selected gallery items moderated successfully.',
     )
   }
@@ -1162,7 +1168,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/gallery/${id}`)
+          await api.delete(`${moderationApiPrefix}/gallery/${id}`)
         }, 'Gallery photo deleted successfully.'),
       confirmLabel: 'Delete Photo',
       message: 'This gallery photo will be removed.',
@@ -1173,7 +1179,7 @@ export default function AdminDashboardPage() {
 
   const updateGalleryAlbumVisibility = async (album, albumVisible) => {
     await runAction(
-      () => api.patch('/gallery/albums/visibility', { album, albumVisible }),
+      () => api.patch('/admin/gallery/albums/visibility', { album, albumVisible }),
       'Gallery album visibility updated successfully.',
     )
   }
@@ -1188,7 +1194,7 @@ export default function AdminDashboardPage() {
 
     await runAction(
       () =>
-        api.patch(`/gallery/${item._id}`, {
+        api.patch(`${moderationApiPrefix}/gallery/${item._id}`, {
           album: nextAlbum,
           albumCoverUrl: item.albumCoverUrl || '',
           albumDescription: item.albumDescription || '',
@@ -1207,14 +1213,14 @@ export default function AdminDashboardPage() {
 
   const reorderGalleryAlbum = async (album, orderedIds) => {
     await runAction(
-      () => api.patch('/gallery/reorder', { album, orderedIds }),
+      () => api.patch(`${moderationApiPrefix}/gallery/reorder`, { album, orderedIds }),
       'Gallery order updated successfully.',
     )
   }
 
   const restoreRuleVersion = async (id, version, changeNote = '') => {
     await runAction(
-      () => api.post(`/rules/${id}/restore/${version}`, { changeNote }),
+      () => api.post(`/admin/rules/${id}/restore/${version}`, { changeNote }),
       'Rule version restored successfully.',
     )
   }
@@ -1256,55 +1262,55 @@ export default function AdminDashboardPage() {
 
   const updateMemberProfile = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/members/${id}`, payload)
+      await api.patch(`/admin/members/${id}`, payload)
     }, 'Member profile updated successfully.')
   }
 
   const resetUserPassword = async (id, newPassword) => {
     await runAction(async () => {
-      await api.patch(`/members/${id}/password`, { newPassword })
+      await api.patch(`/admin/members/${id}/password`, { newPassword })
     }, 'User password reset successfully.')
   }
 
   const updateUserAccess = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/members/${id}/access`, payload)
+      await api.patch(`/admin/members/${id}/access`, payload)
     }, 'User access updated successfully.')
   }
 
   const saveMeetingAttendance = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/meetings/${id}/attendance`, payload)
+      await api.patch(`/admin/meetings/${id}/attendance`, payload)
     }, 'Meeting attendance saved successfully.')
   }
 
   const saveMeetingAdvanced = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/meetings/${id}/advanced`, payload)
+      await api.patch(`/admin/meetings/${id}/advanced`, payload)
     }, 'Meeting workflow saved successfully.')
   }
 
   const publishMeetingRecap = async (id, payload) => {
     await runAction(async () => {
-      await api.post(`/meetings/${id}/recap`, payload)
+      await api.post(`/admin/meetings/${id}/recap`, payload)
     }, 'Meeting recap sent successfully.')
   }
 
   const saveTourParticipants = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/tours/${id}/participants`, payload)
+      await api.patch(`/admin/tours/${id}/participants`, payload)
     }, 'Tour participants saved successfully.')
   }
 
   const saveTourRegistration = async (id, payload) => {
     await runAction(async () => {
-      await api.patch(`/tours/${id}/registration`, payload)
+      await api.patch(`/admin/tours/${id}/registration`, payload)
     }, 'Tour registration settings saved successfully.')
   }
 
   const addTourExpense = async (id, payload) => {
     await runAction(async () => {
-      await api.post(`/tours/${id}/expenses`, payload)
+      await api.post(`/admin/tours/${id}/expenses`, payload)
     }, 'Tour expense added successfully.')
   }
 
@@ -1312,7 +1318,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/tours/${tourId}/expenses/${expenseId}`)
+          await api.delete(`/admin/tours/${tourId}/expenses/${expenseId}`)
         }, 'Tour expense deleted successfully.'),
       confirmLabel: 'Delete Expense',
       message: 'This tour expense will be removed from the cost tracker.',
@@ -1325,7 +1331,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.post(`/tours/${id}/complete`)
+          await api.post(`/admin/tours/${id}/complete`)
         }, 'Tour marked complete successfully.'),
       confirmLabel: 'Mark Complete',
       message: 'This will close registration and prepare the gallery album.',
@@ -1336,7 +1342,7 @@ export default function AdminDashboardPage() {
 
   const createPoll = async (values) => {
     await runAction(async () => {
-      await api.post('/polls', {
+      await api.post('/admin/polls', {
         deadline: values.deadline,
         ...(values.meetingId ? { meetingId: values.meetingId } : {}),
         options: values.optionsText
@@ -1355,7 +1361,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.post(`/polls/${id}/close`)
+          await api.post(`/admin/polls/${id}/close`)
         }, 'Poll closed successfully.'),
       confirmLabel: 'Close Poll',
       message: 'Members will no longer be able to vote in this poll.',
@@ -1368,7 +1374,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/polls/${id}`)
+          await api.delete(`/admin/polls/${id}`)
         }, 'Poll deleted successfully.'),
       confirmLabel: 'Delete Poll',
       message: 'This poll and all votes will be removed.',
@@ -1381,7 +1387,7 @@ export default function AdminDashboardPage() {
     requestConfirm({
       action: () =>
         runAction(async () => {
-          await api.delete(`/members/${id}`)
+          await api.delete(`/admin/members/${id}`)
         }, 'User deleted successfully.'),
       confirmLabel: 'Delete User',
       message: 'This account will be permanently removed from the system.',
@@ -1461,7 +1467,7 @@ export default function AdminDashboardPage() {
 
   const exportBackup = async () => {
     await runAction(async () => {
-      const response = await api.get('/backup')
+      const response = await api.get('/admin/backup')
       const blob = new Blob([JSON.stringify(response.data.data, null, 2)], {
         type: 'application/json',
       })
@@ -1554,7 +1560,7 @@ export default function AdminDashboardPage() {
 
   const sendBroadcastNotification = async (values) => {
     await runAction(async () => {
-      await api.post('/notifications/send', values)
+      await api.post('/admin/notifications/send', values)
       resetNotification(defaultNotificationForm)
     }, 'Notification sent successfully.')
   }
@@ -1613,7 +1619,7 @@ export default function AdminDashboardPage() {
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.patch(`/registrations/${id}/approve`),
+                  () => api.patch(`/admin/registrations/${id}/approve`),
                   'Registration approved.',
                 ),
               confirmLabel: 'Approve',
@@ -1625,7 +1631,7 @@ export default function AdminDashboardPage() {
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.patch(`/registrations/${id}/reject`, { reason }),
+                  () => api.patch(`/admin/registrations/${id}/reject`, { reason }),
                   'Registration rejected.',
                 ),
               confirmLabel: 'Reject',
@@ -1634,7 +1640,7 @@ export default function AdminDashboardPage() {
               variant: 'danger',
             })
           }
-          onRegistrationReceipt={(id) => printReceipt(`/receipts/registrations/${id}`)}
+          onRegistrationReceipt={(id) => printReceipt(`/admin/receipts/registrations/${id}`)}
           onTabChange={changeTab}
           stats={stats}
         />
@@ -1679,46 +1685,46 @@ export default function AdminDashboardPage() {
             }
 
             return runAction(
-              () => api.patch(`/payments/${id}/reject`, { reason: trimmedReason }),
+              () => api.patch(`/admin/payments/${id}/reject`, { reason: trimmedReason }),
               'Payment rejected.',
             )
           }}
           onPaymentBulkReject={(paymentIds, reason) =>
             runAction(
-              () => api.patch('/payments/bulk-reject', { paymentIds, reason }),
+              () => api.patch('/admin/payments/bulk-reject', { paymentIds, reason }),
               `${paymentIds.length} payments rejected.`,
             )
           }
           onPaymentBulkVerify={(paymentIds) =>
             runAction(
-              () => api.patch('/payments/bulk-verify', { paymentIds }),
+              () => api.patch('/admin/payments/bulk-verify', { paymentIds }),
               `${paymentIds.length} payments verified.`,
             )
           }
-          onPaymentReceipt={(id) => printReceipt(`/receipts/payments/${id}`)}
+          onPaymentReceipt={(id) => printReceipt(`/admin/receipts/payments/${id}`)}
           onPaymentVerify={(id) =>
-            runAction(() => api.patch(`/payments/${id}/verify`), 'Payment verified.')
+            runAction(() => api.patch(`/admin/payments/${id}/verify`), 'Payment verified.')
           }
           onFeeReminder={(member) =>
             runAction(
-              () => api.post(`/fees/member/${member.memberId}/reminder`),
+              () => api.post(`/admin/fees/member/${member.memberId}/reminder`),
               'Reminder sent.',
             )
           }
           onFeeAdjust={(payload) =>
-            runAction(() => api.post('/fees/adjust', payload), 'Fee amount adjusted.')
+            runAction(() => api.post('/admin/fees/adjust', payload), 'Fee amount adjusted.')
           }
           onFeeAdjustmentRemove={(id) =>
-            runAction(() => api.delete(`/fees/adjust/${id}`), 'Fee adjustment removed.')
+            runAction(() => api.delete(`/admin/fees/adjust/${id}`), 'Fee adjustment removed.')
           }
           onFeeWaive={(payload) =>
-            runAction(() => api.post('/fees/waive', payload), 'Fee waiver saved.')
+            runAction(() => api.post('/admin/fees/waive', payload), 'Fee waiver saved.')
           }
           onFeeWaiverRemove={(id) =>
-            runAction(() => api.delete(`/fees/waive/${id}`), 'Fee waiver removed.')
+            runAction(() => api.delete(`/admin/fees/waive/${id}`), 'Fee waiver removed.')
           }
           onMemberFeeHistory={(memberId, year) =>
-            api.get(`/fees/member/${memberId}/history`, { params: { year } })
+            api.get(`/admin/fees/member/${memberId}/history`, { params: { year } })
           }
           onDonationReject={(id, reason) => {
             const trimmedReason = reason?.trim()
@@ -1728,13 +1734,13 @@ export default function AdminDashboardPage() {
             }
 
             return runAction(
-              () => api.patch(`/donations/${id}/reject`, { reason: trimmedReason }),
+              () => api.patch(`/admin/donations/${id}/reject`, { reason: trimmedReason }),
               'Donation rejected.',
             )
           }}
-          onDonationReceipt={(id) => printReceipt(`/receipts/donations/${id}`)}
+          onDonationReceipt={(id) => printReceipt(`/admin/receipts/donations/${id}`)}
           onDonationVerify={(id) =>
-            runAction(() => api.patch(`/donations/${id}/verify`), 'Donation verified.')
+            runAction(() => api.patch(`/admin/donations/${id}/verify`), 'Donation verified.')
           }
           onNotificationSettingChange={updateNotificationSetting}
           onSaveManualDonation={handleManualDonationSubmit(saveManualDonation)}
@@ -3100,7 +3106,7 @@ function OverdueMembersPanel({
   }
 
   const downloadHistoryReceipt = async (paymentId) => {
-    const response = await api.get(`/receipts/${paymentId}`, { responseType: 'blob' })
+    const response = await api.get(`/admin/receipts/${paymentId}`, { responseType: 'blob' })
     const url = URL.createObjectURL(response.data)
     const link = document.createElement('a')
     link.href = url
