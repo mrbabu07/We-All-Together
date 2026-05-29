@@ -189,6 +189,11 @@ const feeAdjustmentSchema = z.object({
   reason: z.string().trim().min(1, 'Adjustment reason is required.'),
 })
 
+const feeWaiverSchema = z.object({
+  monthKey: z.string().trim().min(1, 'Month is required.'),
+  reason: z.string().trim().min(1, 'Waiver reason is required.'),
+})
+
 const noticeArchiveSchema = z
   .object({
     from: z.string().trim().min(1, 'Archive start date is required.'),
@@ -2730,6 +2735,15 @@ function OverdueMembersPanel({
     resolver: zodResolver(feeAdjustmentSchema),
   })
   const {
+    formState: { errors: waiverErrors, isSubmitting: isSubmittingWaiver },
+    handleSubmit: handleWaiverSubmit,
+    register: registerWaiver,
+    reset: resetWaiver,
+  } = useForm({
+    defaultValues: { monthKey: '', reason: '' },
+    resolver: zodResolver(feeWaiverSchema),
+  })
+  const {
     formState: { errors: historyPaymentRejectErrors, isSubmitting: isRejectingHistoryPayment },
     handleSubmit: handleHistoryPaymentRejectSubmit,
     register: registerHistoryPaymentReject,
@@ -2878,23 +2892,32 @@ function OverdueMembersPanel({
     }
   }
 
-  const submitWaiver = async (event) => {
-    event.preventDefault()
+  const closeWaiverModal = () => {
+    setWaiverModal(null)
+    resetWaiver({ monthKey: '', reason: '' })
+  }
+
+  const openWaiverModal = (member, monthKey) => {
+    setWaiverModal({ member })
+    resetWaiver({ monthKey, reason: '' })
+  }
+
+  const submitWaiver = async ({ monthKey, reason }) => {
     const selectedMonth = waiverModal?.member?.overdueMonths?.find(
-      (item) => `${item.month}-${item.year}` === waiverModal.monthKey,
+      (item) => `${item.month}-${item.year}` === monthKey,
     )
 
-    if (!selectedMonth || !waiverModal?.reason?.trim()) {
+    if (!selectedMonth) {
       return
     }
 
     await onWaive({
       memberId: waiverModal.member.memberId,
       month: selectedMonth.month,
-      reason: waiverModal.reason.trim(),
+      reason: reason.trim(),
       year: selectedMonth.year,
     })
-    setWaiverModal(null)
+    closeWaiverModal()
     await reloadHistory()
   }
 
@@ -3139,11 +3162,10 @@ function OverdueMembersPanel({
                         <Button
                           icon={CheckCircle2}
                           onClick={() =>
-                            setWaiverModal({
+                            openWaiverModal(
                               member,
-                              monthKey: `${member.overdueMonths?.[0]?.month}-${member.overdueMonths?.[0]?.year}`,
-                              reason: '',
-                            })
+                              `${member.overdueMonths?.[0]?.month}-${member.overdueMonths?.[0]?.year}`,
+                            )
                           }
                           variant="secondary"
                         >
@@ -3177,22 +3199,19 @@ function OverdueMembersPanel({
 
       <Modal
         className="max-w-lg"
-        onClose={() => setWaiverModal(null)}
+        onClose={closeWaiverModal}
         open={Boolean(waiverModal)}
         title="ফি মওকুফ করুন"
       >
         {waiverModal ? (
-          <form className="grid gap-4" onSubmit={submitWaiver}>
+          <form className="grid gap-4" onSubmit={handleWaiverSubmit(submitWaiver)}>
             <p className="text-sm text-gray-600">
               {waiverModal.member.name} এর নির্দিষ্ট মাসের ফি মওকুফ করতে কারণ লিখুন।
             </p>
             <SelectField
               label="মাস"
-              name="waiverMonth"
-              onChange={(event) =>
-                setWaiverModal((current) => ({ ...current, monthKey: event.target.value }))
-              }
-              value={waiverModal.monthKey}
+              error={waiverErrors.monthKey?.message}
+              {...registerWaiver('monthKey')}
             >
               {(waiverModal.member.overdueMonths || []).map((item) => (
                 <option key={`${item.month}-${item.year}`} value={`${item.month}-${item.year}`}>
@@ -3202,19 +3221,16 @@ function OverdueMembersPanel({
             </SelectField>
             <Field
               label="কারণ"
-              name="waiverReason"
-              onChange={(event) =>
-                setWaiverModal((current) => ({ ...current, reason: event.target.value }))
-              }
+              error={waiverErrors.reason?.message}
               required
               textarea
-              value={waiverModal.reason}
+              {...registerWaiver('reason')}
             />
             <div className="flex justify-end gap-2">
-              <Button onClick={() => setWaiverModal(null)} variant="secondary">
+              <Button onClick={closeWaiverModal} type="button" variant="secondary">
                 বাতিল
               </Button>
-              <Button icon={CheckCircle2} type="submit">
+              <Button icon={CheckCircle2} loading={isSubmittingWaiver} type="submit">
                 সংরক্ষণ
               </Button>
             </div>
@@ -3391,11 +3407,7 @@ function OverdueMembersPanel({
                     <div className="mt-3 grid gap-2">
                       <Button
                         onClick={() =>
-                          setWaiverModal({
-                            member: historyMember,
-                            monthKey: `${cell.month}-${cell.year}`,
-                            reason: '',
-                          })
+                          openWaiverModal(historyMember, `${cell.month}-${cell.year}`)
                         }
                         variant="secondary"
                       >
