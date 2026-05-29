@@ -11,7 +11,7 @@ const toolbarItems = [
   { command: 'insertOrderedList', icon: ListOrdered, label: 'Numbered list' },
 ]
 
-export default function RichTextEditor({ label, onChange, value = '' }) {
+export default function RichTextEditor({ className = '', error, label, onChange, value = '' }) {
   const editorRef = useRef(null)
   const selectionRangeRef = useRef(null)
   const [focused, setFocused] = useState(false)
@@ -84,9 +84,13 @@ export default function RichTextEditor({ label, onChange, value = '' }) {
 
   return (
     <>
-      <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+      <label className={`grid gap-1.5 text-sm font-medium text-gray-700 ${className}`}>
         {label ? <span>{label}</span> : null}
-        <div className="overflow-hidden rounded-xl border border-gray-300 bg-white focus-within:border-transparent focus-within:ring-2 focus-within:ring-indigo-500">
+        <div
+          className={`overflow-hidden rounded-xl border bg-white focus-within:border-transparent focus-within:ring-2 ${
+            error ? 'border-red-500 focus-within:ring-red-200' : 'border-gray-300 focus-within:ring-indigo-500'
+          }`}
+        >
           <div className="flex flex-wrap gap-1 border-b border-gray-200 bg-gray-50 p-2">
             {toolbarItems.map((item) => {
               const Icon = item.icon
@@ -136,6 +140,7 @@ export default function RichTextEditor({ label, onChange, value = '' }) {
             suppressContentEditableWarning
           />
         </div>
+        {error ? <span className="text-xs font-medium text-red-600">{error}</span> : null}
       </label>
       <Modal onClose={closeLinkModal} open={linkModalOpen} title="Add link">
         <form className="grid gap-4" onSubmit={submitLink}>

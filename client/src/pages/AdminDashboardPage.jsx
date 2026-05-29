@@ -37,6 +37,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
 import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
+import RichTextEditor from '../components/ui/RichTextEditor'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
 import StatCard from '../components/ui/StatCard'
@@ -4631,6 +4632,7 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
     handleSubmit: handleAdvancedSubmit,
     register: registerAdvanced,
     reset: resetAdvanced,
+    setValue: setAdvancedValue,
   } = useForm({
     defaultValues: defaultMeetingWorkflowForm,
     resolver: zodResolver(meetingWorkflowSchema),
@@ -4848,11 +4850,17 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                 textarea
                 {...registerAdvanced('minutes')}
               />
-              <Field
+              <input type="hidden" {...registerAdvanced('minutesRichText')} />
+              <RichTextEditor
                 error={advancedErrors.minutesRichText?.message}
                 label="Rich Minutes"
-                textarea
-                {...registerAdvanced('minutesRichText')}
+                onChange={(value) =>
+                  setAdvancedValue('minutesRichText', value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                value={advancedValues.minutesRichText || ''}
               />
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -6205,7 +6213,16 @@ function ContentFields({ config, errors, onImageUpload, register, setValue, uplo
           uploading={uploading}
         />
         <Field className="md:col-span-2" error={errors.body?.message} label="Body" textarea {...register('body')} />
-        <Field className="md:col-span-2" error={errors.richBody?.message} label="Rich Body" textarea {...register('richBody')} />
+        <input type="hidden" {...register('richBody')} />
+        <RichTextEditor
+          className="md:col-span-2"
+          error={errors.richBody?.message}
+          label="Rich Body"
+          onChange={(value) =>
+            setValue('richBody', value, { shouldDirty: true, shouldValidate: true })
+          }
+          value={values.richBody || ''}
+        />
         <Field className="md:col-span-2" error={errors.archivedAt?.message} label="Archived At" type="datetime-local" {...register('archivedAt')} />
       </>
     )
@@ -6320,7 +6337,16 @@ function ContentFields({ config, errors, onImageUpload, register, setValue, uplo
         uploading={uploading}
       />
       <Field className="md:col-span-2" error={errors.description?.message} label="Description" textarea {...register('description')} />
-      <Field className="md:col-span-2" error={errors.richDescription?.message} label="Rich Description" textarea {...register('richDescription')} />
+      <input type="hidden" {...register('richDescription')} />
+      <RichTextEditor
+        className="md:col-span-2"
+        error={errors.richDescription?.message}
+        label="Rich Description"
+        onChange={(value) =>
+          setValue('richDescription', value, { shouldDirty: true, shouldValidate: true })
+        }
+        value={values.richDescription || ''}
+      />
     </>
   )
 }
