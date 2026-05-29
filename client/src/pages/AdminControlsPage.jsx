@@ -129,6 +129,10 @@ const donationRejectSchema = z.object({
   reason: z.string().trim().min(1, 'Reject reason is required.'),
 })
 
+const suspensionSchema = z.object({
+  reason: z.string().trim().min(1, 'Suspension reason is required.'),
+})
+
 const defaultSettings = {
   appearance: {
     colorMode: 'light',
@@ -835,11 +839,11 @@ export default function AdminControlsPage() {
           onStatus={(user, status) =>
             runAction(() => api.patch(`/members/${user._id}/access`, { status }), 'Status updated')
           }
-          onSuspend={(user) =>
+          onSuspend={(user, reason = '') =>
             runAction(
               () =>
                 api.patch(`/admin-controls/members/${user._id}/suspension`, {
-                  reason: user.suspendedAt ? '' : 'Suspended by admin control panel',
+                  reason: user.suspendedAt ? '' : reason,
                   suspended: !user.suspendedAt,
                 }),
               user.suspendedAt ? 'Suspension removed' : 'Member suspended',
@@ -1532,6 +1536,7 @@ function MemberControlsTab({
 }) {
   const [rejectReason, setRejectReason] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState([])
+  const [suspendingUser, setSuspendingUser] = useState(null)
   const {
     formState: { errors: passwordResetErrors, isSubmitting: isResettingPassword },
     handleSubmit: handlePasswordResetSubmit,
@@ -1539,6 +1544,15 @@ function MemberControlsTab({
   } = useForm({
     defaultValues: { newPassword: '', userId: '' },
     resolver: zodResolver(memberPasswordResetSchema),
+  })
+  const {
+    formState: { errors: suspensionErrors, isSubmitting: isSuspending },
+    handleSubmit: handleSuspensionSubmit,
+    register: registerSuspension,
+    reset: resetSuspension,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(suspensionSchema),
   })
   const visiblePendingMembers = useMemo(
     () => filteredMembers.filter((user) => user.status === 'pending'),
@@ -1558,6 +1572,20 @@ function MemberControlsTab({
 
   const selectVisiblePending = () => {
     setSelectedPendingIds(visiblePendingMembers.map((user) => user._id))
+  }
+
+  const closeSuspensionModal = () => {
+    setSuspendingUser(null)
+    resetSuspension({ reason: '' })
+  }
+
+  const submitSuspension = async ({ reason }) => {
+    if (!suspendingUser?._id) {
+      return
+    }
+
+    await onSuspend(suspendingUser, reason)
+    closeSuspensionModal()
   }
 
   return (
@@ -1746,7 +1774,10 @@ function MemberControlsTab({
                 <Button onClick={() => onActivity(user)} variant="secondary">
                   Activity
                 </Button>
-                <Button onClick={() => onSuspend(user)} variant="secondary">
+                <Button
+                  onClick={() => (user.suspendedAt ? onSuspend(user) : setSuspendingUser(user))}
+                  variant="secondary"
+                >
                   {user.suspendedAt ? 'Unsuspend' : 'Suspend'}
                 </Button>
                 <Button icon={Trash2} onClick={() => onDelete(user)} variant="danger">
@@ -1757,6 +1788,36 @@ function MemberControlsTab({
           ))}
         </div>
       </Panel>
+
+      <Modal
+        onClose={closeSuspensionModal}
+        open={Boolean(suspendingUser)}
+        title="Suspend member"
+      >
+        {suspendingUser ? (
+          <form className="grid gap-4" onSubmit={handleSuspensionSubmit(submitSuspension)}>
+            <p className="text-sm text-gray-600">
+              Add a suspension reason for {suspendingUser.name}. The member will see this reason
+              when trying to log in.
+            </p>
+            <Field
+              error={suspensionErrors.reason?.message}
+              label="Reason"
+              required
+              textarea
+              {...registerSuspension('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeSuspensionModal} type="button" variant="secondary">
+                Cancel
+              </Button>
+              <Button icon={XCircle} loading={isSuspending} type="submit" variant="danger">
+                Suspend
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
 
       <Panel>
         <SectionTitle icon={Lock} title="পাসওয়ার্ড reset" />
