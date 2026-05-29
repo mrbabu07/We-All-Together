@@ -101,6 +101,43 @@ const expenseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required.'),
 })
 
+const defaultPollForm = {
+  deadline: '',
+  meetingId: '',
+  optionsText: 'Yes\nNo',
+  question: '',
+}
+
+const pollSchema = z
+  .object({
+    deadline: z.string().trim().min(1, 'Deadline is required.'),
+    meetingId: z.string().trim().optional(),
+    optionsText: z.string().trim().min(1, 'Options are required.'),
+    question: z.string().trim().min(1, 'Question is required.'),
+  })
+  .superRefine((values, context) => {
+    const options = values.optionsText
+      .split('\n')
+      .map((option) => option.trim())
+      .filter(Boolean)
+
+    if (options.length < 2) {
+      context.addIssue({
+        code: 'custom',
+        message: 'At least two options are required.',
+        path: ['optionsText'],
+      })
+    }
+
+    if (options.length > 6) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Use six options or fewer.',
+        path: ['optionsText'],
+      })
+    }
+  })
+
 const bnMonths = [
   'জানুয়ারি',
   'ফেব্রুয়ারি',
@@ -337,12 +374,17 @@ export default function AdminDashboardPage() {
     settings: {},
     users: [],
   })
-  const [pollForm, setPollForm] = useState({
-    deadline: '',
-    meetingId: '',
-    optionsText: 'Yes\nNo',
-    question: '',
+  const {
+    control: pollControl,
+    formState: { errors: pollErrors, isSubmitting: isCreatingPoll },
+    handleSubmit: handlePollSubmit,
+    register: registerPoll,
+    reset: resetPoll,
+  } = useForm({
+    defaultValues: defaultPollForm,
+    resolver: zodResolver(pollSchema),
   })
+  const pollForm = useWatch({ control: pollControl }) || defaultPollForm
   const [settingsForm, setSettingsForm] = useState({
     donationNumber: '',
     donationProvider: '',
@@ -1045,26 +1087,22 @@ export default function AdminDashboardPage() {
     })
   }
 
-  const createPoll = async (event) => {
-    event.preventDefault()
+  const createPoll = async (values) => {
     await runAction(async () => {
       await api.post('/polls', {
-        deadline: pollForm.deadline,
-        ...(pollForm.meetingId ? { meetingId: pollForm.meetingId } : {}),
-        options: pollForm.optionsText
+        deadline: values.deadline,
+        ...(values.meetingId ? { meetingId: values.meetingId } : {}),
+        options: values.optionsText
           .split('\n')
           .map((option) => option.trim())
           .filter(Boolean),
-        question: pollForm.question,
+        question: values.question,
       })
-      setPollForm({
-        deadline: '',
-        meetingId: '',
-        optionsText: 'Yes\nNo',
-        question: '',
-      })
+      resetPoll(defaultPollForm)
     }, 'Poll created successfully.')
   }
+
+  const submitPoll = (event) => handlePollSubmit(createPoll)(event)
 
   const closePoll = async (id) => {
     requestConfirm({
@@ -1508,11 +1546,8 @@ export default function AdminDashboardPage() {
           onGalleryReorder={reorderGalleryAlbum}
           onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
-          onPollChange={(field, value) =>
-            setPollForm((current) => ({ ...current, [field]: value }))
-          }
           onPollClose={closePoll}
-          onPollCreate={createPoll}
+          onPollCreate={submitPoll}
           onPollDelete={deletePoll}
           onPublishMeetingRecap={publishMeetingRecap}
           onRestoreRuleVersion={restoreRuleVersion}
@@ -1523,7 +1558,10 @@ export default function AdminDashboardPage() {
           onSaveMeetingAttendance={saveMeetingAttendance}
           onSaveTourRegistration={saveTourRegistration}
           onSaveTourParticipants={saveTourParticipants}
+          pollErrors={pollErrors}
           pollForm={pollForm}
+          pollSubmitting={isCreatingPoll}
+          registerPoll={registerPoll}
           uploadingContentKey={uploadingContentKey}
           userRole={user?.role}
         />
@@ -3161,7 +3199,6 @@ function ContentTab({
   onGalleryReorder,
   onFormChange,
   onImageUpload,
-  onPollChange,
   onPollClose,
   onPollCreate,
   onPollDelete,
@@ -3174,7 +3211,10 @@ function ContentTab({
   onSaveMeetingAttendance,
   onSaveTourRegistration,
   onSaveTourParticipants,
+  pollErrors,
   pollForm,
+  pollSubmitting,
+  registerPoll,
   uploadingContentKey,
   userRole,
 }) {
@@ -3289,12 +3329,14 @@ function ContentTab({
               />
               <PollWorkflowPanel
                 meetings={data.content.meetings}
-                onChange={onPollChange}
                 onClose={onPollClose}
                 onCreate={onPollCreate}
                 onDelete={onPollDelete}
+                pollErrors={pollErrors}
                 pollForm={pollForm}
+                pollSubmitting={pollSubmitting}
                 polls={data.polls}
+                registerPoll={registerPoll}
               />
             </div>
           ) : null}
@@ -4332,7 +4374,17 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
   )
 }
 
-function PollWorkflowPanel({ meetings, onChange, onClose, onCreate, onDelete, pollForm, polls }) {
+function PollWorkflowPanel({
+  meetings,
+  onClose,
+  onCreate,
+  onDelete,
+  pollErrors,
+  pollForm,
+  polls,
+  pollSubmitting,
+  registerPoll,
+}) {
   const optionCount = pollForm.optionsText
     .split('\n')
     .map((option) => option.trim())
@@ -4343,10 +4395,9 @@ function PollWorkflowPanel({ meetings, onChange, onClose, onCreate, onDelete, po
       <SectionTitle icon={Vote} title="Meeting Polls" />
       <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
         <SelectField
+          error={pollErrors.meetingId?.message}
           label="Meeting"
-          name="pollMeeting"
-          onChange={(event) => onChange('meetingId', event.target.value)}
-          value={pollForm.meetingId}
+          {...registerPoll('meetingId')}
         >
           <option value="">No meeting attachment</option>
           {meetings.map((meeting) => (
@@ -4356,34 +4407,28 @@ function PollWorkflowPanel({ meetings, onChange, onClose, onCreate, onDelete, po
           ))}
         </SelectField>
         <Field
+          error={pollErrors.deadline?.message}
           label="Deadline"
-          name="pollDeadline"
-          onChange={(event) => onChange('deadline', event.target.value)}
-          required
           type="datetime-local"
-          value={pollForm.deadline}
+          {...registerPoll('deadline')}
         />
         <Field
           className="md:col-span-2"
+          error={pollErrors.question?.message}
           label="Question"
-          name="pollQuestion"
-          onChange={(event) => onChange('question', event.target.value)}
-          required
-          value={pollForm.question}
+          {...registerPoll('question')}
         />
         <Field
           className="md:col-span-2"
+          error={pollErrors.optionsText?.message}
           label="Options"
-          name="pollOptions"
-          onChange={(event) => onChange('optionsText', event.target.value)}
-          required
           textarea
-          value={pollForm.optionsText}
+          {...registerPoll('optionsText')}
         />
         <p className="md:col-span-2 text-sm font-semibold text-gray-500">
           {optionCount}/6 options. Use one option per line.
         </p>
-        <Button className="md:col-span-2" icon={Vote} type="submit">
+        <Button className="md:col-span-2" icon={Vote} loading={pollSubmitting} type="submit">
           Create Poll
         </Button>
       </form>
