@@ -133,6 +133,10 @@ const suspensionSchema = z.object({
   reason: z.string().trim().min(1, 'Suspension reason is required.'),
 })
 
+const memberBulkRejectSchema = z.object({
+  reason: z.string().trim().min(1, 'Reject reason is required.'),
+})
+
 const defaultSettings = {
   appearance: {
     colorMode: 'light',
@@ -1534,9 +1538,17 @@ function MemberControlsTab({
   onStatus,
   onSuspend,
 }) {
-  const [rejectReason, setRejectReason] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState([])
   const [suspendingUser, setSuspendingUser] = useState(null)
+  const {
+    control: bulkRejectControl,
+    formState: { errors: bulkRejectErrors, isSubmitting: isBulkRejecting },
+    handleSubmit: handleBulkRejectSubmit,
+    register: registerBulkReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(memberBulkRejectSchema),
+  })
   const {
     formState: { errors: passwordResetErrors, isSubmitting: isResettingPassword },
     handleSubmit: handlePasswordResetSubmit,
@@ -1563,6 +1575,7 @@ function MemberControlsTab({
     [visiblePendingMembers],
   )
   const selectedVisiblePendingIds = selectedPendingIds.filter((id) => visiblePendingIds.has(id))
+  const bulkRejectReason = useWatch({ control: bulkRejectControl, name: 'reason' }) || ''
 
   const togglePendingSelection = (userId) => {
     setSelectedPendingIds((current) =>
@@ -1609,15 +1622,17 @@ function MemberControlsTab({
           </Button>
           <Field
             className="min-w-72"
+            error={bulkRejectErrors.reason?.message}
             label="Reject reason"
-            name="rejectReason"
-            onChange={(event) => setRejectReason(event.target.value)}
-            value={rejectReason}
+            {...registerBulkReject('reason')}
           />
           <Button
-            disabled={!selectedVisiblePendingIds.length || !rejectReason.trim()}
+            disabled={!selectedVisiblePendingIds.length || !bulkRejectReason.trim()}
             icon={XCircle}
-            onClick={() => onBulkReject(rejectReason, selectedVisiblePendingIds)}
+            loading={isBulkRejecting}
+            onClick={handleBulkRejectSubmit((values) =>
+              onBulkReject(values.reason, selectedVisiblePendingIds),
+            )}
             variant="danger"
           >
             Bulk reject ({selectedVisiblePendingIds.length})
