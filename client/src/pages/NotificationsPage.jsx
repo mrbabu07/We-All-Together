@@ -19,6 +19,26 @@ const getTypeGroup = (type = 'general') => {
   return Object.entries(typeGroups).find(([, values]) => values.includes(normalized))?.[0] || 'general'
 }
 
+const sanitizeNotificationHtml = (html = '') => {
+  const documentFragment = new DOMParser().parseFromString(String(html), 'text/html')
+
+  documentFragment.querySelectorAll('script, iframe, object, embed, style').forEach((node) => {
+    node.remove()
+  })
+  documentFragment.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase()
+      const value = attribute.value.trim().toLowerCase()
+
+      if (name.startsWith('on') || (['href', 'src'].includes(name) && value.startsWith('javascript:'))) {
+        node.removeAttribute(attribute.name)
+      }
+    })
+  })
+
+  return documentFragment.body.innerHTML
+}
+
 export default function NotificationsPage() {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -138,7 +158,7 @@ export default function NotificationsPage() {
                 </div>
                 <div
                   className="mt-2 text-sm text-gray-600 [&_a]:font-semibold [&_a]:text-indigo-700 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
-                  dangerouslySetInnerHTML={{ __html: item.message }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeNotificationHtml(item.message) }}
                 />
                 <p className="mt-2 text-xs font-medium text-gray-500">
                   {toReadableDate(item.createdAt)}
