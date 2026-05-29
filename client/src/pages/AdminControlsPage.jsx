@@ -83,6 +83,11 @@ const defaultWaiveForm = {
   userId: '',
 }
 
+const defaultNoticeArchiveForm = {
+  from: '',
+  to: '',
+}
+
 const monthSchema = z.string().trim().regex(/^\d{4}-\d{2}$/, 'Month is required.')
 
 const manualFeeSchema = z.object({
@@ -103,6 +108,21 @@ const memberPasswordResetSchema = z.object({
   newPassword: z.string().min(6, 'Temporary password must be at least 6 characters.'),
   userId: z.string().trim().min(1, 'Member is required.'),
 })
+
+const noticeArchiveSchema = z
+  .object({
+    from: z.string().trim().min(1, 'Archive start date is required.'),
+    to: z.string().trim().min(1, 'Archive end date is required.'),
+  })
+  .superRefine((values, context) => {
+    if (values.from && values.to && new Date(values.to) < new Date(values.from)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'End date must be after start date.',
+        path: ['to'],
+      })
+    }
+  })
 
 const defaultSettings = {
   appearance: {
@@ -327,7 +347,15 @@ export default function AdminControlsPage() {
     rows: [],
   })
   const [activityUser, setActivityUser] = useState(null)
-  const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
+  const {
+    formState: { errors: archiveErrors, isSubmitting: isArchivingNotices },
+    handleSubmit: handleArchiveSubmit,
+    register: registerArchive,
+    reset: resetArchive,
+  } = useForm({
+    defaultValues: defaultNoticeArchiveForm,
+    resolver: zodResolver(noticeArchiveSchema),
+  })
   const {
     control: announcementControl,
     formState: { errors: announcementErrors, isSubmitting: isSendingAnnouncement },
@@ -839,17 +867,19 @@ export default function AdminControlsPage() {
       ) : null}
       {activeTab === 'content' ? (
         <ContentControlsTab
-          archiveForm={archiveForm}
+          archiveErrors={archiveErrors}
+          archiveSubmitting={isArchivingNotices}
           blogs={controls.blogs}
           form={settingsForm}
           gallery={controls.gallery}
           meetings={controls.meetings}
           notices={controls.notices}
-          onArchive={(event) => {
-            event.preventDefault()
-            runAction(() => api.post('/notices/archive-bulk', archiveForm), 'Notices archived')
-          }}
-          onArchiveChange={setArchiveForm}
+          onArchive={handleArchiveSubmit((values) =>
+            runAction(async () => {
+              await api.post('/notices/archive-bulk', values)
+              resetArchive(defaultNoticeArchiveForm)
+            }, 'Notices archived')
+          )}
           onBlogModerate={(blog, status) =>
             runAction(
               () => api.patch(`/blogs/${blog._id}/moderation`, { status }),
@@ -898,6 +928,7 @@ export default function AdminControlsPage() {
             ])
           }
           rules={controls.rules}
+          registerArchive={registerArchive}
           saving={saving}
         />
       ) : null}
@@ -1962,14 +1993,14 @@ function MemberSelect({ error, members, onChange, value }) {
 }
 
 function ContentControlsTab({
-  archiveForm,
+  archiveErrors,
+  archiveSubmitting,
   blogs,
   form,
   gallery,
   meetings,
   notices,
   onArchive,
-  onArchiveChange,
   onBlogModerate,
   onCategoryAdd,
   onCategoryRemove,
@@ -1978,6 +2009,7 @@ function ContentControlsTab({
   onSave,
   onTemplateAdd,
   rules,
+  registerArchive,
   saving,
 }) {
   const [category, setCategory] = useState('')
@@ -2021,21 +2053,19 @@ function ContentControlsTab({
         </div>
         <form className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr_auto]" onSubmit={onArchive}>
           <Field
+            error={archiveErrors.from?.message}
             label="Archive from"
-            name="archiveFrom"
-            onChange={(event) => onArchiveChange({ ...archiveForm, from: event.target.value })}
             type="date"
-            value={archiveForm.from}
+            {...registerArchive('from')}
           />
           <Field
+            error={archiveErrors.to?.message}
             label="Archive to"
-            name="archiveTo"
-            onChange={(event) => onArchiveChange({ ...archiveForm, to: event.target.value })}
             type="date"
-            value={archiveForm.to}
+            {...registerArchive('to')}
           />
           <div className="flex items-end">
-            <Button icon={Archive} type="submit" variant="secondary">
+            <Button icon={Archive} loading={archiveSubmitting} type="submit" variant="secondary">
               Bulk archive
             </Button>
           </div>
