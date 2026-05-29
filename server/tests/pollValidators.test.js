@@ -14,6 +14,17 @@ test('validatePoll accepts meeting question options and future deadline', () => 
   assert.equal(payload.options[0].text, 'Yes')
 })
 
+test('validatePoll accepts optional meeting attachment', () => {
+  const payload = validatePoll({
+    deadline: new Date(Date.now() + 86400000).toISOString(),
+    options: ['Friday', 'Saturday'],
+    question: 'Preferred gathering day?',
+  })
+
+  assert.equal(payload.meetingId, null)
+  assert.equal(payload.options.length, 2)
+})
+
 test('validatePoll rejects fewer than two options', () => {
   assert.throws(
     () =>
@@ -24,6 +35,18 @@ test('validatePoll rejects fewer than two options', () => {
         question: 'Incomplete poll?',
       }),
     /At least two poll options/,
+  )
+})
+
+test('validatePoll rejects more than six options', () => {
+  assert.throws(
+    () =>
+      validatePoll({
+        deadline: new Date(Date.now() + 86400000).toISOString(),
+        options: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+        question: 'Too many options?',
+      }),
+    /up to six options/,
   )
 })
 

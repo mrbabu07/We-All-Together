@@ -1576,6 +1576,35 @@ function Updates({
 }
 
 function Polls({ onVote, polls }) {
+  const [nowMs, setNowMs] = useState(0)
+
+  useEffect(() => {
+    const updateClock = () => setNowMs(Date.now())
+
+    updateClock()
+    const timer = window.setInterval(updateClock, 60000)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const getDeadlineText = (poll) => {
+    if (poll.isClosed) {
+      return poll.closedAt ? `Closed ${formatDate(poll.closedAt)}` : 'Closed'
+    }
+    if (!nowMs) {
+      return `Open until ${formatDate(poll.deadline)}`
+    }
+
+    const diffMs = new Date(poll.deadline).getTime() - nowMs
+    const hours = Math.max(Math.ceil(diffMs / 3600000), 0)
+
+    if (hours >= 24) {
+      return `${Math.ceil(hours / 24)} days left`
+    }
+
+    return `${hours} hours left`
+  }
+
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-2">
       {polls.length === 0 ? <Empty text="No active polls yet." /> : null}
@@ -1589,7 +1618,10 @@ function Polls({ onVote, polls }) {
           </div>
           <h3 className="mt-4 text-lg font-bold text-gray-950">{poll.question}</h3>
           <p className="mt-1 text-sm text-gray-600">
-            {poll.meetingId?.title || 'Meeting'} | Deadline {formatDate(poll.deadline)}
+            {poll.meetingId?.title || 'Standalone poll'} | Deadline {formatDate(poll.deadline)}
+          </p>
+          <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
+            {getDeadlineText(poll)}
           </p>
           <div className="mt-4 grid gap-3">
             {poll.options.map((option) => {
@@ -1597,6 +1629,7 @@ function Polls({ onVote, polls }) {
                 ? Math.round((option.voteCount / poll.totalVotes) * 100)
                 : 0
               const disabled = poll.isClosed || poll.hasVoted
+              const showResults = poll.isClosed || poll.hasVoted
 
               return (
                 <div className="rounded-md border border-gray-200 p-3" key={option._id}>
@@ -1604,7 +1637,7 @@ function Polls({ onVote, polls }) {
                     <div>
                       <p className="font-semibold text-gray-950">{option.text}</p>
                       <p className="text-sm text-gray-500">
-                        {option.voteCount} votes | {percent}%
+                        {showResults ? `${option.voteCount} votes | ${percent}%` : 'Vote to see results'}
                       </p>
                     </div>
                     {option.hasMyVote ? <Badge value="approved">Your vote</Badge> : null}
@@ -1614,12 +1647,14 @@ function Polls({ onVote, polls }) {
                       </Button>
                     ) : null}
                   </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className="h-full rounded-full bg-indigo-700"
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
+                  {showResults ? (
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-indigo-700"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               )
             })}

@@ -25,5 +25,7 @@ router.post(
   authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   pollController.votePoll,
 )
+router.post('/:id/close', protect, authorize(USER_ROLES.ADMIN), pollController.closePoll)
+router.delete('/:id', protect, authorize(USER_ROLES.ADMIN), pollController.deletePoll)
 
 module.exports = router

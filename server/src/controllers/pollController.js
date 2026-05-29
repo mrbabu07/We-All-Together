@@ -6,7 +6,10 @@ const asyncHandler = require('../utils/asyncHandler')
 const { validatePoll, validatePollVote } = require('../validators/pollValidators')
 
 const populatePoll = (query) =>
-  query.populate('meetingId', 'title meetingDate location').populate('createdBy', 'name phone')
+  query
+    .populate('meetingId', 'title meetingDate location')
+    .populate('createdBy', 'name phone')
+    .populate('closedBy', 'name phone')
 
 const serializePoll = (poll, viewerId = '') => {
   const raw = typeof poll.toObject === 'function' ? poll.toObject() : poll
@@ -31,7 +34,7 @@ const serializePoll = (poll, viewerId = '') => {
   return {
     ...raw,
     hasVoted: Boolean(selectedOptionId),
-    isClosed: new Date(raw.deadline) <= new Date(),
+    isClosed: Boolean(raw.isClosed) || new Date(raw.deadline) <= new Date(),
     options,
     selectedOptionId,
     totalVotes: options.reduce((sum, option) => sum + option.voteCount, 0),
@@ -74,9 +77,9 @@ const getPoll = asyncHandler(async (req, res) => {
 
 const createPoll = asyncHandler(async (req, res) => {
   const payload = validatePoll(req.body)
-  const meeting = await Meeting.findById(payload.meetingId)
+  const meeting = payload.meetingId ? await Meeting.findById(payload.meetingId) : null
 
-  if (!meeting) {
+  if (payload.meetingId && !meeting) {
     throw new AppError('Meeting not found.', 404)
   }
 
@@ -90,7 +93,8 @@ const createPoll = asyncHandler(async (req, res) => {
     entityId: poll._id,
     entityType: 'Poll',
     metadata: {
-      meeting: meeting.title,
+      meeting: meeting?.title || '',
+      meetingId: meeting?._id || null,
       options: poll.options.length,
       question: poll.question,
     },
@@ -116,6 +120,9 @@ const votePoll = asyncHandler(async (req, res) => {
   }
 
   if (new Date(poll.deadline) <= new Date()) {
+    throw new AppError('This poll is closed.', 400)
+  }
+  if (poll.isClosed) {
     throw new AppError('This poll is closed.', 400)
   }
 
@@ -157,8 +164,69 @@ const votePoll = asyncHandler(async (req, res) => {
   })
 })
 
+const closePoll = asyncHandler(async (req, res) => {
+  const poll = await Poll.findById(req.params.id)
+
+  if (!poll) {
+    throw new AppError('Poll not found.', 404)
+  }
+
+  poll.isClosed = true
+  poll.closedAt = poll.closedAt || new Date()
+  poll.closedBy = req.user._id
+  await poll.save()
+  await recordAuditLog({
+    action: 'poll.close',
+    actor: req.user,
+    entityId: poll._id,
+    entityType: 'Poll',
+    metadata: {
+      question: poll.question,
+    },
+  })
+
+  const populatedPoll = await populatePoll(Poll.findById(poll._id))
+
+  res.status(200).json({
+    success: true,
+    message: 'Poll closed successfully.',
+    data: {
+      poll: serializePoll(populatedPoll, req.user?._id),
+    },
+  })
+})
+
+const deletePoll = asyncHandler(async (req, res) => {
+  const poll = await Poll.findById(req.params.id)
+
+  if (!poll) {
+    throw new AppError('Poll not found.', 404)
+  }
+
+  await poll.deleteOne()
+  await recordAuditLog({
+    action: 'poll.delete',
+    actor: req.user,
+    entityId: req.params.id,
+    entityType: 'Poll',
+    metadata: {
+      question: poll.question,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Poll deleted successfully.',
+    data: {
+      id: req.params.id,
+    },
+  })
+})
+
 module.exports = {
+  closePoll,
   createPoll,
+  deletePoll,
   getPoll,
   getPolls,
   serializePoll,

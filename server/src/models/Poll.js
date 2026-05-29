@@ -5,7 +5,7 @@ const pollSchema = new mongoose.Schema(
     meetingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Meeting',
-      required: true,
+      default: null,
       index: true,
     },
     question: {
@@ -35,6 +35,20 @@ const pollSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    isClosed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    closedAt: {
+      type: Date,
+      default: null,
+    },
+    closedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -47,7 +61,7 @@ const pollSchema = new mongoose.Schema(
 )
 
 pollSchema.path('options').validate(function validatePollOptions(options) {
-  return Array.isArray(options) && options.length >= 2
-}, 'A poll must have at least two options.')
+  return Array.isArray(options) && options.length >= 2 && options.length <= 6
+}, 'A poll must have between two and six options.')
 
 module.exports = mongoose.model('Poll', pollSchema)

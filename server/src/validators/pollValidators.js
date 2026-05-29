@@ -21,6 +21,20 @@ const readObjectId = (body, fieldName, label = fieldName) => {
   return value
 }
 
+const readOptionalObjectId = (body, fieldName, label = fieldName) => {
+  const value = typeof body[fieldName] === 'string' ? body[fieldName].trim() : ''
+
+  if (!value) {
+    return null
+  }
+
+  if (!mongoose.isValidObjectId(value)) {
+    throw new AppError(`${label} is invalid.`, 400)
+  }
+
+  return value
+}
+
 const readDeadline = (body) => {
   const deadline = new Date(requireString(body, 'deadline', 'Deadline'))
 
@@ -46,10 +60,13 @@ const validatePoll = (body) => {
   if (uniqueOptions.length < 2) {
     throw new AppError('At least two poll options are required.', 400)
   }
+  if (uniqueOptions.length > 6) {
+    throw new AppError('A poll can have up to six options.', 400)
+  }
 
   return {
     deadline: readDeadline(body),
-    meetingId: readObjectId(body, 'meetingId', 'Meeting'),
+    meetingId: readOptionalObjectId(body, 'meetingId', 'Meeting'),
     options: uniqueOptions.map((text) => ({ text, votes: [] })),
     question: requireString(body, 'question', 'Question'),
   }

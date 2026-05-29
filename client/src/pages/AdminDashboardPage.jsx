@@ -986,7 +986,7 @@ export default function AdminDashboardPage() {
     await runAction(async () => {
       await api.post('/polls', {
         deadline: pollForm.deadline,
-        meetingId: pollForm.meetingId,
+        ...(pollForm.meetingId ? { meetingId: pollForm.meetingId } : {}),
         options: pollForm.optionsText
           .split('\n')
           .map((option) => option.trim())
@@ -1000,6 +1000,32 @@ export default function AdminDashboardPage() {
         question: '',
       })
     }, 'Poll created successfully.')
+  }
+
+  const closePoll = async (id) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.post(`/polls/${id}/close`)
+        }, 'Poll closed successfully.'),
+      confirmLabel: 'Close Poll',
+      message: 'Members will no longer be able to vote in this poll.',
+      title: 'Close poll?',
+      variant: 'danger',
+    })
+  }
+
+  const deletePoll = async (id) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/polls/${id}`)
+        }, 'Poll deleted successfully.'),
+      confirmLabel: 'Delete Poll',
+      message: 'This poll and all votes will be removed.',
+      title: 'Delete poll?',
+      variant: 'danger',
+    })
   }
 
   const deleteUser = async (id) => {
@@ -1414,7 +1440,9 @@ export default function AdminDashboardPage() {
           onPollChange={(field, value) =>
             setPollForm((current) => ({ ...current, [field]: value }))
           }
+          onPollClose={closePoll}
           onPollCreate={createPoll}
+          onPollDelete={deletePoll}
           onPublishMeetingRecap={publishMeetingRecap}
           onRestoreRuleVersion={restoreRuleVersion}
           onAddTourExpense={addTourExpense}
@@ -3073,7 +3101,9 @@ function ContentTab({
   onFormChange,
   onImageUpload,
   onPollChange,
+  onPollClose,
   onPollCreate,
+  onPollDelete,
   onRestoreRuleVersion,
   onAddTourExpense,
   onCompleteTour,
@@ -3195,7 +3225,9 @@ function ContentTab({
               <PollWorkflowPanel
                 meetings={data.content.meetings}
                 onChange={onPollChange}
+                onClose={onPollClose}
                 onCreate={onPollCreate}
+                onDelete={onPollDelete}
                 pollForm={pollForm}
                 polls={data.polls}
               />
@@ -4222,7 +4254,12 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
   )
 }
 
-function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
+function PollWorkflowPanel({ meetings, onChange, onClose, onCreate, onDelete, pollForm, polls }) {
+  const optionCount = pollForm.optionsText
+    .split('\n')
+    .map((option) => option.trim())
+    .filter(Boolean).length
+
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
       <SectionTitle icon={Vote} title="Meeting Polls" />
@@ -4231,10 +4268,9 @@ function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
           label="Meeting"
           name="pollMeeting"
           onChange={(event) => onChange('meetingId', event.target.value)}
-          required
           value={pollForm.meetingId}
         >
-          <option value="">Select meeting</option>
+          <option value="">No meeting attachment</option>
           {meetings.map((meeting) => (
             <option key={meeting._id} value={meeting._id}>
               {meeting.title}
@@ -4266,6 +4302,9 @@ function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
           textarea
           value={pollForm.optionsText}
         />
+        <p className="md:col-span-2 text-sm font-semibold text-gray-500">
+          {optionCount}/6 options. Use one option per line.
+        </p>
         <Button className="md:col-span-2" icon={Vote} type="submit">
           Create Poll
         </Button>
@@ -4279,12 +4318,27 @@ function PollWorkflowPanel({ meetings, onChange, onCreate, pollForm, polls }) {
               <div>
                 <h3 className="font-semibold text-gray-950">{poll.question}</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {poll.meetingId?.title || 'Meeting'} | Deadline {toReadableDate(poll.deadline)}
+                  {poll.meetingId?.title || 'Standalone poll'} | Deadline {toReadableDate(poll.deadline)}
                 </p>
+                {poll.closedAt ? (
+                  <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
+                    Closed {toReadableDate(poll.closedAt)} by {poll.closedBy?.name || 'admin'}
+                  </p>
+                ) : null}
               </div>
-              <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
-                {poll.isClosed ? 'Closed' : 'Open'}
-              </Badge>
+              <div className="flex flex-wrap gap-2">
+                <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
+                  {poll.isClosed ? 'Closed' : 'Open'}
+                </Badge>
+                {!poll.isClosed ? (
+                  <Button icon={XCircle} onClick={() => onClose(poll._id)} size="sm" variant="danger">
+                    Close
+                  </Button>
+                ) : null}
+                <Button icon={Trash2} onClick={() => onDelete(poll._id)} size="sm" variant="danger">
+                  Delete
+                </Button>
+              </div>
             </div>
             <PollResultsChart poll={poll} />
           </div>
