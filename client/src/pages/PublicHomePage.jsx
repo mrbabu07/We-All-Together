@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import confetti from 'canvas-confetti'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -22,7 +23,9 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { useForm, useWatch } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
 import {
   AchievementsSection,
@@ -57,6 +60,37 @@ const initialDonationForm = {
   phone: '',
   transactionId: '',
 }
+
+const normalizeBangladeshPhone = (value = '') => {
+  const phone = String(value).trim().replace(/[\s-]/g, '')
+
+  if (phone.startsWith('+88')) {
+    return phone.slice(3)
+  }
+
+  if (phone.startsWith('88') && phone.length === 13) {
+    return phone.slice(2)
+  }
+
+  return phone
+}
+
+const bangladeshPhoneSchema = (label) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required.`)
+    .transform(normalizeBangladeshPhone)
+    .refine((value) => /^01[3-9]\d{8}$/.test(value), `${label} must use Bangladeshi format like 017XXXXXXXX.`)
+
+const publicDonationSchema = z.object({
+  amount: z.coerce.number().min(1, 'Donation amount is required.'),
+  donorName: z.string().trim().min(1, 'Name is required.'),
+  method: z.string().trim().min(1, 'Payment method is required.'),
+  note: z.string().trim().max(300, 'Message cannot exceed 300 characters.').optional(),
+  phone: bangladeshPhoneSchema('Phone'),
+  transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
+})
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -129,8 +163,18 @@ export default function PublicHomePage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [donationForm, setDonationForm] = useState(initialDonationForm)
-  const [submittingDonation, setSubmittingDonation] = useState(false)
+  const {
+    control: donationControl,
+    formState: { errors: donationErrors, isSubmitting: submittingDonation },
+    handleSubmit: handleDonationSubmit,
+    register: registerDonation,
+    reset: resetDonation,
+    setValue: setDonationValue,
+  } = useForm({
+    defaultValues: initialDonationForm,
+    resolver: zodResolver(publicDonationSchema),
+  })
+  const donationForm = useWatch({ control: donationControl }) || initialDonationForm
   const [showBackTop, setShowBackTop] = useState(false)
   const [data, setData] = useState({
     achievements: [],
@@ -295,22 +339,13 @@ export default function PublicHomePage() {
     upsertMeta('og:image', '/pwa-icon.svg', 'property')
   }, [orgName, tagline])
 
-  const updateDonationField = (event) => {
-    setDonationForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }))
-  }
-
-  const submitDonation = async (event) => {
-    event.preventDefault()
-    setSubmittingDonation(true)
+  const submitDonation = async (values) => {
     setSuccessMessage('')
     setMessage('')
 
     try {
-      await api.post('/donations', donationForm)
-      setDonationForm(initialDonationForm)
+      await api.post('/donations', values)
+      resetDonation(initialDonationForm)
       setSuccessMessage('ধন্যবাদ। আপনার দানের তথ্য যাচাইয়ের জন্য জমা হয়েছে।')
       confetti({
         colors: [cssVar('--brand-600'), cssVar('--success'), cssVar('--warning')],
@@ -320,8 +355,6 @@ export default function PublicHomePage() {
       })
     } catch (error) {
       setMessage(getErrorMessage(error))
-    } finally {
-      setSubmittingDonation(false)
     }
   }
 
@@ -408,13 +441,17 @@ export default function PublicHomePage() {
 
       <DonationSection
         disabled={siteSettings.publicDonationsEnabled === false}
+        errors={donationErrors}
         form={donationForm}
         message={message}
         onAmount={(amount) =>
-          setDonationForm((current) => ({ ...current, amount: String(amount) }))
+          setDonationValue('amount', String(amount), {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
         }
-        onChange={updateDonationField}
-        onSubmit={submitDonation}
+        onSubmit={handleDonationSubmit(submitDonation)}
+        registerDonation={registerDonation}
         settings={data.settings}
         submitting={submittingDonation}
         successMessage={successMessage}
@@ -922,11 +959,12 @@ function EventCard({ event, onRsvp }) {
 
 function DonationSection({
   disabled,
+  errors,
   form,
   message,
   onAmount,
-  onChange,
   onSubmit,
+  registerDonation,
   settings,
   submitting,
   successMessage,
@@ -1005,16 +1043,36 @@ function DonationSection({
                   ))}
                 </div>
               </div>
-              <Field label="Custom amount" min="1" name="amount" onChange={onChange} required type="number" value={form.amount} />
+              <Field
+                error={errors.amount?.message}
+                label="Custom amount"
+                min="1"
+                type="number"
+                {...registerDonation('amount')}
+              />
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="নাম" name="donorName" onChange={onChange} required value={form.donorName} />
-                <Field label="ফোন" name="phone" onChange={onChange} pattern="01[3-9][0-9]{8}" required value={form.phone} />
+                <Field error={errors.donorName?.message} label="নাম" {...registerDonation('donorName')} />
+                <Field
+                  error={errors.phone?.message}
+                  label="ফোন"
+                  pattern="01[3-9][0-9]{8}"
+                  {...registerDonation('phone')}
+                />
               </div>
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="পেমেন্ট মাধ্যম" name="method" onChange={onChange} placeholder="bKash / Nagad" required value={form.method} />
-                <Field label="ট্রানজ্যাকশন আইডি" name="transactionId" onChange={onChange} required value={form.transactionId} />
+                <Field
+                  error={errors.method?.message}
+                  label="পেমেন্ট মাধ্যম"
+                  placeholder="bKash / Nagad"
+                  {...registerDonation('method')}
+                />
+                <Field
+                  error={errors.transactionId?.message}
+                  label="ট্রানজ্যাকশন আইডি"
+                  {...registerDonation('transactionId')}
+                />
               </div>
-              <Field label="বার্তা" name="note" onChange={onChange} rows={3} textarea value={form.note} />
+              <Field error={errors.note?.message} label="বার্তা" rows={3} textarea {...registerDonation('note')} />
               {message ? <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{message}</p> : null}
               {successMessage ? (
                 <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">
