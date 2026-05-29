@@ -22,7 +22,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import api, { getErrorMessage } from '../api/http'
 import {
   AchievementsSection,
@@ -113,7 +113,15 @@ const estimateReadTime = (text = '') => Math.max(Math.ceil(plainText(text).split
 const cssVar = (name) =>
   window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
+const publicSectionIds = {
+  '/blog': 'blog',
+  '/donate': 'donate',
+  '/gallery': 'gallery',
+  '/notices': 'notices',
+}
+
 export default function PublicHomePage() {
+  const location = useLocation()
   const navigate = useNavigate()
   const { noticeId } = useParams()
   const { user } = useAuth()
@@ -216,6 +224,20 @@ export default function PublicHomePage() {
       window.removeEventListener('scroll', handleScroll)
     }
   }, [])
+
+  useEffect(() => {
+    const sectionId = publicSectionIds[location.pathname]
+
+    if (!sectionId || loading) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ block: 'start' })
+    }, 80)
+
+    return () => window.clearTimeout(timer)
+  }, [loading, location.pathname])
 
   const appearance = previewAppearance || data.settings.appearance || {}
   const siteSettings = data.settings.siteSettings || {}
@@ -1018,7 +1040,7 @@ function BlogSection({ blogs, loading }) {
   const approvedBlogs = blogs.filter((blog) => (blog.moderationStatus || 'approved') === 'approved')
 
   return (
-    <section className="bg-gray-50 px-4 py-24 sm:px-6">
+    <section className="bg-gray-50 px-4 py-24 sm:px-6" id="blog">
       <SectionHeading
         eyebrow="ব্লগ"
         title="সদস্যদের লেখা"

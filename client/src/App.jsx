@@ -57,6 +57,10 @@ function App() {
         <Routes key={location.pathname + location.search} location={location}>
           <Route element={<PublicLayout />}>
             <Route index element={page(<PublicHomePage />)} />
+            <Route path="blog" element={page(<PublicHomePage />)} />
+            <Route path="donate" element={page(<PublicHomePage />)} />
+            <Route path="gallery" element={page(<PublicHomePage />)} />
+            <Route path="notices" element={page(<PublicHomePage />)} />
             <Route path="notices/:noticeId" element={page(<PublicHomePage />)} />
             <Route path="member/verify/:memberId" element={page(<MemberVerifyPage />)} />
             <Route path="login" element={page(<LoginPage />)} />

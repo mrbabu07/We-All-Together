@@ -348,7 +348,7 @@ export function AchievementsSection({ enabled, items }) {
   if (!enabled || !achievements.length) return null
 
   return (
-    <section className="bg-white px-4 py-24 sm:px-6">
+    <section className="bg-white px-4 py-24 sm:px-6" id="gallery">
       <SectionHeading
         eyebrow="মাইলফলক"
         text="সংগঠনের গুরুত্বপূর্ণ অর্জন, উদ্যোগ এবং স্মরণীয় সময়"
