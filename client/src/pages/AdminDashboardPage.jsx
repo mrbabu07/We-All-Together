@@ -397,6 +397,17 @@ const meetingWorkflowSchema = z.object({
   }),
 })
 
+const meetingAttendanceSchema = z.object({
+  attendance: z.record(
+    z.object({
+      note: z.string().trim().optional(),
+      status: z.enum(['present', 'absent', 'excused'], {
+        message: 'Choose a valid attendance status.',
+      }),
+    }),
+  ),
+})
+
 const contentFormSchemas = {
   notices: z.object({
     archivedAt: z.string().trim().optional(),
@@ -4400,7 +4411,6 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
   const [agendaItems, setAgendaItems] = useState([])
   const [actionItems, setActionItems] = useState([])
   const [recapMessage, setRecapMessage] = useState('')
-  const [attendance, setAttendance] = useState({})
   const {
     control: advancedControl,
     formState: { errors: advancedErrors, isSubmitting: isSavingAdvanced },
@@ -4412,6 +4422,15 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
     resolver: zodResolver(meetingWorkflowSchema),
   })
   const advancedValues = useWatch({ control: advancedControl }) || defaultMeetingWorkflowForm
+  const {
+    formState: { errors: attendanceErrors, isSubmitting: isSavingAttendance },
+    handleSubmit: handleAttendanceSubmit,
+    register: registerAttendance,
+    reset: resetAttendance,
+  } = useForm({
+    defaultValues: { attendance: {} },
+    resolver: zodResolver(meetingAttendanceSchema),
+  })
   const selectedMeeting = meetings.find((item) => item._id === selectedMeetingId)
 
   const selectMeeting = (id) => {
@@ -4457,7 +4476,7 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
       })),
     )
     setRecapMessage(meeting?.recapMessage || '')
-    setAttendance(rows)
+    resetAttendance({ attendance: rows })
   }
 
   const updateAgendaItem = (index, field, value) => {
@@ -4536,21 +4555,9 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
     })
   }
 
-  const updateAttendance = (memberId, field, value) => {
-    setAttendance((current) => ({
-      ...current,
-      [memberId]: {
-        ...current[memberId],
-        [field]: value,
-      },
-    }))
-  }
-
-  const saveAttendance = async (event) => {
-    event.preventDefault()
-
+  const saveAttendance = async (values) => {
     await onSaveAttendance(selectedMeetingId, {
-      attendance: Object.entries(attendance).map(([member, row]) => ({
+      attendance: Object.entries(values.attendance || {}).map(([member, row]) => ({
         member,
         note: row.note,
         status: row.status,
@@ -4768,7 +4775,10 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                 Send Recap to Attendees
               </Button>
             </div>
-            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveAttendance}>
+            <form
+              className="grid gap-4 rounded-md border border-gray-200 bg-white p-4"
+              onSubmit={handleAttendanceSubmit(saveAttendance)}
+            >
               <h4 className="font-semibold text-gray-950">Manual Attendance</h4>
               <div className="grid gap-3">
                 {members.map((member) => (
@@ -4781,27 +4791,23 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                     <p className="text-sm text-gray-500">{member.phone}</p>
                   </div>
                   <SelectField
+                    error={attendanceErrors.attendance?.[member._id]?.status?.message}
                     label="Status"
-                    name={`status-${member._id}`}
-                    onChange={(event) =>
-                      updateAttendance(member._id, 'status', event.target.value)
-                    }
-                    value={attendance[member._id]?.status || 'absent'}
+                    {...registerAttendance(`attendance.${member._id}.status`)}
                   >
                     <option value="present">Present</option>
                     <option value="absent">Absent</option>
                     <option value="excused">Excused</option>
                   </SelectField>
                   <Field
+                    error={attendanceErrors.attendance?.[member._id]?.note?.message}
                     label="Note"
-                    name={`note-${member._id}`}
-                    onChange={(event) => updateAttendance(member._id, 'note', event.target.value)}
-                    value={attendance[member._id]?.note || ''}
+                    {...registerAttendance(`attendance.${member._id}.note`)}
                   />
                 </div>
               ))}
               </div>
-              <Button icon={Save} type="submit">
+              <Button icon={Save} loading={isSavingAttendance} type="submit">
                 Save Attendance
               </Button>
             </form>
