@@ -404,21 +404,21 @@ export default function AdminControlsPage() {
         partnersResponse,
         smsBalanceResponse,
       ] = await Promise.all([
-        api.get('/admin-controls'),
-        api.get('/donations'),
-        api.get('/notifications'),
-        api.get('/blogs/members'),
-        api.get('/notices/members'),
-        api.get('/meetings/members'),
-        api.get('/tours/members'),
-        api.get('/gallery/members'),
-        api.get('/rules/members'),
-        api.get('/payments'),
-        api.get('/committee/admin'),
-        api.get('/achievements/admin'),
-        api.get('/testimonials/admin'),
-        api.get('/partners/admin'),
-        api.get('/notifications/sms-balance'),
+        api.get('/admin/controls'),
+        api.get('/admin/donations'),
+        api.get('/admin/notifications'),
+        api.get('/admin/blogs/members'),
+        api.get('/admin/notices/members'),
+        api.get('/admin/meetings/members'),
+        api.get('/admin/tours/members'),
+        api.get('/admin/gallery/members'),
+        api.get('/admin/rules/members'),
+        api.get('/admin/payments'),
+        api.get('/admin/committee/admin'),
+        api.get('/admin/achievements/admin'),
+        api.get('/admin/testimonials/admin'),
+        api.get('/admin/partners/admin'),
+        api.get('/admin/notifications/sms-balance'),
       ])
       const settings = {
         ...defaultSettings,
@@ -532,7 +532,7 @@ export default function AdminControlsPage() {
     setMessage('')
 
     try {
-      const response = await api.patch('/admin-controls', settingsForm)
+      const response = await api.patch('/admin/controls', settingsForm)
       const nextSettings = {
         ...settingsForm,
         ...response.data.data.settings,
@@ -556,7 +556,7 @@ export default function AdminControlsPage() {
     }
 
     const image = await readFileAsDataUrl(file)
-    const response = await api.post('/uploads/image', { image, name })
+    const response = await api.post('/admin/uploads/image', { image, name })
     toast.success('ছবি আপলোড হয়েছে')
     return response.data.data.image.url
   }
@@ -610,7 +610,7 @@ export default function AdminControlsPage() {
   }
 
   const exportMembersPdf = async () => {
-    const response = await api.get('/admin-controls/members-report.pdf', {
+    const response = await api.get('/admin/controls/members-report.pdf', {
       params: {
         role: memberFilter.role || undefined,
         status: memberFilter.status || undefined,
@@ -621,7 +621,7 @@ export default function AdminControlsPage() {
   }
 
   const exportFinancePdf = async () => {
-    const response = await api.get('/admin-controls/finance-report.pdf', {
+    const response = await api.get('/admin/controls/finance-report.pdf', {
       responseType: 'blob',
     })
     downloadBlob(response.data, 'finance-report.pdf')
@@ -660,7 +660,7 @@ export default function AdminControlsPage() {
     }))
 
     await runAction(async () => {
-      await api.post('/admin-controls/members/import', { members })
+      await api.post('/admin/controls/members/import', { members })
       setCsvImport({
         headers: [],
         mapping: { address: '', name: '', phone: '', role: '', status: '' },
@@ -753,12 +753,15 @@ export default function AdminControlsPage() {
           form={settingsForm}
           onChange={updateSettingsField}
           onCreate={(collection, payload) =>
-            runAction(() => api.post(`/${collection}`, payload), 'Homepage item saved')
+            runAction(() => api.post(`/admin/${collection}`, payload), 'Homepage item saved')
           }
           onDelete={(collection, item) =>
             requestConfirm({
               action: () =>
-                runAction(() => api.delete(`/${collection}/${item._id}`), 'Homepage item deleted'),
+                runAction(
+                  () => api.delete(`/admin/${collection}/${item._id}`),
+                  'Homepage item deleted',
+                ),
               message: `${item.name || item.title} মুছে ফেলতে চান?`,
               title: 'Delete item?',
               variant: 'danger',
@@ -766,13 +769,16 @@ export default function AdminControlsPage() {
           }
           onReorder={(collection, orderedIds) =>
             runAction(
-              () => api.patch(`/${collection}/reorder`, { orderedIds }),
+              () => api.patch(`/admin/${collection}/reorder`, { orderedIds }),
               'Homepage order updated',
             )
           }
           onSave={saveSettings}
           onUpdate={(collection, item, payload) =>
-            runAction(() => api.patch(`/${collection}/${item._id}`, payload), 'Homepage item updated')
+            runAction(
+              () => api.patch(`/admin/${collection}/${item._id}`, payload),
+              'Homepage item updated',
+            )
           }
           onUploadImage={uploadImageFile}
           onUploadSetting={uploadSettingImage}
@@ -787,14 +793,14 @@ export default function AdminControlsPage() {
           filteredMembers={filteredMembers}
           members={approvedMembers}
           onActivity={async (user) => {
-            const response = await api.get(`/members/${user._id}/activity`)
+            const response = await api.get(`/admin/members/${user._id}/activity`)
             setActivityUser({ ...user, activity: response.data.data })
           }}
           onBulkApprove={(userIds) =>
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.post('/admin-controls/members/bulk-approve', { userIds }),
+                  () => api.post('/admin/controls/members/bulk-approve', { userIds }),
                   'সব pending সদস্য approve হয়েছে',
                 ),
               message: 'সব pending আবেদন approve করতে চান?',
@@ -805,7 +811,7 @@ export default function AdminControlsPage() {
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.post('/admin-controls/members/bulk-reject', { reason, userIds }),
+                  () => api.post('/admin/controls/members/bulk-reject', { reason, userIds }),
                   'সব pending সদস্য reject হয়েছে',
                 ),
               message: 'সব pending আবেদন reject করতে চান?',
@@ -816,7 +822,10 @@ export default function AdminControlsPage() {
           onDelete={(user) =>
             requestConfirm({
               action: () =>
-                runAction(() => api.delete(`/members/${user._id}`), 'সদস্য soft delete হয়েছে'),
+                runAction(
+                  () => api.delete(`/admin/members/${user._id}`),
+                  'সদস্য soft delete হয়েছে',
+                ),
               message: `${user.name} কে soft delete করা হবে। ডাটা ৩০ দিনের জন্য রাখা থাকবে।`,
               title: 'সদস্য delete?',
               variant: 'danger',
@@ -831,22 +840,25 @@ export default function AdminControlsPage() {
           onPasswordReset={(values) =>
             runAction(
               () =>
-                api.patch(`/members/${values.userId}/password`, {
+                api.patch(`/admin/members/${values.userId}/password`, {
                   newPassword: values.newPassword,
                 }),
               'পাসওয়ার্ড reset হয়েছে',
             )
           }
           onRole={(user, role) =>
-            runAction(() => api.patch(`/members/${user._id}/access`, { role }), 'Role updated')
+            runAction(() => api.patch(`/admin/members/${user._id}/access`, { role }), 'Role updated')
           }
           onStatus={(user, status) =>
-            runAction(() => api.patch(`/members/${user._id}/access`, { status }), 'Status updated')
+            runAction(
+              () => api.patch(`/admin/members/${user._id}/access`, { status }),
+              'Status updated',
+            )
           }
           onSuspend={(user, reason = '') =>
             runAction(
               () =>
-                api.patch(`/admin-controls/members/${user._id}/suspension`, {
+                api.patch(`/admin/controls/members/${user._id}/suspension`, {
                   reason: user.suspendedAt ? '' : reason,
                   suspended: !user.suspendedAt,
                 }),
@@ -863,20 +875,20 @@ export default function AdminControlsPage() {
           onChange={updateSettingsField}
           onDonationStatus={(donation, action, payload = {}) =>
             runAction(
-              () => api.patch(`/donations/${donation._id}/${action}`, payload),
+              () => api.patch(`/admin/donations/${donation._id}/${action}`, payload),
               'Donation updated',
             )
           }
           onExportFinance={() => runAction(exportFinancePdf, 'Finance PDF downloaded')}
           onManualFee={(values) => {
             runAction(
-              () => api.post('/admin-controls/finance/manual-fee', values),
+              () => api.post('/admin/controls/finance/manual-fee', values),
               'Manual fee saved',
             )
           }}
           onSave={saveSettings}
           onWaive={(values) =>
-            runAction(() => api.post('/admin-controls/finance/waive-fee', values), 'Fee waived')
+            runAction(() => api.post('/admin/controls/finance/waive-fee', values), 'Fee waived')
           }
           saving={saving}
         />
@@ -892,13 +904,13 @@ export default function AdminControlsPage() {
           notices={controls.notices}
           onArchive={handleArchiveSubmit((values) =>
             runAction(async () => {
-              await api.post('/notices/archive-bulk', values)
+              await api.post('/admin/notices/archive-bulk', values)
               resetArchive(defaultNoticeArchiveForm)
             }, 'Notices archived')
           )}
           onBlogModerate={(blog, status) =>
             runAction(
-              () => api.patch(`/blogs/${blog._id}/moderation`, { status }),
+              () => api.patch(`/admin/blogs/${blog._id}/moderation`, { status }),
               'Blog moderation updated',
             )
           }
@@ -919,7 +931,7 @@ export default function AdminControlsPage() {
           onGalleryMove={(item, album) =>
             runAction(
               () =>
-                api.patch(`/gallery/${item._id}`, {
+                api.patch(`/admin/gallery/${item._id}`, {
                   ...item,
                   album,
                 }),
@@ -929,7 +941,7 @@ export default function AdminControlsPage() {
           onNoticePin={(notice) =>
             runAction(
               () =>
-                api.patch(`/notices/${notice._id}`, {
+                api.patch(`/admin/notices/${notice._id}`, {
                   ...notice,
                   pinned: !notice.pinned,
                 }),
@@ -958,7 +970,7 @@ export default function AdminControlsPage() {
           onAnnouncement={handleAnnouncementSubmit((values) =>
             runAction(
               async () => {
-                await api.post('/notifications/send', values)
+                await api.post('/admin/notifications/send', values)
                 resetAnnouncement(defaultAnnouncementForm)
               },
               'Announcement processed',
@@ -988,7 +1000,7 @@ export default function AdminControlsPage() {
           form={settingsForm}
           onAuditExport={() =>
             runAction(async () => {
-              const response = await api.get('/audit-logs', {
+              const response = await api.get('/admin/audit-logs', {
                 params: { format: 'csv', limit: 200 },
                 responseType: 'blob',
               })
@@ -997,7 +1009,7 @@ export default function AdminControlsPage() {
           }
           onBackup={() =>
             runAction(async () => {
-              const response = await api.get('/backup')
+              const response = await api.get('/admin/backup')
               const blob = new Blob([JSON.stringify(response.data, null, 2)], {
                 type: 'application/json',
               })
@@ -1009,7 +1021,7 @@ export default function AdminControlsPage() {
             requestConfirm({
               action: () =>
                 runAction(
-                  () => api.post(`/admin-controls/sessions/${targetUser._id}/revoke`),
+                  () => api.post(`/admin/controls/sessions/${targetUser._id}/revoke`),
                   'User sessions revoked',
                 ),
               message: `${targetUser.name} will need to log in again on every device.`,
