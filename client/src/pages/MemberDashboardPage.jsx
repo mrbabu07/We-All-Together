@@ -55,7 +55,9 @@ const initialBlogForm = {
 }
 
 const initialGalleryForm = {
+  album: 'General',
   audience: 'public',
+  caption: '',
   description: '',
   imageUrl: '',
   title: '',
@@ -347,7 +349,7 @@ export default function MemberDashboardPage() {
     try {
       await api.post('/gallery', galleryForm)
       setGalleryForm(initialGalleryForm)
-      setMessage('Gallery photo added successfully.')
+      setMessage('Gallery photo submitted for admin approval.')
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -1117,10 +1119,20 @@ function Blogs({
 }
 
 function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, uploading, user }) {
+  const [activeAlbum, setActiveAlbum] = useState('all')
   const [lightboxIndex, setLightboxIndex] = useState(-1)
   const canManage = (item) =>
     user?.role === 'admin' || item.createdBy?._id === user?._id || item.createdBy === user?._id
-  const slides = gallery.map((item) => ({
+  const approvedGallery = gallery.filter(
+    (item) => (item.moderationStatus || 'approved') === 'approved' && item.albumVisible !== false,
+  )
+  const myUploads = gallery.filter((item) => canManage(item))
+  const albums = [...new Set(approvedGallery.map((item) => item.album || 'General'))].sort()
+  const visibleGallery =
+    activeAlbum === 'all'
+      ? approvedGallery
+      : approvedGallery.filter((item) => (item.album || 'General') === activeAlbum)
+  const slides = visibleGallery.map((item) => ({
     description: item.description,
     src: item.imageUrl,
     title: item.title,
@@ -1138,6 +1150,12 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
             required
             value={form.title}
           />
+          <Field
+            label="Album"
+            name="album"
+            onChange={(event) => onChange('album', event.target.value)}
+            value={form.album}
+          />
           <SelectField
             label="Audience"
             name="audience"
@@ -1147,6 +1165,12 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
             <option value="public">Public</option>
             <option value="members">Members</option>
           </SelectField>
+          <Field
+            label="Caption"
+            name="caption"
+            onChange={(event) => onChange('caption', event.target.value)}
+            value={form.caption}
+          />
           <Field
             className="md:col-span-2"
             label="Description"
@@ -1170,18 +1194,70 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
             />
           </div>
           <Button className="md:col-span-2" icon={Image} type="submit">
-            Add Photo
+            Submit Photo
           </Button>
         </form>
       </Panel>
 
+      <Panel>
+        <SectionTitle icon={Upload} title="My Uploads" />
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {myUploads.length === 0 ? <Empty text="No gallery uploads yet." /> : null}
+          {myUploads.map((item) => (
+            <article className="overflow-hidden rounded-md border border-gray-200 bg-white" key={item._id}>
+              <img alt="" className="h-36 w-full object-cover" src={item.imageUrl} />
+              <div className="grid gap-2 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold text-gray-950">{item.title}</h3>
+                  <Badge value={item.moderationStatus || 'approved'}>
+                    {item.moderationStatus || 'approved'}
+                  </Badge>
+                  <Badge value={item.albumVisible === false ? 'rejected' : 'approved'}>
+                    {item.album || 'General'}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-600">{item.caption || item.description}</p>
+                {item.moderationNote ? (
+                  <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                    Reason: {item.moderationNote}
+                  </p>
+                ) : null}
+                <Button icon={Trash2} onClick={() => onDelete(item._id)} size="sm" variant="danger">
+                  Delete Photo
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </Panel>
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={() => setActiveAlbum('all')}
+          size="sm"
+          variant={activeAlbum === 'all' ? 'primary' : 'secondary'}
+        >
+          All Albums
+        </Button>
+        {albums.map((album) => (
+          <Button
+            key={album}
+            onClick={() => setActiveAlbum(album)}
+            size="sm"
+            variant={activeAlbum === album ? 'primary' : 'secondary'}
+          >
+            {album}
+          </Button>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {gallery.length === 0 ? <Empty text="No gallery photos yet." /> : null}
-        {gallery.map((item) => (
+        {visibleGallery.length === 0 ? <Empty text="No approved gallery photos yet." /> : null}
+        {visibleGallery.map((item) => (
           <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm" key={item._id}>
             <button
               className="block w-full overflow-hidden text-left"
-              onClick={() => setLightboxIndex(gallery.findIndex((row) => row._id === item._id))}
+              onClick={() => setLightboxIndex(visibleGallery.findIndex((row) => row._id === item._id))}
               type="button"
             >
               <img
@@ -1194,8 +1270,9 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-gray-950">{item.title}</h3>
                 <Badge value={item.audience}>{item.audience}</Badge>
+                <Badge value="approved">{item.album || 'General'}</Badge>
               </div>
-              <p className="text-sm leading-6 text-gray-600">{item.description}</p>
+              <p className="text-sm leading-6 text-gray-600">{item.caption || item.description}</p>
               <p className="text-xs font-semibold uppercase text-gray-500">
                 By {item.createdBy?.name || 'Member'} | {formatDate(item.createdAt)}
               </p>

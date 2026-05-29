@@ -11,6 +11,7 @@ import {
   Eye,
   FileDown,
   FileText,
+  Image,
   KeyRound,
   MessageCircle,
   Pencil,
@@ -252,6 +253,7 @@ export default function AdminDashboardPage() {
     donations: [],
     expenses: [],
     feeOverdue: { overdueMembers: [], summary: {} },
+    gallery: [],
     payments: [],
     pendingRegistrations: [],
     polls: [],
@@ -340,6 +342,7 @@ export default function AdminDashboardPage() {
         activitiesResponse,
         rulesResponse,
         blogsResponse,
+        galleryResponse,
         auditLogsResponse,
         analyticsResponse,
         pollsResponse,
@@ -357,6 +360,7 @@ export default function AdminDashboardPage() {
         api.get('/activities/members'),
         api.get('/rules/members'),
         api.get('/blogs/members'),
+        api.get('/gallery/members'),
         api.get('/audit-logs', { params: { limit: 80 } }),
         api.get('/finance/analytics'),
         api.get('/polls'),
@@ -378,6 +382,7 @@ export default function AdminDashboardPage() {
         donations: donationsResponse.data.data.donations,
         expenses: expensesResponse.data.data.expenses,
         feeOverdue: feeOverdueResponse.data.data,
+        gallery: galleryResponse.data.data.items,
         payments: paymentsResponse.data.data.payments,
         pendingRegistrations: pendingResponse.data.data.users,
         polls: pollsResponse.data.data.polls,
@@ -750,6 +755,98 @@ export default function AdminDashboardPage() {
       title: 'Delete blog?',
       variant: 'danger',
     })
+  }
+
+  const moderateGalleryItem = async (id, status, note = '') => {
+    const reason =
+      status === 'rejected' && !note.trim()
+        ? window.prompt('Gallery rejection reason') || ''
+        : note
+
+    if (status === 'rejected' && !reason.trim()) {
+      setMessage('Gallery rejection reason is required.')
+      return
+    }
+
+    await runAction(
+      () => api.patch(`/gallery/${id}/moderation`, { note: reason.trim(), status }),
+      'Gallery moderation updated successfully.',
+    )
+  }
+
+  const bulkModerateGallery = async (itemIds, status, note = '') => {
+    const reason =
+      status === 'rejected' && !note.trim()
+        ? window.prompt('Bulk gallery rejection reason') || ''
+        : note
+
+    if (!itemIds.length) {
+      setMessage('Select at least one gallery item first.')
+      return
+    }
+    if (status === 'rejected' && !reason.trim()) {
+      setMessage('Gallery rejection reason is required.')
+      return
+    }
+
+    await runAction(
+      () => api.post('/gallery/moderation/bulk', { itemIds, note: reason.trim(), status }),
+      'Selected gallery items moderated successfully.',
+    )
+  }
+
+  const deleteGalleryItem = async (id) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/gallery/${id}`)
+        }, 'Gallery photo deleted successfully.'),
+      confirmLabel: 'Delete Photo',
+      message: 'This gallery photo will be removed.',
+      title: 'Delete gallery photo?',
+      variant: 'danger',
+    })
+  }
+
+  const updateGalleryAlbumVisibility = async (album, albumVisible) => {
+    await runAction(
+      () => api.patch('/gallery/albums/visibility', { album, albumVisible }),
+      'Gallery album visibility updated successfully.',
+    )
+  }
+
+  const moveGalleryItem = async (item, album) => {
+    const nextAlbum = album.trim()
+
+    if (!nextAlbum) {
+      setMessage('Album name is required.')
+      return
+    }
+
+    await runAction(
+      () =>
+        api.patch(`/gallery/${item._id}`, {
+          album: nextAlbum,
+          albumCoverUrl: item.albumCoverUrl || '',
+          albumDescription: item.albumDescription || '',
+          albumVisible: item.albumVisible !== false,
+          audience: item.audience || 'public',
+          caption: item.caption || '',
+          description: item.description || '',
+          displayOrder: item.displayOrder || 0,
+          imageUrl: item.imageUrl,
+          moderationStatus: item.moderationStatus || 'approved',
+          title: item.title,
+        }),
+      'Gallery photo moved successfully.',
+    )
+  }
+
+  const reorderGalleryAlbum = async (album, orderedIds) => {
+    await runAction(
+      () => api.patch('/gallery/reorder', { album, orderedIds }),
+      'Gallery order updated successfully.',
+    )
   }
 
   const deleteContent = async (config, id) => {
@@ -1289,6 +1386,12 @@ export default function AdminDashboardPage() {
           onDelete={deleteContent}
           onEdit={editContent}
           onArchiveNotices={archiveNotices}
+          onGalleryAlbumVisibility={updateGalleryAlbumVisibility}
+          onGalleryBulkModerate={bulkModerateGallery}
+          onGalleryDelete={deleteGalleryItem}
+          onGalleryModerate={moderateGalleryItem}
+          onGalleryMove={moveGalleryItem}
+          onGalleryReorder={reorderGalleryAlbum}
           onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
           onPollChange={(field, value) =>
@@ -2943,6 +3046,12 @@ function ContentTab({
   onCreate,
   onDelete,
   onEdit,
+  onGalleryAlbumVisibility,
+  onGalleryBulkModerate,
+  onGalleryDelete,
+  onGalleryModerate,
+  onGalleryMove,
+  onGalleryReorder,
   onFormChange,
   onImageUpload,
   onPollChange,
@@ -2969,6 +3078,15 @@ function ContentTab({
         onBulkModerate={onBlogBulkModerate}
         onDelete={onBlogDelete}
         onModerate={onBlogModerate}
+      />
+      <GalleryManagementPanel
+        gallery={data.gallery}
+        onAlbumVisibility={onGalleryAlbumVisibility}
+        onBulkModerate={onGalleryBulkModerate}
+        onDelete={onGalleryDelete}
+        onModerate={onGalleryModerate}
+        onMove={onGalleryMove}
+        onReorder={onGalleryReorder}
       />
       {contentConfigs.map((config) => (
         <Panel key={config.key}>
@@ -3233,6 +3351,247 @@ function BlogModerationPanel({ blogs, onBulkModerate, onDelete, onModerate }) {
             </article>
           )
         })}
+      </div>
+    </Panel>
+  )
+}
+
+function GalleryManagementPanel({
+  gallery,
+  onAlbumVisibility,
+  onBulkModerate,
+  onDelete,
+  onModerate,
+  onMove,
+  onReorder,
+}) {
+  const [activeAlbum, setActiveAlbum] = useState('all')
+  const [moveTargets, setMoveTargets] = useState({})
+  const [rejectionReason, setRejectionReason] = useState('')
+  const [selectedIds, setSelectedIds] = useState([])
+  const [statusFilter, setStatusFilter] = useState('pending')
+  const albums = [...new Set(gallery.map((item) => item.album || 'General'))].sort()
+  const visibleGallery = gallery
+    .filter((item) => activeAlbum === 'all' || (item.album || 'General') === activeAlbum)
+    .filter((item) => statusFilter === 'all' || (item.moderationStatus || 'approved') === statusFilter)
+  const albumRows = albums.map((album) => {
+    const items = gallery.filter((item) => (item.album || 'General') === album)
+    const visible = items.some((item) => item.albumVisible !== false)
+
+    return {
+      album,
+      count: items.length,
+      cover: items.find((item) => item.albumCoverUrl)?.albumCoverUrl || items[0]?.imageUrl || '',
+      visible,
+    }
+  })
+
+  const toggleSelected = (id) => {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  const runBulk = async (status) => {
+    await onBulkModerate(selectedIds, status, rejectionReason)
+    setSelectedIds([])
+    setRejectionReason('')
+  }
+
+  const reorderItem = async (item, direction) => {
+    const album = item.album || 'General'
+    const albumItems = gallery
+      .filter((row) => (row.album || 'General') === album)
+      .sort((left, right) => Number(left.displayOrder || 0) - Number(right.displayOrder || 0))
+    const index = albumItems.findIndex((row) => row._id === item._id)
+    const nextIndex = index + direction
+
+    if (nextIndex < 0 || nextIndex >= albumItems.length) {
+      return
+    }
+
+    const next = [...albumItems]
+    const [current] = next.splice(index, 1)
+    next.splice(nextIndex, 0, current)
+    await onReorder(album, next.map((row) => row._id))
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionTitle icon={Image} title="Gallery Management" />
+        <div className="flex flex-wrap gap-2">
+          {['pending', 'rejected', 'approved', 'all'].map((status) => (
+            <Button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              size="sm"
+              variant={statusFilter === status ? 'primary' : 'secondary'}
+            >
+              {status}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        {albumRows.map((album) => (
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3" key={album.album}>
+            {album.cover ? (
+              <img alt="" className="mb-3 h-24 w-full rounded-md object-cover" src={album.cover} />
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <button
+                className="text-left font-semibold text-gray-950"
+                onClick={() => setActiveAlbum(album.album)}
+                type="button"
+              >
+                {album.album}
+              </button>
+              <Badge value={album.visible ? 'approved' : 'rejected'}>
+                {album.visible ? 'Visible' : 'Hidden'}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">{album.count} photos</p>
+            <Button
+              className="mt-3"
+              onClick={() => onAlbumVisibility(album.album, !album.visible)}
+              size="sm"
+              variant="secondary"
+            >
+              {album.visible ? 'Hide Album' : 'Show Album'}
+            </Button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto_auto]">
+        <Field
+          label="Reject Reason"
+          name="galleryRejectReason"
+          onChange={(event) => setRejectionReason(event.target.value)}
+          placeholder="Required for rejection"
+          value={rejectionReason}
+        />
+        <div className="flex items-end">
+          <Button
+            disabled={!selectedIds.length}
+            icon={CheckCircle2}
+            onClick={() => runBulk('approved')}
+            variant="success"
+          >
+            Bulk Approve
+          </Button>
+        </div>
+        <div className="flex items-end">
+          <Button
+            disabled={!selectedIds.length}
+            icon={XCircle}
+            onClick={() => runBulk('rejected')}
+            variant="danger"
+          >
+            Bulk Reject
+          </Button>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          onClick={() => setActiveAlbum('all')}
+          size="sm"
+          variant={activeAlbum === 'all' ? 'primary' : 'secondary'}
+        >
+          All Albums
+        </Button>
+        {albums.map((album) => (
+          <Button
+            key={album}
+            onClick={() => setActiveAlbum(album)}
+            size="sm"
+            variant={activeAlbum === album ? 'primary' : 'secondary'}
+          >
+            {album}
+          </Button>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {visibleGallery.length === 0 ? <Empty text="No gallery photos match this filter." /> : null}
+        {visibleGallery.map((item) => (
+          <article className="overflow-hidden rounded-md border border-gray-200 bg-white" key={item._id}>
+            <img alt="" className="h-44 w-full object-cover" src={item.imageUrl} />
+            <div className="grid gap-3 p-4">
+              <label className="flex items-start gap-3">
+                <input
+                  checked={selectedIds.includes(item._id)}
+                  className="mt-1 h-4 w-4 accent-indigo-700"
+                  onChange={() => toggleSelected(item._id)}
+                  type="checkbox"
+                />
+                <span>
+                  <span className="font-semibold text-gray-950">{item.title}</span>
+                  <span className="mt-1 flex flex-wrap gap-2">
+                    <Badge value={item.moderationStatus || 'approved'}>
+                      {item.moderationStatus || 'approved'}
+                    </Badge>
+                    <Badge value={item.audience}>{item.audience}</Badge>
+                    <Badge value={item.albumVisible === false ? 'rejected' : 'approved'}>
+                      {item.album || 'General'}
+                    </Badge>
+                  </span>
+                </span>
+              </label>
+              <p className="text-sm text-gray-600">{item.caption || item.description}</p>
+              {item.moderationNote ? (
+                <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  Reason: {item.moderationNote}
+                </p>
+              ) : null}
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Field
+                  label="Move to album"
+                  name={`gallery-move-${item._id}`}
+                  onChange={(event) =>
+                    setMoveTargets((current) => ({ ...current, [item._id]: event.target.value }))
+                  }
+                  value={moveTargets[item._id] || item.album || 'General'}
+                />
+                <div className="flex items-end">
+                  <Button
+                    onClick={() => onMove(item, moveTargets[item._id] || item.album || 'General')}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    Move
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={() => reorderItem(item, -1)} size="sm" variant="secondary">
+                  Up
+                </Button>
+                <Button onClick={() => reorderItem(item, 1)} size="sm" variant="secondary">
+                  Down
+                </Button>
+                <Button
+                  icon={CheckCircle2}
+                  onClick={() => onModerate(item._id, 'approved')}
+                  size="sm"
+                  variant="success"
+                >
+                  Approve
+                </Button>
+                <Button
+                  icon={XCircle}
+                  onClick={() => onModerate(item._id, 'rejected', rejectionReason)}
+                  size="sm"
+                  variant="danger"
+                >
+                  Reject
+                </Button>
+                <Button icon={Trash2} onClick={() => onDelete(item._id)} size="sm" variant="danger">
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </article>
+        ))}
       </div>
     </Panel>
   )

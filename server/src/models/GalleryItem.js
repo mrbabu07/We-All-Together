@@ -15,6 +15,12 @@ const galleryItemSchema = new mongoose.Schema(
       maxlength: [1200, 'Gallery description cannot exceed 1200 characters.'],
       default: '',
     },
+    caption: {
+      type: String,
+      trim: true,
+      maxlength: [300, 'Caption cannot exceed 300 characters.'],
+      default: '',
+    },
     imageUrl: {
       type: String,
       required: true,
@@ -31,6 +37,46 @@ const galleryItemSchema = new mongoose.Schema(
       trim: true,
       default: 'General',
       index: true,
+    },
+    albumDescription: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    albumCoverUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    albumVisible: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    displayOrder: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+    moderationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'approved',
+      index: true,
+    },
+    moderationNote: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    moderatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    moderatedAt: {
+      type: Date,
+      default: null,
     },
     tourId: {
       type: mongoose.Schema.Types.ObjectId,

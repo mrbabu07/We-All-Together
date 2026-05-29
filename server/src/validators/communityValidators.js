@@ -85,16 +85,78 @@ const validateBulkBlogModeration = (body) => {
 
 const validateGalleryItem = (body) => ({
   album: optionalString(body, 'album') || 'General',
+  albumCoverUrl: optionalString(body, 'albumCoverUrl'),
+  albumDescription: optionalString(body, 'albumDescription'),
+  albumVisible: body.albumVisible === undefined ? true : Boolean(body.albumVisible),
   audience: readAudience(body),
+  caption: optionalString(body, 'caption'),
   description: optionalString(body, 'description'),
+  displayOrder: Number.isFinite(Number(body.displayOrder)) ? Number(body.displayOrder) : 0,
   imageUrl: requireString(body, 'imageUrl', 'Image URL'),
+  moderationStatus: ['pending', 'approved', 'rejected'].includes(body.moderationStatus)
+    ? body.moderationStatus
+    : 'pending',
   title: requireString(body, 'title', 'Gallery title'),
 })
+
+const validateGalleryModeration = (body) => {
+  const status = typeof body.status === 'string' ? body.status : ''
+  const note = optionalString(body, 'note')
+
+  if (!['pending', 'approved', 'rejected'].includes(status)) {
+    throw new AppError('Gallery moderation status is invalid.', 400)
+  }
+
+  if (status === 'rejected' && !note) {
+    throw new AppError('Gallery rejection reason is required.', 400)
+  }
+
+  return { note, status }
+}
+
+const validateBulkGalleryModeration = (body) => {
+  const ids = Array.isArray(body.itemIds)
+    ? body.itemIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : []
+
+  if (!ids.length) {
+    throw new AppError('At least one gallery item is required.', 400)
+  }
+
+  return {
+    itemIds: ids,
+    ...validateGalleryModeration(body),
+  }
+}
+
+const validateGalleryAlbumVisibility = (body) => ({
+  album: optionalString(body, 'album') || 'General',
+  albumVisible: body.albumVisible !== false,
+})
+
+const validateGalleryReorder = (body) => {
+  const orderedIds = Array.isArray(body.orderedIds)
+    ? body.orderedIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : []
+
+  if (!orderedIds.length) {
+    throw new AppError('At least one gallery item is required.', 400)
+  }
+
+  return {
+    album: optionalString(body, 'album') || '',
+    orderedIds,
+  }
+}
 
 module.exports = {
   validateBlog,
   validateBlogComment,
   validateBlogModeration,
   validateBulkBlogModeration,
+  validateBulkGalleryModeration,
+  validateGalleryAlbumVisibility,
   validateGalleryItem,
+  validateGalleryModeration,
+  validateGalleryReorder,
 }
