@@ -91,6 +91,7 @@ export default function RegisterPage() {
   const [paymentSettings, setPaymentSettings] = useState({
     donationNumber: '',
     donationProvider: '',
+    registrationEnabled: true,
     registrationFee: 0,
   })
   const [message, setMessage] = useState('')
@@ -117,6 +118,7 @@ export default function RegisterPage() {
       setPaymentSettings({
         donationNumber: settings.donationNumber || '',
         donationProvider: settings.donationProvider || '',
+        registrationEnabled: settings.siteSettings?.registrationEnabled !== false,
         registrationFee: settings.registrationFee || 0,
       })
     })
@@ -242,6 +244,11 @@ export default function RegisterPage() {
             Fee: Tk {paymentSettings.registrationFee}
           </span>
         </div>
+        {!paymentSettings.registrationEnabled ? (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm font-semibold text-red-800">
+            New member registration is currently closed. Please contact the organization office for help.
+          </div>
+        ) : null}
         <div className="mt-6 grid grid-cols-2 gap-3">
           <div
             className={`rounded-xl border p-3 ${
@@ -260,6 +267,7 @@ export default function RegisterPage() {
             <p className="mt-2 text-sm font-semibold">পেমেন্ট তথ্য</p>
           </div>
         </div>
+        {paymentSettings.registrationEnabled ? (
         <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(submitRegistration)}>
           {step === 1 ? (
             <>
@@ -432,6 +440,7 @@ export default function RegisterPage() {
             )}
           </div>
         </form>
+        ) : null}
       </Panel>
     </main>
   )
