@@ -983,7 +983,9 @@ export default function MemberDashboardPage() {
         <Overview
           data={data}
           monthlyFee={data.settings.monthlyFee}
+          onMeetingRsvp={(id, status) => submitRsvp('meetings', id, status)}
           onPay={() => changeTab('payments')}
+          onTourRsvp={(id, status) => submitRsvp('tours', id, status)}
           stats={stats}
           user={user}
         />
@@ -1079,8 +1081,9 @@ export default function MemberDashboardPage() {
   )
 }
 
-function Overview({ data, monthlyFee, onPay, stats, user }) {
+function Overview({ data, monthlyFee, onMeetingRsvp, onPay, onTourRsvp, stats, user }) {
   const currentMonth = new Date().toISOString().slice(0, 7)
+  const now = new Date()
   const currentPayment = data.payments.find((payment) => paymentCoversMonth(payment, currentMonth))
   const feeStatus = data.feeStatus || {}
   const currentMonthIsPaid = feeStatus.currentMonthPaid || currentPayment?.status === 'verified'
@@ -1108,11 +1111,12 @@ function Overview({ data, monthlyFee, onPay, stats, user }) {
     .map((item) => ({
       ...item,
       eventDate: item.meetingDate || item.startDate,
+      eventKind: item.meetingDate ? 'meeting' : 'tour',
       type: item.meetingDate ? 'মিটিং' : 'ভ্রমণ',
     }))
-    .filter((item) => item.eventDate)
+    .filter((item) => item.eventDate && new Date(item.eventDate) >= now)
     .sort((left, right) => new Date(left.eventDate) - new Date(right.eventDate))
-    .slice(0, 5)
+    .slice(0, 3)
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1203,6 +1207,11 @@ function Overview({ data, monthlyFee, onPay, stats, user }) {
                 <p className="mt-1 text-sm text-gray-500">
                   {item.location || item.destination || item.details}
                 </p>
+                <RsvpActions
+                  item={item}
+                  onRsvp={item.eventKind === 'meeting' ? onMeetingRsvp : onTourRsvp}
+                  user={user}
+                />
               </div>
             </div>
           ))}
