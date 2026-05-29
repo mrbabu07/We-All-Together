@@ -306,6 +306,80 @@ const contentConfigs = [
   { key: 'rules', title: 'Rules', endpoint: '/rules', main: 'description' },
 ]
 
+const optionalAmountText = z
+  .string()
+  .trim()
+  .optional()
+  .refine((value) => !value || (Number.isFinite(Number(value)) && Number(value) >= 0), {
+    message: 'Enter a valid amount.',
+  })
+
+const contentFormSchemas = {
+  notices: z.object({
+    archivedAt: z.string().trim().optional(),
+    audience: z.enum(['public', 'members']),
+    body: z.string().trim().min(1, 'Body is required.'),
+    category: z.string().trim().optional(),
+    expiresAt: z.string().trim().optional(),
+    imageUrl: z.string().trim().optional(),
+    pinned: z.boolean(),
+    richBody: z.string().trim().optional(),
+    scheduledFor: z.string().trim().optional(),
+    title: z.string().trim().min(1, 'Title is required.'),
+  }),
+  meetings: z.object({
+    agenda: z.string().trim().min(1, 'Agenda is required.'),
+    audience: z.enum(['public', 'members']),
+    imageUrl: z.string().trim().optional(),
+    location: z.string().trim().min(1, 'Location is required.'),
+    meetingDate: z.string().trim().min(1, 'Date is required.'),
+    title: z.string().trim().min(1, 'Title is required.'),
+  }),
+  tours: z
+    .object({
+      audience: z.enum(['public', 'members']),
+      budget: optionalAmountText,
+      destination: z.string().trim().min(1, 'Destination is required.'),
+      details: z.string().trim().optional(),
+      endDate: z.string().trim().min(1, 'End date is required.'),
+      imageUrl: z.string().trim().optional(),
+      registrationOpen: z.boolean(),
+      seatCapacity: optionalAmountText,
+      startDate: z.string().trim().min(1, 'Start date is required.'),
+      status: z.enum(['planned', 'active', 'completed', 'cancelled']),
+      title: z.string().trim().min(1, 'Title is required.'),
+      tourFee: optionalAmountText,
+    })
+    .superRefine((values, context) => {
+      if (values.startDate && values.endDate && new Date(values.endDate) < new Date(values.startDate)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'End date must be after start date.',
+          path: ['endDate'],
+        })
+      }
+    }),
+  activities: z.object({
+    activityDate: z.string().trim().min(1, 'Date is required.'),
+    audience: z.enum(['public', 'members']),
+    category: z.string().trim().min(1, 'Category is required.'),
+    description: z.string().trim().min(1, 'Description is required.'),
+    imageUrl: z.string().trim().optional(),
+    participantsCount: optionalAmountText,
+    status: z.enum(['planned', 'active', 'completed', 'cancelled']),
+    title: z.string().trim().min(1, 'Title is required.'),
+  }),
+  rules: z.object({
+    audience: z.enum(['public', 'members']),
+    changeNote: z.string().trim().optional(),
+    description: z.string().trim().min(1, 'Description is required.'),
+    imageUrl: z.string().trim().optional(),
+    order: optionalAmountText,
+    richDescription: z.string().trim().optional(),
+    title: z.string().trim().min(1, 'Title is required.'),
+  }),
+}
+
 const getContentEditForm = (key, item) => {
   if (key === 'notices') {
     return {
@@ -828,19 +902,9 @@ export default function AdminDashboardPage() {
     }, 'Monthly status loaded successfully.')
   }
 
-  const updateContentForm = (key, field, value) => {
-    setContentForms((current) => ({
-      ...current,
-      [key]: {
-        ...current[key],
-        [field]: value,
-      },
-    }))
-  }
-
   const uploadContentImage = async (key, file) => {
     if (!file) {
-      return
+      return ''
     }
 
     try {
@@ -851,20 +915,21 @@ export default function AdminDashboardPage() {
         image,
         name: `${key}-${Date.now()}`,
       })
-      updateContentForm(key, 'imageUrl', response.data.data.image.url)
+      const url = response.data.data.image.url
       setMessage('Image uploaded successfully.')
+      return url
     } catch (error) {
       setMessage(getErrorMessage(error))
+      return ''
     } finally {
       setUploadingContentKey('')
     }
   }
 
-  const createContent = async (event, config) => {
-    event.preventDefault()
+  const createContent = async (config, values) => {
     await runAction(async () => {
       const editingId = editingContent[config.key]
-      const payload = { ...contentForms[config.key] }
+      const payload = { ...values }
 
       if (config.key === 'notices') {
         payload.archivedAt = payload.archivedAt || null
@@ -1580,7 +1645,6 @@ export default function AdminDashboardPage() {
           onGalleryModerate={moderateGalleryItem}
           onGalleryMove={moveGalleryItem}
           onGalleryReorder={reorderGalleryAlbum}
-          onFormChange={updateContentForm}
           onImageUpload={uploadContentImage}
           onPollClose={closePoll}
           onPollCreate={submitPoll}
@@ -3459,7 +3523,6 @@ function ContentTab({
   onGalleryModerate,
   onGalleryMove,
   onGalleryReorder,
-  onFormChange,
   onImageUpload,
   onPollClose,
   onPollCreate,
@@ -3510,23 +3573,15 @@ function ContentTab({
             icon={FilePlus2}
             title={editingContent[config.key] ? `Edit ${config.title}` : config.title}
           />
-          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={(event) => onCreate(event, config)}>
-            <ContentFields
-              config={config}
-              form={contentForms[config.key]}
-              onChange={onFormChange}
-              onImageUpload={onImageUpload}
-              uploading={uploadingContentKey === config.key}
-            />
-            <Button className={editingContent[config.key] ? '' : 'md:col-span-2'} icon={FilePlus2} type="submit">
-              {editingContent[config.key] ? `Update ${config.title}` : `Add ${config.title}`}
-            </Button>
-            {editingContent[config.key] ? (
-              <Button onClick={() => onCancelEdit(config)} variant="secondary">
-                Cancel Edit
-              </Button>
-            ) : null}
-          </form>
+          <ContentForm
+            config={config}
+            editingId={editingContent[config.key]}
+            form={contentForms[config.key]}
+            onCancel={() => onCancelEdit(config)}
+            onImageUpload={onImageUpload}
+            onSubmit={(values) => onCreate(config, values)}
+            uploading={uploadingContentKey === config.key}
+          />
           {config.key === 'notices' ? (
             <NoticeArchiveControls onArchive={onArchiveNotices} />
           ) : null}
@@ -5662,22 +5717,71 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   )
 }
 
-function ImageUploadControl({ form, itemKey, onChange, onImageUpload, uploading }) {
+function ContentForm({ config, editingId, form, onCancel, onImageUpload, onSubmit, uploading }) {
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+    control,
+  } = useForm({
+    defaultValues: form,
+    resolver: zodResolver(contentFormSchemas[config.key]),
+  })
+  const values = useWatch({ control }) || form
+
+  useEffect(() => {
+    reset(form)
+  }, [form, reset])
+
+  return (
+    <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(onSubmit)}>
+      <ContentFields
+        config={config}
+        errors={errors}
+        onImageUpload={onImageUpload}
+        register={register}
+        setValue={setValue}
+        uploading={uploading}
+        values={values}
+      />
+      <Button
+        className={editingId ? '' : 'md:col-span-2'}
+        icon={FilePlus2}
+        loading={isSubmitting}
+        type="submit"
+      >
+        {editingId ? `Update ${config.title}` : `Add ${config.title}`}
+      </Button>
+      {editingId ? (
+        <Button onClick={onCancel} type="button" variant="secondary">
+          Cancel Edit
+        </Button>
+      ) : null}
+    </form>
+  )
+}
+
+function ImageUploadControl({ errors, itemKey, onImageUpload, register, setValue, uploading }) {
+  const uploadImage = async (file) => {
+    const url = await onImageUpload(itemKey, file)
+
+    if (url) {
+      setValue('imageUrl', url, { shouldDirty: true, shouldValidate: true })
+    }
+  }
+
   return (
     <div className="grid gap-3 md:col-span-2">
-      <Field
-        label="Image URL"
-        name="imageUrl"
-        onChange={(event) => onChange(itemKey, 'imageUrl', event.target.value)}
-        value={form.imageUrl}
-      />
+      <Field error={errors.imageUrl?.message} label="Image URL" {...register('imageUrl')} />
       <label className="grid gap-1.5 text-sm font-medium text-gray-700">
         <span>Upload Image</span>
         <input
           accept="image/*"
           className="min-h-11 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
           disabled={uploading}
-          onChange={(event) => onImageUpload(itemKey, event.target.files?.[0])}
+          onChange={(event) => uploadImage(event.target.files?.[0])}
           type="file"
         />
       </label>
@@ -5686,35 +5790,38 @@ function ImageUploadControl({ form, itemKey, onChange, onImageUpload, uploading 
   )
 }
 
-function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
+function ContentFields({ config, errors, onImageUpload, register, setValue, uploading, values }) {
   const key = config.key
+  const setBooleanValue = (field, value) =>
+    setValue(field, value, { shouldDirty: true, shouldValidate: true })
 
   if (key === 'notices') {
     return (
       <>
-        <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
-        <Field label="Category" name="category" onChange={(e) => onChange(key, 'category', e.target.value)} value={form.category} />
-        <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+        <Field error={errors.title?.message} label="Title" {...register('title')} />
+        <Field error={errors.category?.message} label="Category" {...register('category')} />
+        <SelectField error={errors.audience?.message} label="Audience" {...register('audience')}>
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
         <ToggleField
-          checked={Boolean(form.pinned)}
+          checked={Boolean(values.pinned)}
           label="Pin notice"
-          onChange={(value) => onChange(key, 'pinned', value)}
+          onChange={(value) => setBooleanValue('pinned', value)}
         />
-        <Field label="Schedule Publish" name="scheduledFor" onChange={(e) => onChange(key, 'scheduledFor', e.target.value)} type="datetime-local" value={form.scheduledFor} />
-        <Field label="Expiry Date" name="expiresAt" onChange={(e) => onChange(key, 'expiresAt', e.target.value)} type="datetime-local" value={form.expiresAt} />
+        <Field error={errors.scheduledFor?.message} label="Schedule Publish" type="datetime-local" {...register('scheduledFor')} />
+        <Field error={errors.expiresAt?.message} label="Expiry Date" type="datetime-local" {...register('expiresAt')} />
         <ImageUploadControl
-          form={form}
+          errors={errors}
           itemKey={key}
-          onChange={onChange}
           onImageUpload={onImageUpload}
+          register={register}
+          setValue={setValue}
           uploading={uploading}
         />
-        <Field className="md:col-span-2" label="Body" name="body" onChange={(e) => onChange(key, 'body', e.target.value)} required textarea value={form.body} />
-        <Field className="md:col-span-2" label="Rich Body" name="richBody" onChange={(e) => onChange(key, 'richBody', e.target.value)} textarea value={form.richBody} />
-        <Field className="md:col-span-2" label="Archived At" name="archivedAt" onChange={(e) => onChange(key, 'archivedAt', e.target.value)} type="datetime-local" value={form.archivedAt} />
+        <Field className="md:col-span-2" error={errors.body?.message} label="Body" textarea {...register('body')} />
+        <Field className="md:col-span-2" error={errors.richBody?.message} label="Rich Body" textarea {...register('richBody')} />
+        <Field className="md:col-span-2" error={errors.archivedAt?.message} label="Archived At" type="datetime-local" {...register('archivedAt')} />
       </>
     )
   }
@@ -5722,21 +5829,22 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
   if (key === 'meetings') {
     return (
       <>
-        <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
-        <Field label="Date" name="meetingDate" onChange={(e) => onChange(key, 'meetingDate', e.target.value)} required type="datetime-local" value={form.meetingDate} />
-        <Field label="Location" name="location" onChange={(e) => onChange(key, 'location', e.target.value)} required value={form.location} />
-        <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+        <Field error={errors.title?.message} label="Title" {...register('title')} />
+        <Field error={errors.meetingDate?.message} label="Date" type="datetime-local" {...register('meetingDate')} />
+        <Field error={errors.location?.message} label="Location" {...register('location')} />
+        <SelectField error={errors.audience?.message} label="Audience" {...register('audience')}>
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
         <ImageUploadControl
-          form={form}
+          errors={errors}
           itemKey={key}
-          onChange={onChange}
           onImageUpload={onImageUpload}
+          register={register}
+          setValue={setValue}
           uploading={uploading}
         />
-        <Field className="md:col-span-2" label="Agenda" name="agenda" onChange={(e) => onChange(key, 'agenda', e.target.value)} required textarea value={form.agenda} />
+        <Field className="md:col-span-2" error={errors.agenda?.message} label="Agenda" textarea {...register('agenda')} />
       </>
     )
   }
@@ -5744,36 +5852,37 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
   if (key === 'tours') {
     return (
       <>
-        <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
-        <Field label="Destination" name="destination" onChange={(e) => onChange(key, 'destination', e.target.value)} required value={form.destination} />
-        <Field label="Start Date" name="startDate" onChange={(e) => onChange(key, 'startDate', e.target.value)} required type="date" value={form.startDate} />
-        <Field label="End Date" name="endDate" onChange={(e) => onChange(key, 'endDate', e.target.value)} required type="date" value={form.endDate} />
-        <Field label="Budget" name="budget" onChange={(e) => onChange(key, 'budget', e.target.value)} type="number" value={form.budget} />
-        <Field label="Cost Per Head" name="tourFee" onChange={(e) => onChange(key, 'tourFee', e.target.value)} type="number" value={form.tourFee} />
-        <Field label="Max Seats" name="seatCapacity" onChange={(e) => onChange(key, 'seatCapacity', e.target.value)} type="number" value={form.seatCapacity} />
+        <Field error={errors.title?.message} label="Title" {...register('title')} />
+        <Field error={errors.destination?.message} label="Destination" {...register('destination')} />
+        <Field error={errors.startDate?.message} label="Start Date" type="date" {...register('startDate')} />
+        <Field error={errors.endDate?.message} label="End Date" type="date" {...register('endDate')} />
+        <Field error={errors.budget?.message} label="Budget" type="number" {...register('budget')} />
+        <Field error={errors.tourFee?.message} label="Cost Per Head" type="number" {...register('tourFee')} />
+        <Field error={errors.seatCapacity?.message} label="Max Seats" type="number" {...register('seatCapacity')} />
         <ToggleField
-          checked={Boolean(form.registrationOpen)}
+          checked={Boolean(values.registrationOpen)}
           label="Registration open"
-          onChange={(value) => onChange(key, 'registrationOpen', value)}
+          onChange={(value) => setBooleanValue('registrationOpen', value)}
         />
-        <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+        <SelectField error={errors.audience?.message} label="Audience" {...register('audience')}>
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
-        <SelectField label="Status" name="status" onChange={(e) => onChange(key, 'status', e.target.value)} value={form.status}>
+        <SelectField error={errors.status?.message} label="Status" {...register('status')}>
           <option value="planned">Planned</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </SelectField>
         <ImageUploadControl
-          form={form}
+          errors={errors}
           itemKey={key}
-          onChange={onChange}
           onImageUpload={onImageUpload}
+          register={register}
+          setValue={setValue}
           uploading={uploading}
         />
-        <Field className="md:col-span-2" label="Details" name="details" onChange={(e) => onChange(key, 'details', e.target.value)} textarea value={form.details} />
+        <Field className="md:col-span-2" error={errors.details?.message} label="Details" textarea {...register('details')} />
       </>
     )
   }
@@ -5781,50 +5890,52 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
   if (key === 'activities') {
     return (
       <>
-        <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
-        <Field label="Category" name="category" onChange={(e) => onChange(key, 'category', e.target.value)} required value={form.category} />
-        <Field label="Date" name="activityDate" onChange={(e) => onChange(key, 'activityDate', e.target.value)} required type="date" value={form.activityDate} />
-        <Field label="Participants" name="participantsCount" onChange={(e) => onChange(key, 'participantsCount', e.target.value)} type="number" value={form.participantsCount} />
-        <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+        <Field error={errors.title?.message} label="Title" {...register('title')} />
+        <Field error={errors.category?.message} label="Category" {...register('category')} />
+        <Field error={errors.activityDate?.message} label="Date" type="date" {...register('activityDate')} />
+        <Field error={errors.participantsCount?.message} label="Participants" type="number" {...register('participantsCount')} />
+        <SelectField error={errors.audience?.message} label="Audience" {...register('audience')}>
           <option value="public">Public</option>
           <option value="members">Members</option>
         </SelectField>
-        <SelectField label="Status" name="status" onChange={(e) => onChange(key, 'status', e.target.value)} value={form.status}>
+        <SelectField error={errors.status?.message} label="Status" {...register('status')}>
           <option value="planned">Planned</option>
           <option value="active">Active</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
         </SelectField>
         <ImageUploadControl
-          form={form}
+          errors={errors}
           itemKey={key}
-          onChange={onChange}
           onImageUpload={onImageUpload}
+          register={register}
+          setValue={setValue}
           uploading={uploading}
         />
-        <Field className="md:col-span-2" label="Description" name="description" onChange={(e) => onChange(key, 'description', e.target.value)} required textarea value={form.description} />
+        <Field className="md:col-span-2" error={errors.description?.message} label="Description" textarea {...register('description')} />
       </>
     )
   }
 
   return (
     <>
-      <Field label="Title" name="title" onChange={(e) => onChange(key, 'title', e.target.value)} required value={form.title} />
-      <Field label="Order" name="order" onChange={(e) => onChange(key, 'order', e.target.value)} type="number" value={form.order} />
-      <Field label="Change Note" name="changeNote" onChange={(e) => onChange(key, 'changeNote', e.target.value)} placeholder="What changed?" value={form.changeNote} />
-      <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+      <Field error={errors.title?.message} label="Title" {...register('title')} />
+      <Field error={errors.order?.message} label="Order" type="number" {...register('order')} />
+      <Field error={errors.changeNote?.message} label="Change Note" placeholder="What changed?" {...register('changeNote')} />
+      <SelectField error={errors.audience?.message} label="Audience" {...register('audience')}>
         <option value="public">Public</option>
         <option value="members">Members</option>
       </SelectField>
       <ImageUploadControl
-        form={form}
+        errors={errors}
         itemKey={key}
-        onChange={onChange}
         onImageUpload={onImageUpload}
+        register={register}
+        setValue={setValue}
         uploading={uploading}
       />
-      <Field className="md:col-span-2" label="Description" name="description" onChange={(e) => onChange(key, 'description', e.target.value)} required textarea value={form.description} />
-      <Field className="md:col-span-2" label="Rich Description" name="richDescription" onChange={(e) => onChange(key, 'richDescription', e.target.value)} textarea value={form.richDescription} />
+      <Field className="md:col-span-2" error={errors.description?.message} label="Description" textarea {...register('description')} />
+      <Field className="md:col-span-2" error={errors.richDescription?.message} label="Rich Description" textarea {...register('richDescription')} />
     </>
   )
 }
