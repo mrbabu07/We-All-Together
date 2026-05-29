@@ -99,6 +99,11 @@ const waiveFeeSchema = z.object({
   userId: z.string().trim().min(1, 'Member is required.'),
 })
 
+const memberPasswordResetSchema = z.object({
+  newPassword: z.string().min(6, 'Temporary password must be at least 6 characters.'),
+  userId: z.string().trim().min(1, 'Member is required.'),
+})
+
 const defaultSettings = {
   appearance: {
     colorMode: 'light',
@@ -282,7 +287,6 @@ export default function AdminControlsPage() {
     mapping: { address: '', name: '', phone: '', role: '', status: '' },
     rows: [],
   })
-  const [passwordReset, setPasswordReset] = useState({ newPassword: '', userId: '' })
   const [activityUser, setActivityUser] = useState(null)
   const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
   const [announcementForm, setAnnouncementForm] = useState(defaultAnnouncementForm)
@@ -733,16 +737,15 @@ export default function AdminControlsPage() {
           onFilter={setMemberFilter}
           onImport={importMembers}
           onMapping={(mapping) => setCsvImport((current) => ({ ...current, mapping }))}
-          onPasswordReset={(event) => {
-            event.preventDefault()
+          onPasswordReset={(values) =>
             runAction(
               () =>
-                api.patch(`/members/${passwordReset.userId}/password`, {
-                  newPassword: passwordReset.newPassword,
+                api.patch(`/members/${values.userId}/password`, {
+                  newPassword: values.newPassword,
                 }),
               'পাসওয়ার্ড reset হয়েছে',
             )
-          }}
+          }
           onRole={(user, role) =>
             runAction(() => api.patch(`/members/${user._id}/access`, { role }), 'Role updated')
           }
@@ -759,8 +762,6 @@ export default function AdminControlsPage() {
               user.suspendedAt ? 'Suspension removed' : 'Member suspended',
             )
           }
-          passwordReset={passwordReset}
-          setPasswordReset={setPasswordReset}
         />
       ) : null}
       {activeTab === 'finance' ? (
@@ -1439,11 +1440,17 @@ function MemberControlsTab({
   onRole,
   onStatus,
   onSuspend,
-  passwordReset,
-  setPasswordReset,
 }) {
   const [rejectReason, setRejectReason] = useState('')
   const [selectedPendingIds, setSelectedPendingIds] = useState([])
+  const {
+    formState: { errors: passwordResetErrors, isSubmitting: isResettingPassword },
+    handleSubmit: handlePasswordResetSubmit,
+    register: registerPasswordReset,
+  } = useForm({
+    defaultValues: { newPassword: '', userId: '' },
+    resolver: zodResolver(memberPasswordResetSchema),
+  })
   const visiblePendingMembers = useMemo(
     () => filteredMembers.filter((user) => user.status === 'pending'),
     [filteredMembers],
@@ -1664,15 +1671,11 @@ function MemberControlsTab({
 
       <Panel>
         <SectionTitle icon={Lock} title="পাসওয়ার্ড reset" />
-        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={onPasswordReset}>
+        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={handlePasswordResetSubmit(onPasswordReset)}>
           <SelectField
+            error={passwordResetErrors.userId?.message}
             label="Member"
-            name="resetMember"
-            onChange={(event) =>
-              setPasswordReset((current) => ({ ...current, userId: event.target.value }))
-            }
-            required
-            value={passwordReset.userId}
+            {...registerPasswordReset('userId')}
           >
             <option value="">Select member</option>
             {members.map((user) => (
@@ -1682,17 +1685,13 @@ function MemberControlsTab({
             ))}
           </SelectField>
           <Field
+            error={passwordResetErrors.newPassword?.message}
             label="Temporary password"
-            name="newPassword"
-            onChange={(event) =>
-              setPasswordReset((current) => ({ ...current, newPassword: event.target.value }))
-            }
-            required
             type="password"
-            value={passwordReset.newPassword}
+            {...registerPasswordReset('newPassword')}
           />
           <div className="flex items-end">
-            <Button icon={Lock} type="submit">
+            <Button icon={Lock} loading={isResettingPassword} type="submit">
               Reset password
             </Button>
           </div>
