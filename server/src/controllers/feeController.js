@@ -11,6 +11,7 @@ const { getSettings } = require('../services/settingsService')
 const { recordAuditLog } = require('../services/auditService')
 const { ensurePaymentQrCode } = require('../services/paymentQrService')
 const { sendTextMessage } = require('../services/smsService')
+const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 const {
   BENGALI_MONTHS,
   calculateMemberFees,
@@ -77,6 +78,32 @@ const getMonthAmountPaisa = (feeStatus, month) => {
   const adjustment = feeStatus.adjustments?.find((item) => monthKey(item) === key)
 
   return overdue?.amountPaisa || adjustment?.amountPaisa || feeStatus.feeSettings.monthlyFeeAmount
+}
+
+const validateFeePaymentDetails = (body) => {
+  const method = String(body.method || '').trim()
+  const proofImageUrl =
+    typeof body.proofImageUrl === 'string' ? body.proofImageUrl.trim() : ''
+  const senderPhone = normalizeBangladeshiPhone(String(body.senderPhone || ''))
+  const transactionId = String(body.transactionId || '').trim()
+
+  if (!method || !transactionId || !senderPhone || !proofImageUrl) {
+    throw new AppError(
+      'Payment method, transaction ID, sender phone, and proof image are required.',
+      400,
+    )
+  }
+
+  if (!isBangladeshiPhone(senderPhone)) {
+    throw new AppError('Sender phone must use Bangladeshi format like 017XXXXXXXX.', 400)
+  }
+
+  return {
+    method,
+    proofImageUrl,
+    senderPhone,
+    transactionId,
+  }
 }
 
 const findExistingPaymentsForMonths = async (memberId, months) => {
@@ -289,6 +316,7 @@ const getOverdueMembers = asyncHandler(async (req, res) => {
 
 const payFees = asyncHandler(async (req, res) => {
   const months = normalizeMonthPayload(req.body.months)
+  const paymentDetails = validateFeePaymentDetails(req.body)
   const [settings, member] = await Promise.all([getSettings(), getMemberOrThrow(req.user._id)])
   const feeStatus = await calculateMemberFees({ member, settings })
   const requestedKeys = new Set(months.map(monthKey))
@@ -342,21 +370,17 @@ const payFees = asyncHandler(async (req, res) => {
   payment.lateFeeAmount = toTaka(lateFeePaisa)
   payment.lateFeeApplied = toTaka(lateFeePaisa)
   payment.lateFeeAppliedPaisa = lateFeePaisa
-  payment.method = String(req.body.method || '').trim()
+  payment.method = paymentDetails.method
   payment.note = typeof req.body.note === 'string' ? req.body.note.trim() : ''
-  payment.proofImageUrl = typeof req.body.proofImageUrl === 'string' ? req.body.proofImageUrl.trim() : ''
-  payment.senderPhone = String(req.body.senderPhone || '').trim()
+  payment.proofImageUrl = paymentDetails.proofImageUrl
+  payment.senderPhone = paymentDetails.senderPhone
   payment.status = PAYMENT_STATUSES.PENDING
-  payment.transactionId = String(req.body.transactionId || '').trim()
+  payment.transactionId = paymentDetails.transactionId
   payment.verifiedAt = null
   payment.verifiedBy = null
   payment.rejectedAt = null
   payment.rejectedBy = null
   payment.rejectionReason = ''
-
-  if (!payment.method || !payment.transactionId || !payment.senderPhone) {
-    throw new AppError('Payment method, transaction ID, and sender phone are required.', 400)
-  }
 
   payment.receiptNumber = payment.receiptNumber || `PAY-${payment._id}`
   payment.receiptGeneratedAt = new Date()
@@ -642,5 +666,6 @@ module.exports = {
   removeWaiver,
   removeFeeAdjustment,
   sendMemberFeeReminder,
+  validateFeePaymentDetails,
   waiveFee,
 }
