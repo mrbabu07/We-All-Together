@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { CreditCard, Send, UserRound } from 'lucide-react'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
@@ -19,8 +22,46 @@ const initialForm = {
   proofImageUrl: '',
 }
 
+const bangladeshPhoneSchema = (label) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required.`)
+    .transform((value) => {
+      const phone = value.replace(/[\s-]/g, '')
+
+      if (phone.startsWith('+88')) {
+        return phone.slice(3)
+      }
+
+      if (phone.startsWith('88') && phone.length === 13) {
+        return phone.slice(2)
+      }
+
+      return phone
+    })
+    .refine((value) => /^01[3-9]\d{8}$/.test(value), `${label} must use Bangladeshi format like 017XXXXXXXX.`)
+
+const registrationSchema = z.object({
+  address: z.string().trim().min(1, 'Address is required.'),
+  name: z.string().trim().min(1, 'Name is required.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+  paymentMethod: z.string().trim().min(1, 'Payment method is required.'),
+  paymentNote: z.string().trim().max(300, 'Payment note cannot exceed 300 characters.').optional(),
+  phone: bangladeshPhoneSchema('Phone'),
+  proofImageUrl: z.string().trim().min(1, 'Payment proof is required.'),
+  senderPhone: bangladeshPhoneSchema('Sender phone'),
+  transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
+})
+
+const registrationStepOneSchema = registrationSchema.pick({
+  address: true,
+  name: true,
+  password: true,
+  phone: true,
+})
+
 export default function RegisterPage() {
-  const [form, setForm] = useState(initialForm)
   const [paymentSettings, setPaymentSettings] = useState({
     donationNumber: '',
     donationProvider: '',
@@ -28,8 +69,20 @@ export default function RegisterPage() {
   })
   const [message, setMessage] = useState('')
   const [step, setStep] = useState(1)
-  const [submitting, setSubmitting] = useState(false)
   const [uploadingProof, setUploadingProof] = useState(false)
+  const {
+    clearErrors,
+    formState: { errors, isSubmitting },
+    getValues,
+    handleSubmit,
+    register,
+    reset,
+    setError,
+    setValue,
+  } = useForm({
+    defaultValues: initialForm,
+    resolver: zodResolver(registrationSchema),
+  })
 
   useEffect(() => {
     api.get('/settings/public').then((response) => {
@@ -42,21 +95,12 @@ export default function RegisterPage() {
     })
   }, [])
 
-  const handleChange = (event) => {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }))
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setSubmitting(true)
+  const submitRegistration = async (values) => {
     setMessage('')
 
     try {
-      await api.post('/registrations', form)
-      setForm(initialForm)
+      await api.post('/registrations', values)
+      reset(initialForm)
       setStep(1)
       setMessage('Registration submitted. Please wait for admin approval.')
       toast.success('নিবন্ধন জমা হয়েছে')
@@ -64,8 +108,6 @@ export default function RegisterPage() {
       const errorMessage = getErrorMessage(error)
       setMessage(errorMessage)
       toast.error(errorMessage)
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -83,10 +125,10 @@ export default function RegisterPage() {
         image,
         name: `registration-${Date.now()}`,
       })
-      setForm((current) => ({
-        ...current,
-        proofImageUrl: response.data.data.image.url,
-      }))
+      setValue('proofImageUrl', response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       setMessage('Payment proof uploaded.')
       toast.success('পেমেন্ট প্রমাণ আপলোড হয়েছে')
     } catch (error) {
@@ -99,7 +141,22 @@ export default function RegisterPage() {
   }
 
   const goNext = () => {
-    if (!form.name || !form.phone || !form.address || !form.password) {
+    const result = registrationStepOneSchema.safeParse(getValues())
+    const stepOneFields = ['address', 'name', 'password', 'phone']
+
+    clearErrors(stepOneFields)
+
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        const fieldName = issue.path[0]
+
+        if (typeof fieldName === 'string') {
+          setError(fieldName, {
+            message: issue.message,
+            type: 'manual',
+          })
+        }
+      })
       setMessage('ব্যক্তিগত তথ্য পূরণ করুন।')
       return
     }
@@ -138,26 +195,22 @@ export default function RegisterPage() {
             <p className="mt-2 text-sm font-semibold">পেমেন্ট তথ্য</p>
           </div>
         </div>
-        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+        <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit(submitRegistration)}>
           {step === 1 ? (
             <>
-              <Field label="নাম" name="name" onChange={handleChange} required value={form.name} />
-              <Field label="ফোন" name="phone" onChange={handleChange} required value={form.phone} />
+              <Field error={errors.name?.message} label="নাম" {...register('name')} />
+              <Field error={errors.phone?.message} label="ফোন" {...register('phone')} />
               <Field
                 className="md:col-span-2"
+                error={errors.address?.message}
                 label="ঠিকানা"
-                name="address"
-                onChange={handleChange}
-                required
-                value={form.address}
+                {...register('address')}
               />
               <Field
+                error={errors.password?.message}
                 label="পাসওয়ার্ড"
-                name="password"
-                onChange={handleChange}
-                required
                 type="password"
-                value={form.password}
+                {...register('password')}
               />
             </>
           ) : (
@@ -180,39 +233,31 @@ export default function RegisterPage() {
                 </p>
               </div>
               <Field
+                error={errors.paymentMethod?.message}
                 label="পেমেন্ট মাধ্যম"
-                name="paymentMethod"
-                onChange={handleChange}
                 placeholder={paymentSettings.donationProvider || 'bKash or Nagad'}
-                required
-                value={form.paymentMethod}
+                {...register('paymentMethod')}
               />
               <Field
+                error={errors.transactionId?.message}
                 label="ট্রানজেকশন আইডি"
-                name="transactionId"
-                onChange={handleChange}
-                required
-                value={form.transactionId}
+                {...register('transactionId')}
               />
               <Field
+                error={errors.senderPhone?.message}
                 label="প্রেরকের ফোন"
-                name="senderPhone"
-                onChange={handleChange}
-                required
-                value={form.senderPhone}
+                {...register('senderPhone')}
               />
               <Field
+                error={errors.paymentNote?.message}
                 label="পেমেন্ট নোট"
-                name="paymentNote"
-                onChange={handleChange}
                 textarea
-                value={form.paymentNote}
+                {...register('paymentNote')}
               />
               <Field
+                error={errors.proofImageUrl?.message}
                 label="পেমেন্ট প্রমাণ URL"
-                name="proofImageUrl"
-                onChange={handleChange}
-                value={form.proofImageUrl}
+                {...register('proofImageUrl')}
               />
               <label className="grid gap-1.5 text-sm font-medium text-gray-700">
                 <span>পেমেন্ট প্রমাণ আপলোড</span>
@@ -245,7 +290,7 @@ export default function RegisterPage() {
                 পরবর্তী
               </Button>
             ) : (
-              <Button icon={Send} loading={submitting} type="submit">
+              <Button icon={Send} loading={isSubmitting} type="submit">
                 নিবন্ধন জমা দিন
               </Button>
             )}
