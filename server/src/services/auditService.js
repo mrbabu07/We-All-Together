@@ -8,6 +8,9 @@ const getActorId = (actor) => {
   return actor._id || actor
 }
 
+const resolveAuditIp = ({ actor = null, ip = '' } = {}) =>
+  ip || actor?.$locals?.auditIp || actor?.auditIp || actor?.lastLoginIp || ''
+
 const recordAuditLog = async ({
   action,
   actor = null,
@@ -22,7 +25,7 @@ const recordAuditLog = async ({
       actor: getActorId(actor),
       entityId,
       entityType,
-      ip,
+      ip: resolveAuditIp({ actor, ip }),
       metadata,
     })
   } catch (error) {
@@ -34,4 +37,5 @@ const recordAuditLog = async ({
 
 module.exports = {
   recordAuditLog,
+  resolveAuditIp,
 }

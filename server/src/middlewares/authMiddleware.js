@@ -23,6 +23,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
     throw new AppError('Your session has expired. Please log in again.', 401)
   }
 
+  user.$locals.auditIp = req.ip || ''
   req.user = user
   next()
 })
