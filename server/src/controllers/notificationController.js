@@ -92,6 +92,27 @@ const markAllNotificationsRead = asyncHandler(async (req, res) => {
   })
 })
 
+const deleteMyNotification = asyncHandler(async (req, res) => {
+  const notification = await Notification.findOne({
+    _id: req.params.id,
+    ...visibleNotificationFilter(req.user._id),
+  })
+
+  if (!notification) {
+    throw new AppError('Notification not found.', 404)
+  }
+
+  await notification.deleteOne()
+
+  res.status(200).json({
+    success: true,
+    message: 'Notification deleted successfully.',
+    data: {
+      id: req.params.id,
+    },
+  })
+})
+
 const sendBroadcastNotification = asyncHandler(async (req, res) => {
   const payload = validateBroadcastNotification(req.body)
   const count = await broadcastNotification({
@@ -162,6 +183,7 @@ const getSmsBalance = asyncHandler(async (req, res) => {
 })
 
 module.exports = {
+  deleteMyNotification,
   getAllNotifications,
   getMyNotifications,
   getSmsBalance,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, CheckCheck, ExternalLink, RefreshCw } from 'lucide-react'
+import { Bell, CheckCheck, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
@@ -8,8 +8,19 @@ import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
 
 const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
+const typeGroups = {
+  events: ['event', 'meeting', 'tour'],
+  fee: ['fee', 'fee_approved', 'fee_rejected', 'payment'],
+  general: ['account', 'announcement', 'general', 'message', 'registration'],
+}
+
+const getTypeGroup = (type = 'general') => {
+  const normalized = String(type || 'general')
+  return Object.entries(typeGroups).find(([, values]) => values.includes(normalized))?.[0] || 'general'
+}
 
 export default function NotificationsPage() {
+  const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [notifications, setNotifications] = useState([])
@@ -56,6 +67,21 @@ export default function NotificationsPage() {
     }
   }
 
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`)
+      await loadNotifications()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
+  const visibleNotifications = notifications.filter((item) => {
+    if (filter === 'all') return true
+    if (filter === 'unread') return !item.readAt
+    return getTypeGroup(item.type) === filter
+  })
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -65,6 +91,15 @@ export default function NotificationsPage() {
           <p className="mt-1 text-sm text-gray-600">{unreadCount} unread message(s)</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {['all', 'unread', 'fee', 'events', 'general'].map((item) => (
+            <Button
+              key={item}
+              onClick={() => setFilter(item)}
+              variant={filter === item ? 'primary' : 'secondary'}
+            >
+              {item}
+            </Button>
+          ))}
           <Button icon={RefreshCw} onClick={loadNotifications} variant="secondary">
             Refresh
           </Button>
@@ -82,13 +117,13 @@ export default function NotificationsPage() {
 
       <Panel className="mt-6">
         {loading ? <Skeleton rows={4} /> : null}
-        {!loading && notifications.length === 0 ? (
+        {!loading && visibleNotifications.length === 0 ? (
           <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">
             No notifications yet.
           </p>
         ) : null}
         <div className="grid gap-3">
-          {notifications.map((item) => (
+          {visibleNotifications.map((item) => (
             <div
               className="grid gap-3 rounded-md border border-gray-200 p-4 md:grid-cols-[1fr_auto]"
               key={item._id}
@@ -101,7 +136,10 @@ export default function NotificationsPage() {
                     {item.readAt ? 'read' : 'unread'}
                   </Badge>
                 </div>
-                <p className="mt-2 text-sm text-gray-600">{item.message}</p>
+                <div
+                  className="mt-2 text-sm text-gray-600 [&_a]:font-semibold [&_a]:text-indigo-700 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+                  dangerouslySetInnerHTML={{ __html: item.message }}
+                />
                 <p className="mt-2 text-xs font-medium text-gray-500">
                   {toReadableDate(item.createdAt)}
                 </p>
@@ -117,6 +155,13 @@ export default function NotificationsPage() {
                     Mark Read
                   </Button>
                 ) : null}
+                <Button
+                  icon={Trash2}
+                  onClick={() => deleteNotification(item._id)}
+                  variant="danger"
+                >
+                  Delete
+                </Button>
               </div>
             </div>
           ))}
