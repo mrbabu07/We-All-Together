@@ -852,37 +852,33 @@ export default function AdminDashboardPage() {
   }
 
   const moderateBlog = async (id, status, note = '') => {
-    const reason =
-      status === 'rejected' && !note.trim() ? window.prompt('Blog rejection reason') || '' : note
+    const reason = note.trim()
 
-    if (status === 'rejected' && !reason.trim()) {
+    if (status === 'rejected' && !reason) {
       setMessage('Blog rejection reason is required.')
       return
     }
 
     await runAction(
-      () => api.patch(`/blogs/${id}/moderation`, { note: reason.trim(), status }),
+      () => api.patch(`/blogs/${id}/moderation`, { note: reason, status }),
       'Blog moderation updated successfully.',
     )
   }
 
   const bulkModerateBlogs = async (blogIds, status, note = '') => {
-    const reason =
-      status === 'rejected' && !note.trim()
-        ? window.prompt('Bulk blog rejection reason') || ''
-        : note
+    const reason = note.trim()
 
     if (!blogIds.length) {
       setMessage('Select at least one blog first.')
       return
     }
-    if (status === 'rejected' && !reason.trim()) {
+    if (status === 'rejected' && !reason) {
       setMessage('Blog rejection reason is required.')
       return
     }
 
     await runAction(
-      () => api.post('/blogs/moderation/bulk', { blogIds, note: reason.trim(), status }),
+      () => api.post('/blogs/moderation/bulk', { blogIds, note: reason, status }),
       'Selected blogs moderated successfully.',
     )
   }
@@ -901,39 +897,33 @@ export default function AdminDashboardPage() {
   }
 
   const moderateGalleryItem = async (id, status, note = '') => {
-    const reason =
-      status === 'rejected' && !note.trim()
-        ? window.prompt('Gallery rejection reason') || ''
-        : note
+    const reason = note.trim()
 
-    if (status === 'rejected' && !reason.trim()) {
+    if (status === 'rejected' && !reason) {
       setMessage('Gallery rejection reason is required.')
       return
     }
 
     await runAction(
-      () => api.patch(`/gallery/${id}/moderation`, { note: reason.trim(), status }),
+      () => api.patch(`/gallery/${id}/moderation`, { note: reason, status }),
       'Gallery moderation updated successfully.',
     )
   }
 
   const bulkModerateGallery = async (itemIds, status, note = '') => {
-    const reason =
-      status === 'rejected' && !note.trim()
-        ? window.prompt('Bulk gallery rejection reason') || ''
-        : note
+    const reason = note.trim()
 
     if (!itemIds.length) {
       setMessage('Select at least one gallery item first.')
       return
     }
-    if (status === 'rejected' && !reason.trim()) {
+    if (status === 'rejected' && !reason) {
       setMessage('Gallery rejection reason is required.')
       return
     }
 
     await runAction(
-      () => api.post('/gallery/moderation/bulk', { itemIds, note: reason.trim(), status }),
+      () => api.post('/gallery/moderation/bulk', { itemIds, note: reason, status }),
       'Selected gallery items moderated successfully.',
     )
   }
