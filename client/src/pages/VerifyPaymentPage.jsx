@@ -1,19 +1,38 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle2, RefreshCw, XCircle } from 'lucide-react'
+import { useForm } from 'react-hook-form'
 import { useParams } from 'react-router-dom'
+import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+
+const rejectionSchema = z.object({
+  reason: z.string().trim().min(1, 'Payment rejection reason is required.'),
+})
 
 export default function VerifyPaymentPage() {
   const { paymentId } = useParams()
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [payment, setPayment] = useState(null)
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
+  const {
+    formState: { errors: rejectErrors, isSubmitting: isRejecting },
+    handleSubmit: handleRejectSubmit,
+    register: registerReject,
+    reset: resetReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(rejectionSchema),
+  })
 
   const loadPayment = useCallback(async () => {
     setLoading(true)
@@ -46,6 +65,22 @@ export default function VerifyPaymentPage() {
     } catch (error) {
       setMessage(getErrorMessage(error))
     }
+  }
+
+  const closeRejectModal = () => {
+    setRejectModalOpen(false)
+    resetReject({ reason: '' })
+  }
+
+  const rejectPayment = async ({ reason }) => {
+    if (!payment?._id) {
+      return
+    }
+
+    await runAction(async () => {
+      await api.patch(`/payments/${payment._id}/reject`, { reason })
+      closeRejectModal()
+    }, 'Payment rejected successfully.')
   }
 
   return (
@@ -129,20 +164,9 @@ export default function VerifyPaymentPage() {
                 Confirm Payment
               </Button>
               <Button
-                disabled={payment.status === 'rejected'}
+                disabled={payment.status === 'rejected' || isRejecting}
                 icon={XCircle}
-                onClick={() => {
-                  const reason = window.prompt('Payment rejection reason')?.trim()
-                  if (!reason) {
-                    setMessage('Payment rejection reason is required.')
-                    return
-                  }
-
-                  runAction(
-                    () => api.patch(`/payments/${payment._id}/reject`, { reason }),
-                    'Payment rejected successfully.',
-                  )
-                }}
+                onClick={() => setRejectModalOpen(true)}
                 variant="danger"
               >
                 Reject Payment
@@ -151,6 +175,30 @@ export default function VerifyPaymentPage() {
           </div>
         ) : null}
       </Panel>
+
+      <Modal onClose={closeRejectModal} open={rejectModalOpen} title="Reject Payment">
+        <form className="grid gap-4" onSubmit={handleRejectSubmit(rejectPayment)}>
+          <p className="text-sm text-gray-600">
+            Add the reason for rejecting this payment. The member will see this reason before
+            resubmitting.
+          </p>
+          <Field
+            error={rejectErrors.reason?.message}
+            label="Reason"
+            required
+            textarea
+            {...registerReject('reason')}
+          />
+          <div className="flex justify-end gap-2">
+            <Button onClick={closeRejectModal} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button icon={XCircle} loading={isRejecting} type="submit" variant="danger">
+              Reject Payment
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </main>
   )
 }
