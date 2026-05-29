@@ -508,8 +508,8 @@ export default function MemberDashboardPage() {
       resetPayment(initialPaymentForm)
       setMessage(
         months.length > 1
-          ? 'Selected fee months submitted for admin verification.'
-          : 'Monthly fee submitted for admin verification.',
+          ? 'Selected fee months submitted for admin verification. Approval usually takes 24-48 hours.'
+          : 'Monthly fee submitted for admin verification. Approval usually takes 24-48 hours.',
       )
       await loadDashboard()
     } catch (error) {
