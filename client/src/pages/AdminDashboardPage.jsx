@@ -1615,6 +1615,31 @@ export default function AdminDashboardPage() {
           onExportPayments={exportPayments}
           onExportUsers={exportUsers}
           onExportBackup={exportBackup}
+          onBulkApprove={(userIds) =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.post('/admin/registrations/bulk-approve', { userIds }),
+                  `${userIds.length} registrations approved.`,
+                ),
+              confirmLabel: 'Approve',
+              message: `${userIds.length} pending registrations will become approved members.`,
+              title: 'Bulk approve registrations?',
+            })
+          }
+          onBulkReject={(userIds, reason) =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.post('/admin/registrations/bulk-reject', { reason, userIds }),
+                  `${userIds.length} registrations rejected.`,
+                ),
+              confirmLabel: 'Reject',
+              message: `${userIds.length} registrations will be rejected. Reason: ${reason}`,
+              title: 'Bulk reject registrations?',
+              variant: 'danger',
+            })
+          }
           onApprove={(id) =>
             requestConfirm({
               action: () =>
@@ -1830,6 +1855,8 @@ export default function AdminDashboardPage() {
 function OverviewTab({
   data,
   onApprove,
+  onBulkApprove,
+  onBulkReject,
   onExportBackup,
   onExportDonations,
   onExportExpenses,
@@ -1847,6 +1874,17 @@ function OverviewTab({
   ]
   const [pendingFilter, setPendingFilter] = useState({ address: '', from: '', to: '' })
   const [rejectingRegistration, setRejectingRegistration] = useState(null)
+  const [selectedPendingIds, setSelectedPendingIds] = useState([])
+  const {
+    control: bulkRejectControl,
+    formState: { errors: bulkRejectErrors, isSubmitting: isSubmittingBulkReject },
+    handleSubmit: handleBulkRejectSubmit,
+    register: registerBulkReject,
+    reset: resetBulkReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(rejectReasonSchema),
+  })
   const {
     formState: { errors: registrationRejectErrors, isSubmitting: isSubmittingRegistrationReject },
     handleSubmit: handleRegistrationRejectSubmit,
@@ -1870,6 +1908,46 @@ function OverviewTab({
       return matchesFrom && matchesTo && matchesAddress
     })
   }, [data.pendingRegistrations, pendingFilter])
+  const visiblePendingRegistrations = useMemo(
+    () => filteredPendingRegistrations.slice(0, 6),
+    [filteredPendingRegistrations],
+  )
+  const visiblePendingIdSet = useMemo(
+    () => new Set(visiblePendingRegistrations.map((item) => item._id)),
+    [visiblePendingRegistrations],
+  )
+  const selectedVisiblePendingIds = selectedPendingIds.filter((id) => visiblePendingIdSet.has(id))
+  const allVisiblePendingSelected =
+    visiblePendingRegistrations.length > 0 &&
+    selectedVisiblePendingIds.length === visiblePendingRegistrations.length
+  const bulkRejectReason = useWatch({ control: bulkRejectControl, name: 'reason' }) || ''
+
+  const togglePendingSelection = (id) => {
+    setSelectedPendingIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  const toggleAllVisiblePending = () => {
+    setSelectedPendingIds((current) => {
+      if (allVisiblePendingSelected) {
+        return current.filter((id) => !visiblePendingIdSet.has(id))
+      }
+
+      return Array.from(
+        new Set([...current, ...visiblePendingRegistrations.map((item) => item._id)]),
+      )
+    })
+  }
+
+  const submitBulkReject = ({ reason }) => {
+    if (!selectedVisiblePendingIds.length) {
+      return
+    }
+
+    onBulkReject(selectedVisiblePendingIds, reason)
+    resetBulkReject({ reason: '' })
+  }
 
   const closeRegistrationRejectModal = () => {
     setRejectingRegistration(null)
@@ -1948,10 +2026,53 @@ function OverviewTab({
               value={pendingFilter.address}
             />
           </div>
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <Button
+              disabled={!visiblePendingRegistrations.length}
+              onClick={toggleAllVisiblePending}
+              variant="secondary"
+            >
+              {allVisiblePendingSelected
+                ? 'সব নির্বাচন বাদ'
+                : 'দৃশ্যমান নির্বাচন'}
+            </Button>
+            <Button
+              disabled={!selectedVisiblePendingIds.length}
+              icon={CheckCircle2}
+              onClick={() => onBulkApprove(selectedVisiblePendingIds)}
+            >
+              একসাথে অনুমোদন ({selectedVisiblePendingIds.length})
+            </Button>
+            <Field
+              className="min-w-72"
+              error={bulkRejectErrors.reason?.message}
+              label="একসাথে বাতিলের কারণ"
+              {...registerBulkReject('reason')}
+            />
+            <Button
+              disabled={!selectedVisiblePendingIds.length || !bulkRejectReason.trim()}
+              icon={XCircle}
+              loading={isSubmittingBulkReject}
+              onClick={handleBulkRejectSubmit(submitBulkReject)}
+              variant="danger"
+            >
+              একসাথে বাতিল ({selectedVisiblePendingIds.length})
+            </Button>
+          </div>
           <div className="mt-4 overflow-hidden rounded-xl border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <input
+                      aria-label="Select all visible pending registrations"
+                      checked={allVisiblePendingSelected}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-700 focus:ring-indigo-500"
+                      disabled={!visiblePendingRegistrations.length}
+                      onChange={toggleAllVisiblePending}
+                      type="checkbox"
+                    />
+                  </th>
                   {['আবেদনকারী', 'ফোন', 'পেমেন্ট', 'ডকুমেন্ট', 'স্ট্যাটাস', 'অ্যাকশন'].map((heading) => (
                     <th
                       className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500"
@@ -1965,12 +2086,12 @@ function OverviewTab({
               <tbody className="divide-y divide-gray-100 bg-white">
                 {filteredPendingRegistrations.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6 text-sm text-gray-500" colSpan={6}>
+                    <td className="px-4 py-6 text-sm text-gray-500" colSpan={7}>
                       No pending registrations.
                     </td>
                   </tr>
                 ) : null}
-                {filteredPendingRegistrations.slice(0, 6).map((item) => {
+                {visiblePendingRegistrations.map((item) => {
                   const documents = [
                     ['এনআইডি', item.nidImageUrl],
                     ['পাসপোর্ট', item.passportImageUrl],
@@ -1982,6 +2103,15 @@ function OverviewTab({
 
                   return (
                     <tr className="transition hover:bg-gray-50" key={item._id}>
+                      <td className="px-4 py-3">
+                        <input
+                          aria-label={`Select ${item.name}`}
+                          checked={selectedPendingIds.includes(item._id)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-700 focus:ring-indigo-500"
+                          onChange={() => togglePendingSelection(item._id)}
+                          type="checkbox"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Avatar name={item.name} size="sm" src={item.profilePhotoUrl} />
