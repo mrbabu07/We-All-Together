@@ -51,7 +51,7 @@ const validateRegistration = (body) => {
       transactionId: requireString(body, 'transactionId', 'Transaction ID'),
       senderPhone: requirePhone(body, 'senderPhone', 'Sender phone'),
       note: readOptionalString(body, 'paymentNote'),
-      proofImageUrl: readOptionalString(body, 'proofImageUrl'),
+      proofImageUrl: requireString(body, 'proofImageUrl', 'Payment proof'),
     },
   }
 }

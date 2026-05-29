@@ -15,10 +15,12 @@ test('validateRegistration accepts complete registration payload', () => {
     paymentMethod: 'bKash',
     transactionId: 'TX12345',
     senderPhone: '01711111111',
+    proofImageUrl: 'https://example.com/registration-proof.jpg',
   })
 
   assert.equal(payload.name, 'Rahim Uddin')
   assert.equal(payload.payment.method, 'bKash')
+  assert.equal(payload.payment.proofImageUrl, 'https://example.com/registration-proof.jpg')
 })
 
 test('validateRegistration rejects short passwords', () => {

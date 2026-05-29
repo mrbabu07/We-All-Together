@@ -25,10 +25,12 @@ test('validateMonthlyPayment accepts required payment fields', () => {
     method: 'bKash',
     transactionId: 'TX123',
     senderPhone: '01711111111',
+    proofImageUrl: 'https://example.com/payment.jpg',
   })
 
   assert.equal(payload.month, '2026-05')
   assert.equal(payload.method, 'bKash')
+  assert.equal(payload.proofImageUrl, 'https://example.com/payment.jpg')
   assert.equal(payload.senderPhone, '01711111111')
 })
 
@@ -100,6 +102,20 @@ test('validateDonation rejects zero donation amount', () => {
         transactionId: 'DN123',
       }),
     /greater than zero/,
+  )
+})
+
+test('validateDonation requires payment proof', () => {
+  assert.throws(
+    () =>
+      validateDonation({
+        donorName: 'Public Donor',
+        phone: '01700000000',
+        amount: 100,
+        method: 'Nagad',
+        transactionId: 'DN123',
+      }),
+    /Payment screenshot/,
   )
 })
 

@@ -61,7 +61,7 @@ const validateMonthlyPayment = (body) => ({
   transactionId: requireString(body, 'transactionId', 'Transaction ID'),
   senderPhone: requirePhone(body, 'senderPhone', 'Sender phone'),
   note: optionalString(body, 'note'),
-  proofImageUrl: optionalString(body, 'proofImageUrl'),
+  proofImageUrl: requireString(body, 'proofImageUrl', 'Payment screenshot'),
 })
 
 const validatePaymentRejection = (body) => {
@@ -117,7 +117,7 @@ const validateDonation = (body) => ({
   method: requireString(body, 'method', 'Payment method'),
   transactionId: requireString(body, 'transactionId', 'Transaction ID'),
   note: optionalString(body, 'note'),
-  proofImageUrl: optionalString(body, 'proofImageUrl'),
+  proofImageUrl: requireString(body, 'proofImageUrl', 'Payment screenshot'),
 })
 
 const validateManualDonation = (body) => {
