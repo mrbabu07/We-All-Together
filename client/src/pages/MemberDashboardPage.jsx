@@ -88,6 +88,14 @@ const initialBlogForm = {
   title: '',
 }
 
+const blogSchema = z.object({
+  audience: z.enum(['public', 'members']),
+  body: z.string().trim().min(1, 'Body is required.'),
+  imageUrl: z.string().trim().optional(),
+  moderationStatus: z.enum(['draft', 'pending', 'approved', 'rejected']).optional(),
+  title: z.string().trim().min(1, 'Title is required.'),
+})
+
 const initialGalleryForm = {
   album: 'General',
   audience: 'public',
@@ -154,7 +162,6 @@ export default function MemberDashboardPage() {
   const activeTab = tabs.some(([key]) => key === requestedTab) ? requestedTab : pathTab || 'overview'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [blogForm, setBlogForm] = useState(initialBlogForm)
   const [editingBlogId, setEditingBlogId] = useState('')
   const [lastBlogAutoSaveAt, setLastBlogAutoSaveAt] = useState(null)
   const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
@@ -164,6 +171,18 @@ export default function MemberDashboardPage() {
   const [tourFeedbackForms, setTourFeedbackForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
+  const {
+    control: blogControl,
+    formState: { errors: blogErrors, isSubmitting: isSubmittingBlog },
+    handleSubmit: handleBlogSubmit,
+    register: registerBlog,
+    reset: resetBlog,
+    setValue: setBlogValue,
+  } = useForm({
+    defaultValues: initialBlogForm,
+    resolver: zodResolver(blogSchema),
+  })
+  const blogForm = useWatch({ control: blogControl }) || initialBlogForm
   const {
     control: paymentControl,
     formState: { errors: paymentErrors, isSubmitting: isSubmittingPayment },
@@ -387,7 +406,10 @@ export default function MemberDashboardPage() {
       const imageUrl = response.data.data.image.url
 
       if (target === 'blog') {
-        setBlogForm((current) => ({ ...current, imageUrl }))
+        setBlogValue('imageUrl', imageUrl, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
       } else {
         setGalleryForm((current) => ({ ...current, imageUrl }))
       }
@@ -400,13 +422,12 @@ export default function MemberDashboardPage() {
     }
   }
 
-  const submitBlog = async (event, moderationStatus = 'pending') => {
-    event.preventDefault()
+  const submitBlog = async (values, moderationStatus = 'pending') => {
     setMessage('')
 
     try {
       const payload = {
-        ...blogForm,
+        ...values,
         moderationStatus,
       }
 
@@ -415,7 +436,7 @@ export default function MemberDashboardPage() {
       } else {
         await api.post('/blogs', payload)
       }
-      setBlogForm(initialBlogForm)
+      resetBlog(initialBlogForm)
       setEditingBlogId('')
       lastBlogAutoSaveKey.current = ''
       setLastBlogAutoSaveAt(null)
@@ -430,6 +451,12 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const saveBlogDraft = (event) =>
+    handleBlogSubmit((values) => submitBlog(values, 'draft'))(event)
+
+  const submitBlogForApproval = (event) =>
+    handleBlogSubmit((values) => submitBlog(values, 'pending'))(event)
+
   const editBlog = (blog) => {
     setEditingBlogId(blog._id)
     lastBlogAutoSaveKey.current = JSON.stringify({
@@ -438,7 +465,7 @@ export default function MemberDashboardPage() {
       imageUrl: blog.imageUrl || '',
       title: blog.title || '',
     })
-    setBlogForm({
+    resetBlog({
       audience: blog.audience || 'public',
       body: blog.body || '',
       imageUrl: blog.imageUrl || '',
@@ -449,7 +476,7 @@ export default function MemberDashboardPage() {
 
   const cancelBlogEdit = () => {
     setEditingBlogId('')
-    setBlogForm(initialBlogForm)
+    resetBlog(initialBlogForm)
     lastBlogAutoSaveKey.current = ''
     setLastBlogAutoSaveAt(null)
   }
@@ -803,10 +830,11 @@ export default function MemberDashboardPage() {
       ) : null}
       {!loading && activeTab === 'blogs' ? (
         <Blogs
+          blogs={data.blogs}
           commentForms={commentForms}
           editingBlogId={editingBlogId}
-          form={blogForm}
-          onChange={(field, value) => setBlogForm((current) => ({ ...current, [field]: value }))}
+          formErrors={blogErrors}
+          isSubmitting={isSubmittingBlog}
           onCancelEdit={cancelBlogEdit}
           onCommentChange={(id, value) =>
             setCommentForms((current) => ({ ...current, [id]: value }))
@@ -816,12 +844,13 @@ export default function MemberDashboardPage() {
           onDelete={deleteBlog}
           onEdit={editBlog}
           onLike={toggleBlogLike}
-          onSubmit={submitBlog}
+          onSaveDraft={saveBlogDraft}
+          onSubmit={submitBlogForApproval}
           onUpload={uploadCommunityImage}
+          registerBlog={registerBlog}
           lastAutoSaveAt={lastBlogAutoSaveAt}
           uploading={uploadingCommunityImage === 'blog'}
           user={user}
-          blogs={data.blogs}
         />
       ) : null}
       {!loading && activeTab === 'gallery' ? (
@@ -1026,9 +1055,9 @@ function Blogs({
   blogs,
   commentForms,
   editingBlogId,
-  form,
+  formErrors,
+  isSubmitting,
   lastAutoSaveAt,
-  onChange,
   onCancelEdit,
   onCommentChange,
   onCommentDelete,
@@ -1036,8 +1065,10 @@ function Blogs({
   onDelete,
   onEdit,
   onLike,
+  onSaveDraft,
   onSubmit,
   onUpload,
+  registerBlog,
   uploading,
   user,
 }) {
@@ -1052,37 +1083,31 @@ function Blogs({
     <div className="mt-6 grid gap-6">
       <Panel>
         <SectionTitle icon={BookOpen} title={editingBlogId ? 'Edit Blog' : 'Write Blog'} />
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={(event) => onSubmit(event, 'pending')}>
+        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <Field
+            error={formErrors.title?.message}
             label="Title"
-            name="title"
-            onChange={(event) => onChange('title', event.target.value)}
-            required
-            value={form.title}
+            {...registerBlog('title')}
           />
           <SelectField
+            error={formErrors.audience?.message}
             label="Audience"
-            name="audience"
-            onChange={(event) => onChange('audience', event.target.value)}
-            value={form.audience}
+            {...registerBlog('audience')}
           >
             <option value="public">Public</option>
             <option value="members">Members</option>
           </SelectField>
           <Field
             className="md:col-span-2"
+            error={formErrors.body?.message}
             label="Body"
-            name="body"
-            onChange={(event) => onChange('body', event.target.value)}
-            required
             textarea
-            value={form.body}
+            {...registerBlog('body')}
           />
           <Field
+            error={formErrors.imageUrl?.message}
             label="Image URL"
-            name="imageUrl"
-            onChange={(event) => onChange('imageUrl', event.target.value)}
-            value={form.imageUrl}
+            {...registerBlog('imageUrl')}
           />
           <div className="flex items-end">
             <CommunityImageUpload
@@ -1097,10 +1122,10 @@ function Blogs({
               : 'Draft auto-saves after 30 seconds when title and body are filled.'}
           </p>
           <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button icon={Save} onClick={(event) => onSubmit(event, 'draft')} variant="secondary">
+            <Button icon={Save} loading={isSubmitting} onClick={onSaveDraft} variant="secondary">
               Save Draft
             </Button>
-            <Button icon={Send} type="submit">
+            <Button icon={Send} loading={isSubmitting} type="submit">
               Submit for Approval
             </Button>
             {editingBlogId ? (
