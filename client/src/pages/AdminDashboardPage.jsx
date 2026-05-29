@@ -1,5 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useSearchParams } from 'react-router-dom'
+import { z } from 'zod'
 import {
   AlertTriangle,
   Bell,
@@ -59,6 +62,44 @@ import {
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 const moneyPaisa = (value = 0) => money(Number(value || 0) / 100)
+
+const defaultManualDonationForm = {
+  amount: '',
+  anonymous: false,
+  donorName: '',
+  method: 'Cash',
+  note: '',
+  phone: '',
+  transactionId: '',
+}
+
+const defaultExpenseForm = {
+  amount: '',
+  category: '',
+  date: new Date().toISOString().slice(0, 10),
+  note: '',
+  receiptImageUrl: '',
+  title: '',
+}
+
+const manualDonationSchema = z.object({
+  amount: z.coerce.number().min(1, 'Amount is required.'),
+  anonymous: z.boolean(),
+  donorName: z.string().trim().optional(),
+  method: z.string().trim().min(1, 'Method is required.'),
+  note: z.string().trim().max(300, 'Note cannot exceed 300 characters.').optional(),
+  phone: z.string().trim().optional(),
+  transactionId: z.string().trim().optional(),
+})
+
+const expenseSchema = z.object({
+  amount: z.coerce.number().min(1, 'Amount is required.'),
+  category: z.string().trim().min(1, 'Category is required.'),
+  date: z.string().trim().min(1, 'Date is required.'),
+  note: z.string().trim().max(300, 'Note cannot exceed 300 characters.').optional(),
+  receiptImageUrl: z.string().trim().optional(),
+  title: z.string().trim().min(1, 'Title is required.'),
+})
 
 const bnMonths = [
   'জানুয়ারি',
@@ -324,23 +365,30 @@ export default function AdminDashboardPage() {
     range: 'last_6_months',
     to: '',
   })
-  const [donationForm, setDonationForm] = useState({
-    amount: '',
-    anonymous: false,
-    donorName: '',
-    method: 'Cash',
-    note: '',
-    phone: '',
-    transactionId: '',
+  const {
+    control: donationControl,
+    formState: { errors: donationErrors, isSubmitting: isSavingManualDonation },
+    handleSubmit: handleManualDonationSubmit,
+    register: registerDonation,
+    reset: resetDonation,
+    setValue: setDonationValue,
+  } = useForm({
+    defaultValues: defaultManualDonationForm,
+    resolver: zodResolver(manualDonationSchema),
   })
-  const [expenseForm, setExpenseForm] = useState({
-    amount: '',
-    category: '',
-    date: new Date().toISOString().slice(0, 10),
-    note: '',
-    receiptImageUrl: '',
-    title: '',
+  const donationForm = useWatch({ control: donationControl }) || defaultManualDonationForm
+  const {
+    control: expenseControl,
+    formState: { errors: expenseErrors, isSubmitting: isSavingExpense },
+    handleSubmit: handleExpenseSubmit,
+    register: registerExpense,
+    reset: resetExpense,
+    setValue: setExpenseValue,
+  } = useForm({
+    defaultValues: defaultExpenseForm,
+    resolver: zodResolver(expenseSchema),
   })
+  const expenseForm = useWatch({ control: expenseControl }) || defaultExpenseForm
   const [monthlyStatusMonth, setMonthlyStatusMonth] = useState(
     new Date().toISOString().slice(0, 7),
   )
@@ -582,46 +630,29 @@ export default function AdminDashboardPage() {
     setSearchParams(tab === 'overview' ? {} : { tab })
   }
 
-  const saveExpense = async (event) => {
-    event.preventDefault()
+  const saveExpense = async (values) => {
     await runAction(async () => {
       if (editingExpenseId) {
-        await api.patch(`/expenses/${editingExpenseId}`, expenseForm)
+        await api.patch(`/expenses/${editingExpenseId}`, values)
       } else {
-        await api.post('/expenses', expenseForm)
+        await api.post('/expenses', values)
       }
 
       setEditingExpenseId(null)
-      setExpenseForm({
-        amount: '',
-        category: '',
-        date: new Date().toISOString().slice(0, 10),
-        note: '',
-        receiptImageUrl: '',
-        title: '',
-      })
+      resetExpense(defaultExpenseForm)
     }, editingExpenseId ? 'Expense updated successfully.' : 'Expense added successfully.')
   }
 
-  const saveManualDonation = async (event) => {
-    event.preventDefault()
+  const saveManualDonation = async (values) => {
     await runAction(async () => {
-      await api.post('/donations/manual', donationForm)
-      setDonationForm({
-        amount: '',
-        anonymous: false,
-        donorName: '',
-        method: 'Cash',
-        note: '',
-        phone: '',
-        transactionId: '',
-      })
+      await api.post('/donations/manual', values)
+      resetDonation(defaultManualDonationForm)
     }, 'Manual donation recorded successfully.')
   }
 
   const editExpense = (expense) => {
     setEditingExpenseId(expense._id)
-    setExpenseForm({
+    resetExpense({
       amount: expense.amount || '',
       category: expense.category || '',
       date: toDateInput(expense.date),
@@ -633,14 +664,7 @@ export default function AdminDashboardPage() {
 
   const cancelExpenseEdit = () => {
     setEditingExpenseId(null)
-    setExpenseForm({
-      amount: '',
-      category: '',
-      date: new Date().toISOString().slice(0, 10),
-      note: '',
-      receiptImageUrl: '',
-      title: '',
-    })
+    resetExpense(defaultExpenseForm)
   }
 
   const uploadExpenseReceipt = async (file) => {
@@ -656,10 +680,10 @@ export default function AdminDashboardPage() {
         image,
         name: `expense-receipt-${Date.now()}`,
       })
-      setExpenseForm((current) => ({
-        ...current,
-        receiptImageUrl: response.data.data.image.url,
-      }))
+      setExpenseValue('receiptImageUrl', response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       setMessage('Expense receipt uploaded successfully.')
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -1357,23 +1381,27 @@ export default function AdminDashboardPage() {
       {!loading && activeTab === 'finance' ? (
         <FinanceTab
           data={data}
+          donationErrors={donationErrors}
           donationForm={donationForm}
+          expenseErrors={expenseErrors}
           expenseForm={expenseForm}
           editingExpenseId={editingExpenseId}
           financeFilter={financeFilter}
           initialTab={initialFinanceTab}
+          isSavingExpense={isSavingExpense}
+          isSavingManualDonation={isSavingManualDonation}
           monthlyStatus={monthlyStatus}
           monthlyStatusMonth={monthlyStatusMonth}
           onCancelExpenseEdit={cancelExpenseEdit}
           onDeleteExpense={deleteExpense}
           onEditExpense={editExpense}
-          onSaveExpense={saveExpense}
-          onExpenseChange={(field, value) =>
-            setExpenseForm((current) => ({ ...current, [field]: value }))
+          onDonationToggle={(field, value) =>
+            setDonationValue(field, value, {
+              shouldDirty: true,
+              shouldValidate: true,
+            })
           }
-          onDonationChange={(field, value) =>
-            setDonationForm((current) => ({ ...current, [field]: value }))
-          }
+          onSaveExpense={handleExpenseSubmit(saveExpense)}
           onExpenseReceiptUpload={uploadExpenseReceipt}
           onFinanceFilterChange={(field, value) =>
             setFinanceFilter((current) => ({ ...current, [field]: value }))
@@ -1450,8 +1478,10 @@ export default function AdminDashboardPage() {
             setSettingsForm((current) => ({ ...current, [field]: value }))
           }
           onNotificationSettingChange={updateNotificationSetting}
-          onSaveManualDonation={saveManualDonation}
+          onSaveManualDonation={handleManualDonationSubmit(saveManualDonation)}
           onUpdateSettings={updateSettings}
+          registerDonation={registerDonation}
+          registerExpense={registerExpense}
           settingsForm={settingsForm}
           uploadingExpenseReceipt={uploadingExpenseReceipt}
         />
@@ -1754,11 +1784,15 @@ function OverviewTab({
 
 function FinanceTab({
   data,
+  donationErrors,
   donationForm,
   editingExpenseId,
+  expenseErrors,
   expenseForm,
   financeFilter,
   initialTab = 'payments',
+  isSavingExpense,
+  isSavingManualDonation,
   monthlyStatus,
   monthlyStatusMonth,
   onCancelExpenseEdit,
@@ -1766,8 +1800,7 @@ function FinanceTab({
   onEditExpense,
   onDonationReject,
   onDonationVerify,
-  onDonationChange,
-  onExpenseChange,
+  onDonationToggle,
   onExpenseReceiptUpload,
   onFinanceFilterChange,
   onLoadMonthlyStatus,
@@ -1790,6 +1823,8 @@ function FinanceTab({
   onNotificationSettingChange,
   onSettingsChange,
   onUpdateSettings,
+  registerDonation,
+  registerExpense,
   settingsForm,
   uploadingExpenseReceipt,
 }) {
@@ -1969,35 +2004,30 @@ function FinanceTab({
           <ToggleField
             checked={donationForm.anonymous}
             label="Anonymous donor"
-            onChange={(value) => onDonationChange('anonymous', value)}
+            onChange={(value) => onDonationToggle('anonymous', value)}
           />
           <Field
             disabled={donationForm.anonymous}
+            error={donationErrors.donorName?.message}
             label="Donor Name"
-            name="manualDonorName"
-            onChange={(event) => onDonationChange('donorName', event.target.value)}
-            value={donationForm.donorName}
+            {...registerDonation('donorName')}
           />
           <Field
+            error={donationErrors.phone?.message}
             label="Phone"
-            name="manualDonorPhone"
-            onChange={(event) => onDonationChange('phone', event.target.value)}
-            value={donationForm.phone}
+            {...registerDonation('phone')}
           />
           <Field
+            error={donationErrors.amount?.message}
             label="Amount"
             min="1"
-            name="manualDonationAmount"
-            onChange={(event) => onDonationChange('amount', event.target.value)}
-            required
             type="number"
-            value={donationForm.amount}
+            {...registerDonation('amount')}
           />
           <SelectField
+            error={donationErrors.method?.message}
             label="Method"
-            name="manualDonationMethod"
-            onChange={(event) => onDonationChange('method', event.target.value)}
-            value={donationForm.method}
+            {...registerDonation('method')}
           >
             <option value="Cash">Cash</option>
             <option value="bKash">bKash</option>
@@ -2005,20 +2035,18 @@ function FinanceTab({
             <option value="Bank">Bank</option>
           </SelectField>
           <Field
+            error={donationErrors.transactionId?.message}
             label="Transaction ID"
-            name="manualDonationTransactionId"
-            onChange={(event) => onDonationChange('transactionId', event.target.value)}
             placeholder="Auto-generated for cash if blank"
-            value={donationForm.transactionId}
+            {...registerDonation('transactionId')}
           />
           <Field
             className="md:col-span-2 xl:col-span-3"
+            error={donationErrors.note?.message}
             label="Note"
-            name="manualDonationNote"
-            onChange={(event) => onDonationChange('note', event.target.value)}
-            value={donationForm.note}
+            {...registerDonation('note')}
           />
-          <Button className="md:col-span-2 xl:col-span-5" icon={DollarSign} type="submit">
+          <Button className="md:col-span-2 xl:col-span-5" icon={DollarSign} loading={isSavingManualDonation} type="submit">
             Record Donation
           </Button>
         </form>
@@ -2028,26 +2056,20 @@ function FinanceTab({
         <SectionTitle icon={FilePlus2} title={editingExpenseId ? 'Edit Expense' : 'Add Expense'} />
         <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5" onSubmit={onSaveExpense}>
           <Field
+            error={expenseErrors.title?.message}
             label="Title"
-            name="title"
-            onChange={(event) => onExpenseChange('title', event.target.value)}
-            required
-            value={expenseForm.title}
+            {...registerExpense('title')}
           />
           <Field
+            error={expenseErrors.amount?.message}
             label="Amount"
-            name="amount"
-            onChange={(event) => onExpenseChange('amount', event.target.value)}
-            required
             type="number"
-            value={expenseForm.amount}
+            {...registerExpense('amount')}
           />
           <SelectField
+            error={expenseErrors.category?.message}
             label="Category"
-            name="category"
-            onChange={(event) => onExpenseChange('category', event.target.value)}
-            required
-            value={expenseForm.category}
+            {...registerExpense('category')}
           >
             <option value="">Select category</option>
             {expenseCategoriesForSelect.map((category) => (
@@ -2057,25 +2079,21 @@ function FinanceTab({
             ))}
           </SelectField>
           <Field
+            error={expenseErrors.date?.message}
             label="Date"
-            name="date"
-            onChange={(event) => onExpenseChange('date', event.target.value)}
-            required
             type="date"
-            value={expenseForm.date}
+            {...registerExpense('date')}
           />
           <Field
+            error={expenseErrors.note?.message}
             label="Note"
-            name="note"
-            onChange={(event) => onExpenseChange('note', event.target.value)}
-            value={expenseForm.note}
+            {...registerExpense('note')}
           />
           <div className="grid gap-3 md:col-span-2 xl:col-span-5">
             <Field
+              error={expenseErrors.receiptImageUrl?.message}
               label="Receipt Image URL"
-              name="receiptImageUrl"
-              onChange={(event) => onExpenseChange('receiptImageUrl', event.target.value)}
-              value={expenseForm.receiptImageUrl}
+              {...registerExpense('receiptImageUrl')}
             />
             <label className="grid gap-1.5 text-sm font-medium text-gray-700">
               <span>Upload Receipt Image</span>
@@ -2091,7 +2109,7 @@ function FinanceTab({
               <p className="text-sm font-medium text-indigo-700">Uploading receipt...</p>
             ) : null}
           </div>
-          <Button className="md:col-span-2 xl:col-span-4" icon={FilePlus2} type="submit">
+          <Button className="md:col-span-2 xl:col-span-4" icon={FilePlus2} loading={isSavingExpense} type="submit">
             {editingExpenseId ? 'Update Expense' : 'Add Expense'}
           </Button>
           {editingExpenseId ? (
