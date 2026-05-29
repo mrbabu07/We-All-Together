@@ -51,7 +51,7 @@ export default function NotificationsPage() {
     setMessage('')
 
     try {
-      const response = await api.get('/notifications/my')
+      const response = await api.get('/member/notifications/my')
       setNotifications(response.data.data.notifications)
       setUnreadCount(response.data.data.unreadCount)
     } catch (error) {
@@ -71,7 +71,7 @@ export default function NotificationsPage() {
 
   const markRead = async (id) => {
     try {
-      await api.patch(`/notifications/${id}/read`)
+      await api.patch(`/member/notifications/${id}/read`)
       await loadNotifications()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -80,7 +80,7 @@ export default function NotificationsPage() {
 
   const markAllRead = async () => {
     try {
-      await api.patch('/notifications/my/read-all')
+      await api.patch('/member/notifications/my/read-all')
       await loadNotifications()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -89,7 +89,7 @@ export default function NotificationsPage() {
 
   const deleteNotification = async (id) => {
     try {
-      await api.delete(`/notifications/${id}`)
+      await api.delete(`/member/notifications/${id}`)
       await loadNotifications()
     } catch (error) {
       setMessage(getErrorMessage(error))

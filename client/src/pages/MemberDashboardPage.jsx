@@ -290,17 +290,17 @@ export default function MemberDashboardPage() {
         feeStatusResponse,
       ] = await Promise.all([
         api.get('/public/settings'),
-        api.get('/payments/my'),
-        api.get('/notices/members'),
-        api.get('/meetings/members'),
-        api.get('/tours/members'),
-        api.get('/activities/members'),
-        api.get('/rules/members'),
-        api.get('/members'),
-        api.get('/blogs/members'),
-        api.get('/gallery/members'),
-        api.get('/polls'),
-        api.get('/fees/my-status'),
+        api.get('/member/payments/my'),
+        api.get('/member/notices/members'),
+        api.get('/member/meetings/members'),
+        api.get('/member/tours/members'),
+        api.get('/member/activities/members'),
+        api.get('/member/rules/members'),
+        api.get('/member/members'),
+        api.get('/member/blogs/members'),
+        api.get('/member/gallery/members'),
+        api.get('/member/polls'),
+        api.get('/member/fees/my-status'),
       ])
 
       setData({
@@ -360,9 +360,9 @@ export default function MemberDashboardPage() {
           moderationStatus: 'draft',
         }
         if (editingBlogId) {
-          await api.patch(`/blogs/${editingBlogId}`, payload)
+            await api.patch(`/member/blogs/${editingBlogId}`, payload)
         } else {
-          const response = await api.post('/blogs', payload)
+          const response = await api.post('/member/blogs', payload)
           setEditingBlogId(response.data.data.blog._id)
         }
         lastBlogAutoSaveKey.current = draftKey
@@ -406,7 +406,7 @@ export default function MemberDashboardPage() {
               },
             ]
 
-      await api.post('/fees/pay', {
+      await api.post('/member/fees/pay', {
         ...values,
         months,
       })
@@ -432,7 +432,7 @@ export default function MemberDashboardPage() {
 
     try {
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/payment-proof', {
+      const response = await api.post('/member/uploads/payment-proof', {
         image,
         name: `monthly-payment-${Date.now()}`,
       })
@@ -458,7 +458,7 @@ export default function MemberDashboardPage() {
 
     try {
       const imageData = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/profile-document', {
+      const response = await api.post('/member/uploads/profile-document', {
         image: imageData,
         name: `${target}-${Date.now()}`,
       })
@@ -494,9 +494,9 @@ export default function MemberDashboardPage() {
       }
 
       if (editingBlogId) {
-        await api.patch(`/blogs/${editingBlogId}`, payload)
+        await api.patch(`/member/blogs/${editingBlogId}`, payload)
       } else {
-        await api.post('/blogs', payload)
+        await api.post('/member/blogs', payload)
       }
       resetBlog(initialBlogForm)
       setEditingBlogId('')
@@ -547,7 +547,7 @@ export default function MemberDashboardPage() {
     setMessage('')
 
     try {
-      await api.post('/gallery', values)
+      await api.post('/member/gallery', values)
       resetGallery(initialGalleryForm)
       setMessage('Gallery photo submitted for admin approval.')
       await loadDashboard()
@@ -560,7 +560,7 @@ export default function MemberDashboardPage() {
 
   const deleteBlog = async (id) => {
     try {
-      await api.delete(`/blogs/${id}`)
+      await api.delete(`/member/blogs/${id}`)
       setMessage('Blog deleted successfully.')
       await loadDashboard()
     } catch (error) {
@@ -570,7 +570,7 @@ export default function MemberDashboardPage() {
 
   const deleteGalleryItem = async (id) => {
     try {
-      await api.delete(`/gallery/${id}`)
+      await api.delete(`/member/gallery/${id}`)
       setMessage('Gallery photo deleted successfully.')
       await loadDashboard()
     } catch (error) {
@@ -580,7 +580,7 @@ export default function MemberDashboardPage() {
 
   const toggleBlogLike = async (id) => {
     try {
-      await api.post(`/blogs/${id}/like`)
+      await api.post(`/member/blogs/${id}/like`)
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -599,7 +599,7 @@ export default function MemberDashboardPage() {
     }
 
     try {
-      await api.post(`/blogs/${id}/comments`, { body: result.data.body })
+      await api.post(`/member/blogs/${id}/comments`, { body: result.data.body })
       setCommentForms((current) => ({ ...current, [id]: '' }))
       setCommentErrors((current) => ({ ...current, [id]: '' }))
       await loadDashboard()
@@ -610,7 +610,7 @@ export default function MemberDashboardPage() {
 
   const deleteBlogComment = async (blogId, commentId) => {
     try {
-      await api.delete(`/blogs/${blogId}/comments/${commentId}`)
+      await api.delete(`/member/blogs/${blogId}/comments/${commentId}`)
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -620,7 +620,7 @@ export default function MemberDashboardPage() {
   const markNoticeRead = async (id) => {
     try {
       setMessage('')
-      await api.post(`/notices/${id}/read`)
+      await api.post(`/member/notices/${id}/read`)
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -630,7 +630,7 @@ export default function MemberDashboardPage() {
   const reactToNotice = async (id, type) => {
     try {
       setMessage('')
-      await api.post(`/notices/${id}/reactions`, { type })
+      await api.post(`/member/notices/${id}/reactions`, { type })
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -650,7 +650,7 @@ export default function MemberDashboardPage() {
 
     try {
       setMessage('')
-      await api.post(`/notices/${id}/comments`, { body: result.data.body })
+      await api.post(`/member/notices/${id}/comments`, { body: result.data.body })
       setNoticeCommentForms((current) => ({ ...current, [id]: '' }))
       setNoticeCommentErrors((current) => ({ ...current, [id]: '' }))
       await loadDashboard()
@@ -662,7 +662,7 @@ export default function MemberDashboardPage() {
   const printPaymentReceipt = async (id) => {
     try {
       setMessage('')
-      const response = await api.get(`/receipts/payments/${id}`)
+      const response = await api.get(`/member/receipts/payments/${id}`)
       const receipt = response.data.data.receipt
       const printWindow = window.open('', '_blank', 'noopener,noreferrer')
 
@@ -725,7 +725,7 @@ export default function MemberDashboardPage() {
   const downloadPaymentReceipt = async (id) => {
     try {
       setMessage('')
-      const response = await api.get(`/receipts/${id}`, {
+      const response = await api.get(`/member/receipts/${id}`, {
         responseType: 'blob',
       })
       const url = URL.createObjectURL(response.data)
@@ -744,7 +744,7 @@ export default function MemberDashboardPage() {
   const votePoll = async (pollId, optionId) => {
     try {
       setMessage('')
-      await api.post(`/polls/${pollId}/vote`, { optionId })
+      await api.post(`/member/polls/${pollId}/vote`, { optionId })
       setMessage('Vote submitted successfully.')
       await loadDashboard()
     } catch (error) {
@@ -755,7 +755,7 @@ export default function MemberDashboardPage() {
   const submitRsvp = async (type, id, status) => {
     try {
       setMessage('')
-      await api.post(`/${type}/${id}/rsvp`, { status })
+      await api.post(`/member/${type}/${id}/rsvp`, { status })
       setMessage('RSVP updated successfully.')
       await loadDashboard()
     } catch (error) {
@@ -792,7 +792,7 @@ export default function MemberDashboardPage() {
 
     try {
       setMessage('')
-      await api.post(`/meetings/${id}/check-in`, {
+      await api.post(`/member/meetings/${id}/check-in`, {
         code: needsCode ? result.data.code : '',
       })
       setMeetingCheckInForms((current) => ({
@@ -813,7 +813,7 @@ export default function MemberDashboardPage() {
   const registerForTour = async (id) => {
     try {
       setMessage('')
-      const response = await api.post(`/tours/${id}/register`)
+      const response = await api.post(`/member/tours/${id}/register`)
       setMessage(
         response.data.data.waitlisted
           ? 'Tour is full. You were added to the waitlist.'
@@ -865,7 +865,7 @@ export default function MemberDashboardPage() {
     try {
       setMessage('')
 
-      await api.post(`/tours/${id}/feedback`, result.data)
+      await api.post(`/member/tours/${id}/feedback`, result.data)
       setTourFeedbackErrors((current) => ({
         ...current,
         [id]: {},

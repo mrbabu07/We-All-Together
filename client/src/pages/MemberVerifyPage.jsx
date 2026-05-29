@@ -18,7 +18,7 @@ export default function MemberVerifyPage() {
   useEffect(() => {
     const loadMember = async () => {
       try {
-        const response = await api.get(`/members/verify/${memberId}`)
+        const response = await api.get(`/public/members/verify/${memberId}`)
         setMember(response.data.data.member)
       } catch (requestError) {
         setError(getErrorMessage(requestError))

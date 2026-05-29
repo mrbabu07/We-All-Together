@@ -92,7 +92,9 @@ export default function MemberFeeHistoryPage() {
     setMessage('')
 
     try {
-      const response = await api.get('/fees/my-history', { params: { year: selectedYear } })
+      const response = await api.get('/member/fees/my-history', {
+        params: { year: selectedYear },
+      })
       setData(response.data.data)
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -120,7 +122,7 @@ export default function MemberFeeHistoryPage() {
 
   const downloadReceipt = async (id) => {
     try {
-      const response = await api.get(`/receipts/${id}`, { responseType: 'blob' })
+      const response = await api.get(`/member/receipts/${id}`, { responseType: 'blob' })
       const url = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = url

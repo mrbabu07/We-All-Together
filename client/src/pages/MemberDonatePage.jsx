@@ -89,7 +89,7 @@ export default function MemberDonatePage() {
     try {
       const [settingsResponse, donationsResponse] = await Promise.all([
         api.get('/public/settings'),
-        api.get('/donations/my'),
+        api.get('/member/donations/my'),
       ])
 
       setSettings(settingsResponse.data.data.settings || {})
@@ -149,7 +149,7 @@ export default function MemberDonatePage() {
 
     try {
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/payment-proof', {
+      const response = await api.post('/member/uploads/payment-proof', {
         image,
         name: `member-donation-${Date.now()}`,
       })
@@ -169,7 +169,7 @@ export default function MemberDonatePage() {
     setMessage('')
 
     try {
-      await api.post('/donations/my', values)
+      await api.post('/member/donations/my', values)
       reset({
         ...initialDonationForm,
         donorName: user?.name || '',

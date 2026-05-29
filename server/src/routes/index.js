@@ -107,6 +107,7 @@ router.use('/member/notices', memberNamespace, noticeRoutes)
 router.use('/member/payments', memberNamespace, paymentRoutes)
 router.use('/member/polls', memberNamespace, pollRoutes)
 router.use('/member/receipts', memberNamespace, receiptRoutes)
+router.use('/member/rules', memberNamespace, ruleRoutes)
 router.use('/member/tours', memberNamespace, tourRoutes)
 router.use('/member/uploads', memberNamespace, uploadRoutes)
 

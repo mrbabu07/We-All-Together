@@ -238,7 +238,7 @@ export default function AccountPage() {
   useEffect(() => {
     const loadActivity = async () => {
       try {
-        const response = await api.get('/members/my-activity')
+        const response = await api.get('/member/members/my-activity')
         setActivity(response.data.data)
       } catch {
         setActivity(null)
@@ -310,7 +310,7 @@ export default function AccountPage() {
 
     try {
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/profile-document', {
+      const response = await api.post('/member/uploads/profile-document', {
         image,
         name: `${field}-${Date.now()}`,
       })
@@ -346,7 +346,7 @@ export default function AccountPage() {
 
   const downloadMyData = async () => {
     try {
-      const response = await api.get('/members/my-data')
+      const response = await api.get('/member/members/my-data')
       const printWindow = window.open('', '_blank', 'noopener,noreferrer')
 
       if (!printWindow) {
@@ -384,7 +384,7 @@ export default function AccountPage() {
 
   const requestDelete = async (values) => {
     try {
-      await api.post('/members/delete-request', values)
+      await api.post('/member/members/delete-request', values)
       resetDelete(defaultDeleteForm)
       toast.success('Delete request admin এর কাছে পাঠানো হয়েছে')
     } catch (error) {
