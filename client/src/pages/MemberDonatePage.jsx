@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { HeartHandshake, RefreshCw, Send, Upload } from 'lucide-react'
+import { useForm, useWatch } from 'react-hook-form'
+import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -22,6 +25,27 @@ const initialDonationForm = {
   transactionId: '',
 }
 
+const donationSchema = z
+  .object({
+    amount: z.coerce.number().min(1, 'Donation amount is required.'),
+    anonymous: z.boolean(),
+    donorName: z.string().trim(),
+    method: z.string().trim().min(1, 'Payment method is required.'),
+    note: z.string().trim().max(300, 'Message cannot exceed 300 characters.').optional(),
+    phone: z.string().trim().min(1, 'Phone number is required.'),
+    proofImageUrl: z.string().trim().min(1, 'Payment screenshot is required.'),
+    transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
+  })
+  .superRefine((values, context) => {
+    if (!values.anonymous && !values.donorName) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Name is required unless anonymous is selected.',
+        path: ['donorName'],
+      })
+    }
+  })
+
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
 const formatDate = (value) => {
@@ -38,12 +62,25 @@ const formatDate = (value) => {
 export default function MemberDonatePage() {
   const { user } = useAuth()
   const [donations, setDonations] = useState([])
-  const [form, setForm] = useState(initialDonationForm)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [settings, setSettings] = useState({})
-  const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const {
+    control,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+  } = useForm({
+    defaultValues: initialDonationForm,
+    resolver: zodResolver(donationSchema),
+  })
+  const [amount, anonymous, donorName, phone] = useWatch({
+    control,
+    name: ['amount', 'anonymous', 'donorName', 'phone'],
+  })
 
   const loadDonations = useCallback(async () => {
     setLoading(true)
@@ -74,15 +111,16 @@ export default function MemberDonatePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setForm((current) => ({
-        ...current,
-        donorName: current.donorName || user?.name || '',
-        phone: current.phone || user?.phone || '',
-      }))
+      if (user?.name && !donorName) {
+        setValue('donorName', user.name)
+      }
+      if (user?.phone && !phone) {
+        setValue('phone', user.phone)
+      }
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [user?.name, user?.phone])
+  }, [donorName, phone, setValue, user?.name, user?.phone])
 
   const totals = useMemo(() => {
     return donations.reduce(
@@ -101,14 +139,6 @@ export default function MemberDonatePage() {
     )
   }, [donations])
 
-  const updateField = (event) => {
-    const { checked, name, type, value } = event.target
-    setForm((current) => ({
-      ...current,
-      [name]: type === 'checkbox' ? checked : value,
-    }))
-  }
-
   const uploadProof = async (file) => {
     if (!file) {
       return
@@ -123,10 +153,10 @@ export default function MemberDonatePage() {
         image,
         name: `member-donation-${Date.now()}`,
       })
-      setForm((current) => ({
-        ...current,
-        proofImageUrl: response.data.data.image.url,
-      }))
+      setValue('proofImageUrl', response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       setMessage('Payment screenshot uploaded.')
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -135,19 +165,12 @@ export default function MemberDonatePage() {
     }
   }
 
-  const submitDonation = async (event) => {
-    event.preventDefault()
-    setSubmitting(true)
+  const submitDonation = async (values) => {
     setMessage('')
 
     try {
-      if (!form.proofImageUrl) {
-        setMessage('Payment screenshot is required.')
-        return
-      }
-
-      await api.post('/donations/my', form)
-      setForm({
+      await api.post('/donations/my', values)
+      reset({
         ...initialDonationForm,
         donorName: user?.name || '',
         phone: user?.phone || '',
@@ -156,8 +179,6 @@ export default function MemberDonatePage() {
       setMessage('Donation submitted. Admin will verify it soon.')
     } catch (error) {
       setMessage(getErrorMessage(error))
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -210,34 +231,63 @@ export default function MemberDonatePage() {
 
           <Panel>
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">দান জমা দিন</h2>
-            <form className="mt-5 grid gap-4" onSubmit={submitDonation}>
+            <form className="mt-5 grid gap-4" onSubmit={handleSubmit(submitDonation)}>
               <div>
                 <p className="text-sm font-semibold text-[var(--text-secondary)]">Quick amount</p>
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {quickAmounts.map((amount) => (
+                  {quickAmounts.map((quickAmount) => (
                     <button
                       className={`min-h-11 rounded-[var(--radius-md)] border px-3 text-sm font-semibold transition ${
-                        Number(form.amount) === amount
+                        Number(amount) === quickAmount
                           ? 'border-[var(--brand-600)] bg-[var(--brand-50)] text-[var(--brand-700)]'
                           : 'border-[var(--gray-200)] bg-[var(--surface-0)] text-[var(--text-secondary)] hover:border-[var(--brand-300)]'
                       }`}
-                      key={amount}
-                      onClick={() => setForm((current) => ({ ...current, amount: String(amount) }))}
+                      key={quickAmount}
+                      onClick={() =>
+                        setValue('amount', String(quickAmount), {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        })
+                      }
                       type="button"
                     >
-                      {money(amount)}
+                      {money(quickAmount)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Amount" min="1" name="amount" onChange={updateField} required type="number" value={form.amount} />
-                <Field label="Payment Method" name="method" onChange={updateField} placeholder={settings.donationProvider || 'bKash / Nagad'} required value={form.method} />
-                <Field disabled={form.anonymous} label="Name" name="donorName" onChange={updateField} required={!form.anonymous} value={form.donorName} />
-                <Field label="Phone" name="phone" onChange={updateField} required value={form.phone} />
-                <Field label="Transaction ID" name="transactionId" onChange={updateField} required value={form.transactionId} />
-                <Field label="Proof URL" name="proofImageUrl" onChange={updateField} required value={form.proofImageUrl} />
+                <Field
+                  error={errors.amount?.message}
+                  label="Amount"
+                  min="1"
+                  type="number"
+                  {...register('amount')}
+                />
+                <Field
+                  error={errors.method?.message}
+                  label="Payment Method"
+                  placeholder={settings.donationProvider || 'bKash / Nagad'}
+                  {...register('method')}
+                />
+                <Field
+                  disabled={anonymous}
+                  error={errors.donorName?.message}
+                  label="Name"
+                  {...register('donorName')}
+                />
+                <Field error={errors.phone?.message} label="Phone" {...register('phone')} />
+                <Field
+                  error={errors.transactionId?.message}
+                  label="Transaction ID"
+                  {...register('transactionId')}
+                />
+                <Field
+                  error={errors.proofImageUrl?.message}
+                  label="Proof URL"
+                  {...register('proofImageUrl')}
+                />
               </div>
 
               <label className="flex min-h-11 items-center gap-3 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--surface-0)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)]">
@@ -252,9 +302,9 @@ export default function MemberDonatePage() {
                 />
               </label>
 
-              <Field label="Message" name="note" onChange={updateField} textarea value={form.note} />
+              <Field error={errors.note?.message} label="Message" textarea {...register('note')} />
               <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
-                <input checked={form.anonymous} name="anonymous" onChange={updateField} type="checkbox" />
+                <input {...register('anonymous')} type="checkbox" />
                 Anonymous হিসেবে দেখান
               </label>
 
@@ -264,7 +314,7 @@ export default function MemberDonatePage() {
                 </p>
               ) : null}
 
-              <Button icon={Send} loading={submitting} size="lg" type="submit">
+              <Button icon={Send} loading={isSubmitting} size="lg" type="submit">
                 Submit Donation
               </Button>
             </form>
