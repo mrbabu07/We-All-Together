@@ -377,6 +377,26 @@ const tourWorkflowExpenseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required.'),
 })
 
+const defaultMeetingWorkflowForm = {
+  attendanceMode: 'closed',
+  attendanceOtp: '',
+  minutes: '',
+  minutesRichText: '',
+  minutesStatus: 'draft',
+}
+
+const meetingWorkflowSchema = z.object({
+  attendanceMode: z.enum(['closed', 'manual', 'otp', 'qr'], {
+    message: 'Choose a valid attendance mode.',
+  }),
+  attendanceOtp: z.string().trim().optional(),
+  minutes: z.string().trim().optional(),
+  minutesRichText: z.string().trim().optional(),
+  minutesStatus: z.enum(['draft', 'published'], {
+    message: 'Choose a valid minutes status.',
+  }),
+})
+
 const contentFormSchemas = {
   notices: z.object({
     archivedAt: z.string().trim().optional(),
@@ -4377,15 +4397,21 @@ function RuleMeta({ item, onRestore }) {
 
 function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvanced, onSaveAttendance }) {
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
-  const [minutes, setMinutes] = useState('')
-  const [minutesRichText, setMinutesRichText] = useState('')
-  const [minutesStatus, setMinutesStatus] = useState('draft')
-  const [attendanceMode, setAttendanceMode] = useState('closed')
-  const [attendanceOtp, setAttendanceOtp] = useState('')
   const [agendaItems, setAgendaItems] = useState([])
   const [actionItems, setActionItems] = useState([])
   const [recapMessage, setRecapMessage] = useState('')
   const [attendance, setAttendance] = useState({})
+  const {
+    control: advancedControl,
+    formState: { errors: advancedErrors, isSubmitting: isSavingAdvanced },
+    handleSubmit: handleAdvancedSubmit,
+    register: registerAdvanced,
+    reset: resetAdvanced,
+  } = useForm({
+    defaultValues: defaultMeetingWorkflowForm,
+    resolver: zodResolver(meetingWorkflowSchema),
+  })
+  const advancedValues = useWatch({ control: advancedControl }) || defaultMeetingWorkflowForm
   const selectedMeeting = meetings.find((item) => item._id === selectedMeetingId)
 
   const selectMeeting = (id) => {
@@ -4403,13 +4429,15 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
     })
 
     setSelectedMeetingId(id)
-    setMinutes(meeting?.minutes || '')
-    setMinutesRichText(meeting?.minutesRichText || '')
-    setMinutesStatus(meeting?.minutesStatus || 'draft')
-    setAttendanceMode(
-      meeting?.attendanceMode?.active ? meeting.attendanceMode.method || 'manual' : 'closed',
-    )
-    setAttendanceOtp(meeting?.attendanceMode?.otp || '')
+    resetAdvanced({
+      attendanceMode: meeting?.attendanceMode?.active
+        ? meeting.attendanceMode.method || 'manual'
+        : 'closed',
+      attendanceOtp: meeting?.attendanceMode?.otp || '',
+      minutes: meeting?.minutes || '',
+      minutesRichText: meeting?.minutesRichText || '',
+      minutesStatus: meeting?.minutesStatus || 'draft',
+    })
     setAgendaItems(
       [...(meeting?.agendaItems || [])]
         .sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
@@ -4485,9 +4513,7 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
     setActionItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  const saveAdvanced = async (event) => {
-    event.preventDefault()
-
+  const saveAdvanced = async (values) => {
     await onSaveAdvanced(selectedMeetingId, {
       actionItems: actionItems.map((item) => ({
         assignedTo: item.assignedTo || '',
@@ -4501,12 +4527,12 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
         order: index,
         title: item.title,
       })),
-      attendanceMode,
-      attendanceOtp,
+      attendanceMode: values.attendanceMode,
+      attendanceOtp: values.attendanceOtp,
       attendanceQrCodeDataUrl: selectedMeeting?.attendanceMode?.qrCodeDataUrl || '',
-      minutes,
-      minutesRichText,
-      minutesStatus,
+      minutes: values.minutes,
+      minutesRichText: values.minutesRichText,
+      minutesStatus: values.minutesStatus,
     })
   }
 
@@ -4529,7 +4555,7 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
         note: row.note,
         status: row.status,
       })),
-      minutes,
+      minutes: advancedValues.minutes,
     })
   }
 
@@ -4558,22 +4584,23 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
         </SelectField>
         {selectedMeeting ? (
           <>
-            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveAdvanced}>
+            <form
+              className="grid gap-4 rounded-md border border-gray-200 bg-white p-4"
+              onSubmit={handleAdvancedSubmit(saveAdvanced)}
+            >
               <div className="grid gap-4 md:grid-cols-3">
                 <SelectField
+                  error={advancedErrors.minutesStatus?.message}
                   label="Minutes Status"
-                  name="minutesStatus"
-                  onChange={(event) => setMinutesStatus(event.target.value)}
-                  value={minutesStatus}
+                  {...registerAdvanced('minutesStatus')}
                 >
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                 </SelectField>
                 <SelectField
+                  error={advancedErrors.attendanceMode?.message}
                   label="Attendance Mode"
-                  name="attendanceMode"
-                  onChange={(event) => setAttendanceMode(event.target.value)}
-                  value={attendanceMode}
+                  {...registerAdvanced('attendanceMode')}
                 >
                   <option value="closed">Closed</option>
                   <option value="manual">Manual</option>
@@ -4581,11 +4608,10 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                   <option value="qr">QR</option>
                 </SelectField>
                 <Field
+                  error={advancedErrors.attendanceOtp?.message}
                   label="Attendance Code"
-                  name="attendanceOtp"
-                  onChange={(event) => setAttendanceOtp(event.target.value)}
                   placeholder="Auto-generated if blank"
-                  value={attendanceOtp}
+                  {...registerAdvanced('attendanceOtp')}
                 />
               </div>
               {selectedMeeting.attendanceMode?.qrCodeDataUrl ? (
@@ -4596,18 +4622,16 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                 />
               ) : null}
               <Field
+                error={advancedErrors.minutes?.message}
                 label="Minutes"
-                name="minutes"
-                onChange={(event) => setMinutes(event.target.value)}
                 textarea
-                value={minutes}
+                {...registerAdvanced('minutes')}
               />
               <Field
+                error={advancedErrors.minutesRichText?.message}
                 label="Rich Minutes"
-                name="minutesRichText"
-                onChange={(event) => setMinutesRichText(event.target.value)}
                 textarea
-                value={minutesRichText}
+                {...registerAdvanced('minutesRichText')}
               />
               <div className="grid gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -4726,7 +4750,7 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
                   </div>
                 ))}
               </div>
-              <Button icon={Save} type="submit">
+              <Button icon={Save} loading={isSavingAdvanced} type="submit">
                 Save Meeting Workflow
               </Button>
             </form>
