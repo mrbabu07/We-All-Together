@@ -88,10 +88,14 @@ const defaultSettings = {
   },
   monthlyFee: 0,
   notificationSettings: {
+    meetingReminder24hEnabled: false,
+    paymentDecisionEnabled: true,
+    registrationDecisionEnabled: true,
     smsFeeReminderEnabled: false,
     smsGloballyEnabled: false,
     smsMeetingEnabled: false,
     smsNoticeEnabled: false,
+    tourRegistrationOpenEnabled: false,
     whatsappFeeReminderEnabled: false,
     whatsappMeetingEnabled: false,
     whatsappNoticeEnabled: false,
@@ -117,6 +121,17 @@ const defaultSettings = {
     whatsappGroupUrl: '',
     youtubeUrl: '',
   },
+}
+
+const defaultAnnouncementForm = {
+  channel: 'in_app',
+  link: '/member/notifications',
+  message: '',
+  recipientMode: 'all',
+  scheduledFor: '',
+  title: '',
+  type: 'announcement',
+  userIds: [],
 }
 
 const tabs = [
@@ -184,6 +199,7 @@ export default function AdminControlsPage() {
     recentActivity: [],
     rules: [],
     settings: defaultSettings,
+    smsBalance: null,
     testimonials: [],
     tours: [],
     users: [],
@@ -210,14 +226,7 @@ export default function AdminControlsPage() {
     userId: '',
   })
   const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
-  const [announcementForm, setAnnouncementForm] = useState({
-    channel: 'sms',
-    link: '/member',
-    message: '',
-    role: '',
-    title: '',
-    type: 'announcement',
-  })
+  const [announcementForm, setAnnouncementForm] = useState(defaultAnnouncementForm)
 
   const loadControls = useCallback(async () => {
     setLoading(true)
@@ -239,6 +248,7 @@ export default function AdminControlsPage() {
         achievementsResponse,
         testimonialsResponse,
         partnersResponse,
+        smsBalanceResponse,
       ] = await Promise.all([
         api.get('/admin-controls'),
         api.get('/donations'),
@@ -254,6 +264,7 @@ export default function AdminControlsPage() {
         api.get('/achievements/admin'),
         api.get('/testimonials/admin'),
         api.get('/partners/admin'),
+        api.get('/notifications/sms-balance'),
       ])
       const settings = {
         ...defaultSettings,
@@ -302,6 +313,7 @@ export default function AdminControlsPage() {
         recentActivity: controlsResponse.data.data.recentActivity,
         rules: rulesResponse.data.data.items,
         settings,
+        smsBalance: smsBalanceResponse.data.data.balance,
         testimonials: testimonialsResponse.data.data.items,
         tours: toursResponse.data.data.items,
         users: controlsResponse.data.data.users,
@@ -787,12 +799,16 @@ export default function AdminControlsPage() {
       ) : null}
       {activeTab === 'notifications' ? (
         <NotificationControlsTab
+          announcementForm={announcementForm}
           form={settingsForm}
           notifications={controls.notifications}
           onAnnouncement={(event) => {
             event.preventDefault()
             runAction(
-              () => api.post('/notifications/send', announcementForm),
+              async () => {
+                await api.post('/notifications/send', announcementForm)
+                setAnnouncementForm(defaultAnnouncementForm)
+              },
               'Announcement processed',
             )
           }}
@@ -802,7 +818,8 @@ export default function AdminControlsPage() {
           onChange={updateSettingsField}
           onSave={saveSettings}
           saving={saving}
-          announcementForm={announcementForm}
+          smsBalance={controls.smsBalance}
+          users={approvedMembers}
         />
       ) : null}
       {activeTab === 'appearance' ? (
@@ -2036,6 +2053,8 @@ function NotificationControlsTab({
   onChange,
   onSave,
   saving,
+  smsBalance,
+  users,
 }) {
   const triggers = [
     ['smsNoticeEnabled', 'নতুন নোটিশ'],
@@ -2044,7 +2063,19 @@ function NotificationControlsTab({
     ['whatsappNoticeEnabled', 'WhatsApp notice'],
     ['whatsappMeetingEnabled', 'WhatsApp meeting'],
     ['whatsappFeeReminderEnabled', 'WhatsApp fee'],
+    ['meetingReminder24hEnabled', 'Meeting reminder 24h'],
+    ['paymentDecisionEnabled', 'Payment approved/rejected'],
+    ['registrationDecisionEnabled', 'Registration approved/rejected'],
+    ['tourRegistrationOpenEnabled', 'Tour registration open'],
   ]
+  const selectedUserIds = announcementForm.userIds || []
+  const balanceText = !smsBalance
+    ? 'Loading balance...'
+    : smsBalance.error
+      ? smsBalance.error
+      : smsBalance.configured
+        ? `${smsBalance.currency || ''} ${smsBalance.balance ?? '0'}`.trim()
+        : smsBalance.reason
 
   return (
     <div className="mt-6 grid gap-6">
@@ -2053,7 +2084,7 @@ function NotificationControlsTab({
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Toggle
             checked={form.notificationSettings.smsGloballyEnabled}
-            label="SMS globally enabled"
+            label="SMS gateway enabled"
             onChange={(value) => onChange('notificationSettings', 'smsGloballyEnabled', value)}
           />
           {triggers.map(([field, label]) => (
@@ -2083,13 +2114,16 @@ function NotificationControlsTab({
           />
           <SelectField
             label="Recipients"
-            name="announcementRole"
-            onChange={(event) => onAnnouncementChange('role', event.target.value)}
-            value={announcementForm.role}
+            name="announcementRecipientMode"
+            onChange={(event) => onAnnouncementChange('recipientMode', event.target.value)}
+            value={announcementForm.recipientMode}
           >
-            <option value="">All approved</option>
-            <option value="member">Members</option>
-            <option value="pending">Pending</option>
+            <option value="all">All active users</option>
+            <option value="active">Active members</option>
+            <option value="overdue">Overdue members</option>
+            <option value="specific">Specific members</option>
+            <option value="member">Member role</option>
+            <option value="moderator">Moderators</option>
             <option value="admin">Admins</option>
           </SelectField>
           <SelectField
@@ -2098,42 +2132,82 @@ function NotificationControlsTab({
             onChange={(event) => onAnnouncementChange('channel', event.target.value)}
             value={announcementForm.channel}
           >
+            <option value="in_app">In-app only</option>
             <option value="sms">SMS</option>
             <option value="whatsapp">WhatsApp</option>
             <option value="both">Both</option>
           </SelectField>
           <Field
-            label="Schedule note"
-            name="schedule"
-            onChange={() => {}}
-            placeholder="Now. Cron scheduling uses server jobs."
-            value=""
+            label="Schedule for later"
+            name="scheduledFor"
+            onChange={(event) => onAnnouncementChange('scheduledFor', event.target.value)}
+            type="datetime-local"
+            value={announcementForm.scheduledFor || ''}
           />
-          <Field
-            className="md:col-span-2"
-            label="Message"
-            name="announcementMessage"
-            onChange={(event) => onAnnouncementChange('message', event.target.value)}
-            required
-            textarea
-            value={announcementForm.message}
-          />
+          {announcementForm.recipientMode === 'specific' ? (
+            <SelectField
+              className="md:col-span-2"
+              label="Specific members"
+              multiple
+              name="announcementUserIds"
+              onChange={(event) =>
+                onAnnouncementChange(
+                  'userIds',
+                  Array.from(event.target.selectedOptions, (option) => option.value),
+                )
+              }
+              value={selectedUserIds}
+            >
+              {users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name} - {user.phone}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
+          <div className="md:col-span-2">
+            <RichTextEditor
+              label="Message"
+              onChange={(value) => onAnnouncementChange('message', value)}
+              value={announcementForm.message}
+            />
+          </div>
           <Button className="md:col-span-2" icon={Bell} type="submit">
-            Send now
+            {announcementForm.scheduledFor ? 'Schedule announcement' : 'Send now'}
           </Button>
         </form>
       </Panel>
       <Panel>
         <SectionTitle icon={Bell} title="Notification history and SMS balance" />
         <p className="mt-4 rounded-lg bg-indigo-50 p-3 text-sm font-semibold text-indigo-700">
+          SMS balance: {balanceText}
+        </p>
+        <p className="hidden">
           SMS balance: Gateway API credentials configured হলে এখানে live balance দেখানো যাবে।
         </p>
         <div className="mt-4 grid gap-3">
           {notifications.slice(0, 12).map((notification) => (
             <div className="rounded-xl border border-gray-200 p-4" key={notification._id}>
-              <p className="font-semibold text-gray-900">{notification.title}</p>
-              <p className="text-sm text-gray-500">
-                {notification.user?.name || 'All'} | {toDate(notification.createdAt)}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold text-gray-900">{notification.title}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    value={
+                      notification.deliveryStatus === 'failed'
+                        ? 'rejected'
+                        : notification.deliveryStatus || 'approved'
+                    }
+                  >
+                    {notification.deliveryStatus || 'sent'}
+                  </Badge>
+                  <Badge value={notification.readAt ? 'approved' : 'pending'}>
+                    {notification.readAt ? 'Read' : 'Unread'}
+                  </Badge>
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                {notification.user?.name || 'All'} | {notification.channel || 'in_app'} |{' '}
+                {toDate(notification.sentAt || notification.scheduledFor || notification.createdAt)}
               </p>
             </div>
           ))}

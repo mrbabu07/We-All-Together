@@ -1,53 +1,160 @@
-const { USER_STATUSES } = require('../constants/userConstants')
+const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
+const Notification = require('../models/Notification')
 const User = require('../models/User')
+const { calculateMemberFees } = require('../utils/feeCalculator')
 const { getSettings } = require('./settingsService')
 const { createNotification } = require('./notificationService')
-const { sendBulkTextMessages } = require('./smsService')
+const { sendBulkTextMessages, sendTextMessage } = require('./smsService')
 
-const getApprovedRecipients = async (role = '') => {
+const activeMemberFilter = {
+  softDeletedAt: null,
+  status: USER_STATUSES.APPROVED,
+  suspendedAt: null,
+}
+
+const getExternalChannels = (channel) => {
+  if (channel === 'both') {
+    return ['sms', 'whatsapp']
+  }
+
+  return channel === 'in_app' ? [] : [channel]
+}
+
+const getDisabledGatewayResults = ({ channels, phones }) =>
+  channels.flatMap((channel) =>
+    phones.map((phone) => ({
+      channel,
+      phone,
+      provider: 'twilio',
+      reason: 'SMS gateway is disabled in notification settings.',
+      skipped: true,
+    })),
+  )
+
+const toPlainText = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const getApprovedRecipients = async (options = '') => {
+  const normalized = typeof options === 'string' ? { role: options } : options
+  const {
+    recipientMode = normalized.role || 'all',
+    role = '',
+    settings = null,
+    userIds = [],
+  } = normalized
   const filter = {
-    status: USER_STATUSES.APPROVED,
+    ...activeMemberFilter,
+  }
+  const targetRole = Object.values(USER_ROLES).includes(recipientMode) ? recipientMode : role
+
+  if (targetRole) {
+    filter.role = targetRole
   }
 
-  if (role) {
-    filter.role = role
+  if (recipientMode === 'specific') {
+    filter._id = { $in: userIds }
   }
 
-  return User.find(filter).select('_id name phone role')
+  const recipients = await User.find(filter).select('_id name phone role approvedAt notificationPreferences')
+
+  if (recipientMode !== 'overdue') {
+    return recipients
+  }
+
+  const activeSettings = settings || (await getSettings())
+  const overdueRecipients = []
+
+  for (const recipient of recipients) {
+    const feeStatus = await calculateMemberFees({ member: recipient, settings: activeSettings })
+    if (feeStatus.isOverdue) {
+      overdueRecipients.push(recipient)
+    }
+  }
+
+  return overdueRecipients
 }
 
 const sendManualMessageNotification = async ({
   actor,
-  channel = 'sms',
+  channel = 'in_app',
   link = '/notifications',
   message,
+  recipientMode = 'all',
   role = '',
+  scheduledFor = null,
   title,
+  type = 'announcement',
+  userIds = [],
 }) => {
-  const recipients = await getApprovedRecipients(role)
+  const settings = await getSettings()
+  const recipients = await getApprovedRecipients({
+    recipientMode,
+    role,
+    settings,
+    userIds,
+  })
+  const isScheduled = scheduledFor && scheduledFor > new Date()
+  const deliveryStatus = isScheduled ? 'scheduled' : 'sent'
+  const sentAt = isScheduled ? null : new Date()
   const notifications = await Promise.all(
     recipients.map((user) =>
       createNotification({
+        channel,
         createdBy: actor,
+        deliveryStatus,
         link,
         message,
+        recipientMode,
+        scheduledFor,
+        sentAt,
         title,
-        type: 'message',
+        type,
         user,
       }),
     ),
   )
 
-  const channels = channel === 'both' ? ['sms', 'whatsapp'] : [channel]
-  const deliveryResults = []
+  if (isScheduled) {
+    return {
+      deliveryResults: [],
+      notificationCount: notifications.filter(Boolean).length,
+      recipientCount: recipients.length,
+      scheduled: true,
+      scheduledFor,
+    }
+  }
 
-  for (const nextChannel of channels) {
-    deliveryResults.push(
-      ...(await sendBulkTextMessages({
-        body: `${title}: ${message}`,
-        channel: nextChannel,
-        phones: recipients.map((user) => user.phone),
-      })),
+  const channels = getExternalChannels(channel)
+  const deliveryResults = []
+  const phones = recipients.map((user) => user.phone)
+
+  if (channels.length && settings.notificationSettings?.smsGloballyEnabled === false) {
+    deliveryResults.push(...getDisabledGatewayResults({ channels, phones }))
+  } else {
+    for (const nextChannel of channels) {
+      deliveryResults.push(
+        ...(await sendBulkTextMessages({
+          body: `${title}: ${toPlainText(message)}`,
+          channel: nextChannel,
+          phones,
+        })),
+      )
+    }
+  }
+
+  const notificationIds = notifications.filter(Boolean).map((notification) => notification._id)
+  if (notificationIds.length) {
+    await Notification.updateMany(
+      { _id: { $in: notificationIds } },
+      {
+        $set: {
+          deliveryResults,
+          deliveryStatus: deliveryResults.some((result) => result.error) ? 'failed' : 'sent',
+        },
+      },
     )
   }
 
@@ -205,6 +312,55 @@ const runScheduledFeeReminder = async (referenceDate = new Date()) => {
   return result
 }
 
+const dispatchScheduledMessageNotifications = async () => {
+  const settings = await getSettings()
+  const dueNotifications = await Notification.find({
+    deliveryStatus: 'scheduled',
+    scheduledFor: { $lte: new Date() },
+  })
+    .populate('user', 'phone')
+    .sort({ scheduledFor: 1 })
+    .limit(100)
+
+  for (const notification of dueNotifications) {
+    const channels = getExternalChannels(notification.channel)
+    const deliveryResults = []
+    const phone = notification.user?.phone
+
+    if (channels.length && settings.notificationSettings?.smsGloballyEnabled === false) {
+      deliveryResults.push(...getDisabledGatewayResults({ channels, phones: [phone].filter(Boolean) }))
+    } else {
+      for (const channel of channels) {
+        if (!phone) {
+          deliveryResults.push({
+            channel,
+            reason: 'Recipient phone is missing.',
+            skipped: true,
+          })
+          continue
+        }
+
+        deliveryResults.push(
+          await sendTextMessage({
+            body: `${notification.title}: ${toPlainText(notification.message)}`,
+            channel,
+            phone,
+          }),
+        )
+      }
+    }
+
+    notification.deliveryResults = deliveryResults
+    notification.deliveryStatus = deliveryResults.some((result) => result.error) ? 'failed' : 'sent'
+    notification.sentAt = new Date()
+    await notification.save()
+  }
+
+  return {
+    processedCount: dueNotifications.length,
+  }
+}
+
 const startMonthlyFeeReminderScheduler = () => {
   const run = () => {
     runScheduledFeeReminder().catch((error) => {
@@ -216,10 +372,23 @@ const startMonthlyFeeReminderScheduler = () => {
   return setInterval(run, 1000 * 60 * 60 * 6)
 }
 
+const startScheduledNotificationDispatcher = () => {
+  const run = () => {
+    dispatchScheduledMessageNotifications().catch((error) => {
+      console.error(`Scheduled notification dispatcher failed: ${error.message}`)
+    })
+  }
+
+  run()
+  return setInterval(run, 1000 * 60)
+}
+
 module.exports = {
+  dispatchScheduledMessageNotifications,
   runScheduledFeeReminder,
   sendContentTriggerMessages,
   sendFeeReminderMessages,
   sendManualMessageNotification,
   startMonthlyFeeReminderScheduler,
+  startScheduledNotificationDispatcher,
 }

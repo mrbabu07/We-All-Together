@@ -330,6 +330,22 @@ const organizationSettingSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      meetingReminder24hEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      paymentDecisionEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      registrationDecisionEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      tourRegistrationOpenEnabled: {
+        type: Boolean,
+        default: false,
+      },
       whatsappNoticeEnabled: {
         type: Boolean,
         default: false,

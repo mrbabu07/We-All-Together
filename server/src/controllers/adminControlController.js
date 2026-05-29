@@ -85,10 +85,14 @@ const updateControls = asyncHandler(async (req, res) => {
     'fiscalYearStartMonth',
   ])
   safeAssign(settings.notificationSettings, req.body.notificationSettings, [
+    'meetingReminder24hEnabled',
+    'paymentDecisionEnabled',
+    'registrationDecisionEnabled',
     'smsGloballyEnabled',
     'smsNoticeEnabled',
     'smsMeetingEnabled',
     'smsFeeReminderEnabled',
+    'tourRegistrationOpenEnabled',
     'whatsappNoticeEnabled',
     'whatsappMeetingEnabled',
     'whatsappFeeReminderEnabled',

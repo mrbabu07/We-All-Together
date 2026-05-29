@@ -11,9 +11,15 @@ const getUserId = (user) => {
 }
 
 const createNotification = async ({
+  channel = 'in_app',
   createdBy = null,
+  deliveryResults = [],
+  deliveryStatus = 'sent',
   link = '',
   message,
+  recipientMode = 'specific',
+  scheduledFor = null,
+  sentAt = new Date(),
   title,
   type = 'general',
   user,
@@ -26,9 +32,15 @@ const createNotification = async ({
 
   try {
     return await Notification.create({
+      channel,
       createdBy: getUserId(createdBy),
+      deliveryResults,
+      deliveryStatus,
       link,
       message,
+      recipientMode,
+      scheduledFor,
+      sentAt,
       title,
       type,
       user: userId,

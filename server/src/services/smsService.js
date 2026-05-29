@@ -76,7 +76,39 @@ const sendBulkTextMessages = async ({ body, channel = 'sms', phones }) => {
   return results
 }
 
+const getSmsGatewayBalance = async () => {
+  if (!hasTwilioCredentials()) {
+    return {
+      balance: null,
+      configured: false,
+      currency: '',
+      provider: 'twilio',
+      reason: 'Twilio credentials are not configured.',
+    }
+  }
+
+  try {
+    const balance = await getTwilioClient().api.v2010.accounts(env.twilioAccountSid).balance.fetch()
+
+    return {
+      balance: balance.balance,
+      configured: true,
+      currency: balance.currency,
+      provider: 'twilio',
+    }
+  } catch (error) {
+    return {
+      balance: null,
+      configured: true,
+      currency: '',
+      error: error.message,
+      provider: 'twilio',
+    }
+  }
+}
+
 module.exports = {
+  getSmsGatewayBalance,
   sendBulkTextMessages,
   sendTextMessage,
 }

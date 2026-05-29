@@ -5,7 +5,10 @@ const { Server } = require('socket.io')
 const { registerSocketHandlers } = require('./sockets')
 const { startAutoBackupJob } = require('./jobs/backupJobs')
 const { startOverdueCheckerJob } = require('./jobs/overdueChecker')
-const { startMonthlyFeeReminderScheduler } = require('./services/messageNotificationService')
+const {
+  startMonthlyFeeReminderScheduler,
+  startScheduledNotificationDispatcher,
+} = require('./services/messageNotificationService')
 
 let server
 
@@ -27,6 +30,7 @@ const startServer = async () => {
 
     if (env.nodeEnv !== 'test') {
       startMonthlyFeeReminderScheduler()
+      startScheduledNotificationDispatcher()
       startOverdueCheckerJob()
       startAutoBackupJob()
     }

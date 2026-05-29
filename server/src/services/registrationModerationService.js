@@ -5,6 +5,7 @@ const User = require('../models/User')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('./auditService')
 const { createNotification } = require('./notificationService')
+const { getSettings } = require('./settingsService')
 const { sendTextMessage } = require('./smsService')
 
 const readModerationUserIds = (userIds) => {
@@ -48,7 +49,7 @@ const findPendingRegistrations = async (userIds) => {
 }
 
 const approvePendingRegistrations = async ({ actor, userIds }) => {
-  const users = await findPendingRegistrations(userIds)
+  const [users, settings] = await Promise.all([findPendingRegistrations(userIds), getSettings()])
   const approvedAt = new Date()
   const smsResults = []
 
@@ -63,14 +64,16 @@ const approvePendingRegistrations = async ({ actor, userIds }) => {
     user.registrationPayment.verifiedBy = actor._id
     await user.save()
 
-    await createNotification({
-      createdBy: actor,
-      link: '/member',
-      message: 'Your registration has been approved. You can now access member features.',
-      title: 'Registration approved',
-      type: 'registration',
-      user,
-    })
+    if (settings.notificationSettings?.registrationDecisionEnabled !== false) {
+      await createNotification({
+        createdBy: actor,
+        link: '/member',
+        message: 'Your registration has been approved. You can now access member features.',
+        title: 'Registration approved',
+        type: 'registration',
+        user,
+      })
+    }
 
     smsResults.push(
       await sendTextMessage({
@@ -106,7 +109,7 @@ const rejectPendingRegistrations = async ({ actor, reason, userIds }) => {
     throw new AppError('Reject reason is required.', 400)
   }
 
-  const users = await findPendingRegistrations(userIds)
+  const [users, settings] = await Promise.all([findPendingRegistrations(userIds), getSettings()])
   const rejectedAt = new Date()
 
   for (const user of users) {
@@ -117,14 +120,16 @@ const rejectPendingRegistrations = async ({ actor, reason, userIds }) => {
     user.registrationPayment.note = trimmedReason
     await user.save()
 
-    await createNotification({
-      createdBy: actor,
-      link: '/rejected',
-      message: `Your registration was rejected. Reason: ${trimmedReason}`,
-      title: 'Registration rejected',
-      type: 'registration',
-      user,
-    })
+    if (settings.notificationSettings?.registrationDecisionEnabled !== false) {
+      await createNotification({
+        createdBy: actor,
+        link: '/rejected',
+        message: `Your registration was rejected. Reason: ${trimmedReason}`,
+        title: 'Registration rejected',
+        type: 'registration',
+        user,
+      })
+    }
   }
 
   await recordAuditLog({

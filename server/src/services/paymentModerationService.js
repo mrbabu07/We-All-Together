@@ -63,16 +63,18 @@ const approvePaymentDocument = async ({ actor, payment, settings }) => {
     payment,
     settings,
   })
-  await createNotification({
-    createdBy: actor,
-    link: '/member/fee-history',
-    message: `${formatPaymentMonths(payment)} fee payment of Tk ${Number(
-      payment.amount || 0,
-    ).toLocaleString('en-US')} has been approved. You can download the receipt from fee history.`,
-    title: 'Fee payment approved',
-    type: 'fee_approved',
-    user: payment.user,
-  })
+  if (settings.notificationSettings?.paymentDecisionEnabled !== false) {
+    await createNotification({
+      createdBy: actor,
+      link: '/member/fee-history',
+      message: `${formatPaymentMonths(payment)} fee payment of Tk ${Number(
+        payment.amount || 0,
+      ).toLocaleString('en-US')} has been approved. You can download the receipt from fee history.`,
+      title: 'Fee payment approved',
+      type: 'fee_approved',
+      user: payment.user,
+    })
+  }
   await recordAuditLog({
     action: 'payment.approve',
     actor,
@@ -89,7 +91,7 @@ const approvePaymentDocument = async ({ actor, payment, settings }) => {
   return payment
 }
 
-const rejectPaymentDocument = async ({ actor, payment, reason }) => {
+const rejectPaymentDocument = async ({ actor, payment, reason, settings = null }) => {
   if (!payment) {
     throw new AppError('Payment not found.', 404)
   }
@@ -104,14 +106,17 @@ const rejectPaymentDocument = async ({ actor, payment, reason }) => {
   payment.rejectedBy = actor._id
   payment.rejectionReason = reason
   await payment.save()
-  await createNotification({
-    createdBy: actor,
-    link: '/member?tab=payments',
-    message: `${formatPaymentMonths(payment)} fee payment was rejected. Reason: ${reason}`,
-    title: 'Fee payment rejected',
-    type: 'fee_rejected',
-    user: payment.user,
-  })
+  const activeSettings = settings || (await getSettings())
+  if (activeSettings.notificationSettings?.paymentDecisionEnabled !== false) {
+    await createNotification({
+      createdBy: actor,
+      link: '/member?tab=payments',
+      message: `${formatPaymentMonths(payment)} fee payment was rejected. Reason: ${reason}`,
+      title: 'Fee payment rejected',
+      type: 'fee_rejected',
+      user: payment.user,
+    })
+  }
   await recordAuditLog({
     action: 'payment.reject',
     actor,
@@ -136,9 +141,9 @@ const approvePaymentById = async ({ actor, paymentId }) => {
 }
 
 const rejectPaymentById = async ({ actor, paymentId, reason }) => {
-  const payment = await Payment.findById(paymentId)
+  const [payment, settings] = await Promise.all([Payment.findById(paymentId), getSettings()])
 
-  return rejectPaymentDocument({ actor, payment, reason })
+  return rejectPaymentDocument({ actor, payment, reason, settings })
 }
 
 const bulkApprovePayments = async ({ actor, paymentIds }) => {
@@ -156,11 +161,14 @@ const bulkApprovePayments = async ({ actor, paymentIds }) => {
 }
 
 const bulkRejectPayments = async ({ actor, paymentIds, reason }) => {
-  const payments = await getPendingPaymentsOrThrow(paymentIds, 'rejected')
+  const [payments, settings] = await Promise.all([
+    getPendingPaymentsOrThrow(paymentIds, 'rejected'),
+    getSettings(),
+  ])
   const rejected = []
 
   for (const payment of payments) {
-    rejected.push(await rejectPaymentDocument({ actor, payment, reason }))
+    rejected.push(await rejectPaymentDocument({ actor, payment, reason, settings }))
   }
 
   return rejected

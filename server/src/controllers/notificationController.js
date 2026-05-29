@@ -4,18 +4,29 @@ const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { broadcastNotification } = require('../services/notificationService')
 const { sendManualMessageNotification } = require('../services/messageNotificationService')
+const { getSmsGatewayBalance } = require('../services/smsService')
 const {
   validateBroadcastNotification,
   validateSendNotification,
 } = require('../validators/notificationValidators')
 
+const visibleNotificationFilter = (userId) => ({
+  user: userId,
+  $or: [
+    { deliveryStatus: { $ne: 'scheduled' } },
+    { scheduledFor: null },
+    { scheduledFor: { $lte: new Date() } },
+  ],
+})
+
 const getMyNotifications = asyncHandler(async (req, res) => {
+  const filter = visibleNotificationFilter(req.user._id)
   const [notifications, unreadCount] = await Promise.all([
-    Notification.find({ user: req.user._id })
+    Notification.find(filter)
       .populate('createdBy', 'name phone role')
       .sort({ createdAt: -1 })
       .limit(100),
-    Notification.countDocuments({ user: req.user._id, readAt: null }),
+    Notification.countDocuments({ ...filter, readAt: null }),
   ])
 
   res.status(200).json({
@@ -47,7 +58,7 @@ const getAllNotifications = asyncHandler(async (req, res) => {
 const markNotificationRead = asyncHandler(async (req, res) => {
   const notification = await Notification.findOne({
     _id: req.params.id,
-    user: req.user._id,
+    ...visibleNotificationFilter(req.user._id),
   })
 
   if (!notification) {
@@ -68,7 +79,7 @@ const markNotificationRead = asyncHandler(async (req, res) => {
 
 const markAllNotificationsRead = asyncHandler(async (req, res) => {
   const result = await Notification.updateMany(
-    { user: req.user._id, readAt: null },
+    { ...visibleNotificationFilter(req.user._id), readAt: null },
     { $set: { readAt: new Date() } },
   )
 
@@ -123,7 +134,10 @@ const sendNotificationMessage = asyncHandler(async (req, res) => {
     metadata: {
       channel: payload.channel,
       recipientCount: result.recipientCount,
+      recipientMode: payload.recipientMode,
       role: payload.role || 'all',
+      scheduled: Boolean(result.scheduled),
+      scheduledFor: payload.scheduledFor,
       title: payload.title,
     },
   })
@@ -135,9 +149,22 @@ const sendNotificationMessage = asyncHandler(async (req, res) => {
   })
 })
 
+const getSmsBalance = asyncHandler(async (req, res) => {
+  const balance = await getSmsGatewayBalance()
+
+  res.status(200).json({
+    success: true,
+    message: 'SMS balance loaded successfully.',
+    data: {
+      balance,
+    },
+  })
+})
+
 module.exports = {
   getAllNotifications,
   getMyNotifications,
+  getSmsBalance,
   markAllNotificationsRead,
   markNotificationRead,
   sendBroadcastNotification,

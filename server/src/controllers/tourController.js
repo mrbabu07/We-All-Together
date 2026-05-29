@@ -5,6 +5,8 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { sendManualMessageNotification } = require('../services/messageNotificationService')
+const { getSettings } = require('../services/settingsService')
 const {
   validateRsvp,
   validateTour,
@@ -340,6 +342,7 @@ const updateRegistration = asyncHandler(async (req, res) => {
     throw new AppError('Tour not found.', 404)
   }
 
+  const wasRegistrationOpen = tour.registrationOpen
   tour.registrationOpen = payload.registrationOpen
   tour.seatCapacity = payload.seatCapacity
   tour.tourFee = payload.tourFee
@@ -358,6 +361,22 @@ const updateRegistration = asyncHandler(async (req, res) => {
       tourFee: tour.tourFee,
     },
   })
+  const settings = await getSettings()
+  if (
+    !wasRegistrationOpen &&
+    tour.registrationOpen &&
+    settings.notificationSettings?.tourRegistrationOpenEnabled
+  ) {
+    await sendManualMessageNotification({
+      actor: req.user,
+      channel: 'in_app',
+      link: '/member?tab=tours',
+      message: `${tour.title} tour registration is now open.`,
+      recipientMode: 'active',
+      title: 'Tour registration open',
+      type: 'tour',
+    })
+  }
   const populatedTour = await populateTour(Tour.findById(tour._id))
 
   res.status(200).json({

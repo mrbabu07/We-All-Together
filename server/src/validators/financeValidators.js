@@ -151,9 +151,15 @@ const validateDonationNumber = (body) => ({
 const toBoolean = (value) => value === true || value === 'true'
 
 const validateNotificationSettings = (body) => ({
+  meetingReminder24hEnabled: toBoolean(body.meetingReminder24hEnabled),
+  paymentDecisionEnabled: body.paymentDecisionEnabled === undefined ? true : toBoolean(body.paymentDecisionEnabled),
+  registrationDecisionEnabled:
+    body.registrationDecisionEnabled === undefined ? true : toBoolean(body.registrationDecisionEnabled),
   smsFeeReminderEnabled: toBoolean(body.smsFeeReminderEnabled),
+  smsGloballyEnabled: toBoolean(body.smsGloballyEnabled),
   smsMeetingEnabled: toBoolean(body.smsMeetingEnabled),
   smsNoticeEnabled: toBoolean(body.smsNoticeEnabled),
+  tourRegistrationOpenEnabled: toBoolean(body.tourRegistrationOpenEnabled),
   whatsappFeeReminderEnabled: toBoolean(body.whatsappFeeReminderEnabled),
   whatsappMeetingEnabled: toBoolean(body.whatsappMeetingEnabled),
   whatsappNoticeEnabled: toBoolean(body.whatsappNoticeEnabled),
