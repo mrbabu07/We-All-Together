@@ -3,9 +3,14 @@ const createContentController = require('./contentControllerFactory')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
+const { createNotification } = require('../services/notificationService')
+const QRCode = require('qrcode')
 const {
   validateMeeting,
+  validateMeetingAdvanced,
   validateMeetingAttendance,
+  validateMeetingCheckIn,
+  validateMeetingRecap,
   validateRsvp,
 } = require('../validators/contentValidators')
 
@@ -55,6 +60,45 @@ const rsvpCounts = (rows = []) =>
     }),
     { going: 0, maybe: 0, not_going: 0 },
   )
+
+const meetingAttendanceCode = (meeting) =>
+  meeting.attendanceMode?.otp || String(meeting._id).slice(-6).toUpperCase()
+
+const ensureQrCode = async (attendanceMode, code) => {
+  if (attendanceMode?.method !== 'qr') {
+    return attendanceMode?.qrCodeDataUrl || ''
+  }
+
+  if (attendanceMode?.qrCodeDataUrl) {
+    return attendanceMode.qrCodeDataUrl
+  }
+
+  return QRCode.toDataURL(code, {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 220,
+  })
+}
+
+const upsertAttendance = (meeting, memberId, status = 'present', note = '') => {
+  const existing = meeting.attendance.find(
+    (row) => String(row.member?._id || row.member) === String(memberId),
+  )
+
+  if (existing) {
+    existing.status = status
+    existing.note = note
+    existing.recordedAt = new Date()
+    return
+  }
+
+  meeting.attendance.push({
+    member: memberId,
+    note,
+    recordedAt: new Date(),
+    status,
+  })
+}
 
 const submitRsvp = asyncHandler(async (req, res) => {
   const payload = validateRsvp(req.body)
@@ -119,45 +163,38 @@ const getRsvps = asyncHandler(async (req, res) => {
 })
 
 const updateAdvancedMeeting = asyncHandler(async (req, res) => {
+  const payload = validateMeetingAdvanced(req.body)
   const meeting = await Meeting.findById(req.params.id)
 
   if (!meeting) {
     throw new AppError('Meeting not found.', 404)
   }
 
-  if (Array.isArray(req.body.agendaItems)) {
-    meeting.agendaItems = req.body.agendaItems.map((item, index) => ({
-      completed: Boolean(item.completed),
-      order: Number(item.order ?? index),
-      title: typeof item.title === 'string' ? item.title.trim() : '',
-    }))
-  }
+  meeting.agendaItems = payload.agendaItems
+  meeting.actionItems = payload.actionItems
+  meeting.minutes = payload.minutes
+  meeting.minutesRichText = payload.minutesRichText
+  meeting.minutesStatus = payload.minutesStatus
+  meeting.minutesPublishedAt =
+    payload.minutesStatus === 'published' ? meeting.minutesPublishedAt || new Date() : null
 
-  if (Array.isArray(req.body.actionItems)) {
-    meeting.actionItems = req.body.actionItems.map((item) => ({
-      assignedTo: item.assignedTo || null,
-      completed: Boolean(item.completed),
-      dueDate: item.dueDate ? new Date(item.dueDate) : null,
-      title: typeof item.title === 'string' ? item.title.trim() : '',
-    }))
+  const nextAttendanceMode = {
+    ...payload.attendanceMode,
   }
-
-  if (typeof req.body.minutesRichText === 'string') {
-    meeting.minutesRichText = req.body.minutesRichText
+  if (nextAttendanceMode.active) {
+    const code = nextAttendanceMode.otp || meetingAttendanceCode(meeting)
+    nextAttendanceMode.otp = code
+    nextAttendanceMode.openedAt = meeting.attendanceMode?.active
+      ? meeting.attendanceMode.openedAt || nextAttendanceMode.openedAt
+      : nextAttendanceMode.openedAt
+    nextAttendanceMode.qrCodeDataUrl =
+      nextAttendanceMode.qrCodeDataUrl || (await ensureQrCode(nextAttendanceMode, code))
+  } else {
+    nextAttendanceMode.closedAt = meeting.attendanceMode?.active
+      ? nextAttendanceMode.closedAt
+      : meeting.attendanceMode?.closedAt || nextAttendanceMode.closedAt
   }
-  if (['closed', 'qr', 'otp'].includes(req.body.attendanceMode)) {
-    meeting.attendanceMode = {
-      active: req.body.attendanceMode !== 'closed',
-      otp:
-        req.body.attendanceMode === 'otp' && typeof req.body.attendanceOtp === 'string'
-          ? req.body.attendanceOtp.trim()
-          : '',
-      qrCodeDataUrl:
-        typeof req.body.attendanceQrCodeDataUrl === 'string'
-          ? req.body.attendanceQrCodeDataUrl.trim()
-          : meeting.attendanceMode?.qrCodeDataUrl || '',
-    }
-  }
+  meeting.attendanceMode = nextAttendanceMode
 
   await meeting.save()
   await recordAuditLog({
@@ -179,9 +216,110 @@ const updateAdvancedMeeting = asyncHandler(async (req, res) => {
   })
 })
 
+const checkInMeeting = asyncHandler(async (req, res) => {
+  const payload = validateMeetingCheckIn(req.body)
+  const meeting = await Meeting.findById(req.params.id)
+
+  if (!meeting) {
+    throw new AppError('Meeting not found.', 404)
+  }
+
+  if (!meeting.attendanceMode?.active) {
+    throw new AppError('Attendance is not open for this meeting.', 403)
+  }
+
+  if (
+    ['otp', 'qr'].includes(meeting.attendanceMode.method) &&
+    payload.code !== meetingAttendanceCode(meeting)
+  ) {
+    throw new AppError('Attendance code is invalid.', 400)
+  }
+
+  upsertAttendance(meeting, req.user._id, 'present', 'Self check-in')
+  await meeting.save()
+  await recordAuditLog({
+    action: 'meeting.attendance.checkin',
+    actor: req.user,
+    entityId: meeting._id,
+    entityType: 'Meeting',
+    metadata: {
+      title: meeting.title,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Meeting attendance checked in successfully.',
+    data: { item: meeting },
+  })
+})
+
+const publishMeetingRecap = asyncHandler(async (req, res) => {
+  const payload = validateMeetingRecap(req.body)
+  const meeting = await Meeting.findById(req.params.id)
+
+  if (!meeting) {
+    throw new AppError('Meeting not found.', 404)
+  }
+
+  const recipientIds = [
+    ...new Set(
+      [
+        ...meeting.attendance
+          .filter((row) => row.status === 'present')
+          .map((row) => String(row.member?._id || row.member)),
+        ...meeting.rsvp
+          .filter((row) => row.status === 'going')
+          .map((row) => String(row.memberId?._id || row.memberId)),
+      ].filter(Boolean),
+    ),
+  ]
+  const message =
+    payload.message ||
+    meeting.minutes ||
+    meeting.minutesRichText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() ||
+    'Meeting recap is now available.'
+
+  await Promise.all(
+    recipientIds.map((userId) =>
+      createNotification({
+        createdBy: req.user,
+        link: '/member?tab=updates',
+        message,
+        title: `Meeting recap: ${meeting.title}`,
+        type: 'meeting',
+        user: userId,
+      }),
+    ),
+  )
+
+  meeting.recapMessage = message
+  meeting.recapSentAt = new Date()
+  meeting.recapSentBy = req.user._id
+  await meeting.save()
+  await recordAuditLog({
+    action: 'meeting.recap.publish',
+    actor: req.user,
+    entityId: meeting._id,
+    entityType: 'Meeting',
+    metadata: {
+      recipientCount: recipientIds.length,
+      title: meeting.title,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'Meeting recap sent successfully.',
+    data: { item: meeting, recipientCount: recipientIds.length },
+  })
+})
+
 module.exports = {
   ...controllers,
+  checkInMeeting,
   getRsvps,
+  publishMeetingRecap,
   submitRsvp,
   updateAdvancedMeeting,
   updateAttendance,

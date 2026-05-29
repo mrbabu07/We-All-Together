@@ -19,9 +19,21 @@ router.patch(
   meetingController.updateAdvancedMeeting,
 )
 router.post(
+  '/:id/check-in',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  meetingController.checkInMeeting,
+)
+router.post(
+  '/:id/recap',
+  protect,
+  authorize(USER_ROLES.ADMIN),
+  meetingController.publishMeetingRecap,
+)
+router.post(
   '/:id/rsvp',
   protect,
-  authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   meetingController.submitRsvp,
 )
 router.get('/:id/rsvp', protect, authorize(USER_ROLES.ADMIN), meetingController.getRsvps)

@@ -62,12 +62,87 @@ const readNumber = (body, fieldName, label = fieldName, fallback = 0) => {
   return value
 }
 
+const readOptionalDate = (body, fieldName, label = fieldName) => {
+  if (!body[fieldName]) {
+    return null
+  }
+
+  const date = new Date(body[fieldName])
+
+  if (Number.isNaN(date.getTime())) {
+    throw new AppError(`${label} must be valid.`, 400)
+  }
+
+  return date
+}
+
 const readObjectId = (value, label) => {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new AppError(`${label} is required.`, 400)
   }
 
   return value.trim()
+}
+
+const normalizeAgendaItems = (items = []) => {
+  if (!Array.isArray(items)) {
+    return []
+  }
+
+  return items
+    .map((item, index) => ({
+      details: typeof item.details === 'string' ? item.details.trim() : '',
+      durationMinutes: readNumber(item, 'durationMinutes', 'Agenda time allocation'),
+      order: Number.isFinite(Number(item.order)) ? Number(item.order) : index,
+      title: typeof item.title === 'string' ? item.title.trim() : '',
+    }))
+    .filter((item) => item.title)
+}
+
+const normalizeActionItems = (items = []) => {
+  if (!Array.isArray(items)) {
+    return []
+  }
+
+  return items
+    .map((item) => ({
+      assignedTo: item.assignedTo ? readObjectId(item.assignedTo, 'Assigned member') : null,
+      completed: Boolean(item.completed),
+      dueDate: readOptionalDate(item, 'dueDate', 'Action item due date'),
+      title: typeof item.title === 'string' ? item.title.trim() : '',
+    }))
+    .filter((item) => item.title)
+}
+
+const readMeetingAttendanceMode = (body) => {
+  const mode = typeof body.attendanceMode === 'string' ? body.attendanceMode : 'closed'
+
+  if (!['closed', 'manual', 'otp', 'qr'].includes(mode)) {
+    throw new AppError('Attendance mode is invalid.', 400)
+  }
+
+  const active = mode !== 'closed'
+
+  return {
+    active,
+    closedAt: active ? null : new Date(),
+    method: active ? mode : 'manual',
+    openedAt: active ? new Date() : null,
+    otp: ['otp', 'qr'].includes(mode) ? optionalString(body, 'attendanceOtp') : '',
+    qrCodeDataUrl: mode === 'qr' ? optionalString(body, 'attendanceQrCodeDataUrl') : '',
+  }
+}
+
+const readMinutesStatus = (body) => {
+  if (!body.minutesStatus) {
+    return 'draft'
+  }
+
+  if (!['draft', 'published'].includes(body.minutesStatus)) {
+    throw new AppError('Minutes status is invalid.', 400)
+  }
+
+  return body.minutesStatus
 }
 
 const validateNotice = (body) => ({
@@ -89,20 +164,24 @@ const validateMeeting = (body) => ({
   meetingDate: readDate(body, 'meetingDate', 'Meeting date'),
   location: requireString(body, 'location', 'Location'),
   audience: readAudience(body, AUDIENCES.MEMBERS),
-  agendaItems: Array.isArray(body.agendaItems)
-    ? body.agendaItems.map((item, index) => ({
-        completed: Boolean(item.completed),
-        order: Number(item.order ?? index),
-        title: typeof item.title === 'string' ? item.title.trim() : '',
-      }))
-    : [],
-  attendanceMode: {
-    active: ['qr', 'otp'].includes(body.attendanceMode),
-    otp: body.attendanceMode === 'otp' ? optionalString(body, 'attendanceOtp') : '',
-    qrCodeDataUrl: optionalString(body, 'attendanceQrCodeDataUrl'),
-  },
   imageUrl: optionalString(body, 'imageUrl'),
+})
+
+const validateMeetingAdvanced = (body) => ({
+  actionItems: normalizeActionItems(body.actionItems),
+  agendaItems: normalizeAgendaItems(body.agendaItems),
+  attendanceMode: readMeetingAttendanceMode(body),
+  minutes: optionalString(body, 'minutes'),
   minutesRichText: optionalString(body, 'minutesRichText'),
+  minutesStatus: readMinutesStatus(body),
+})
+
+const validateMeetingCheckIn = (body) => ({
+  code: optionalString(body, 'code'),
+})
+
+const validateMeetingRecap = (body) => ({
+  message: optionalString(body, 'message'),
 })
 
 const validateMeetingAttendance = (body) => {
@@ -212,7 +291,10 @@ const validateRule = (body) => ({
 module.exports = {
   validateActivity,
   validateMeeting,
+  validateMeetingAdvanced,
   validateMeetingAttendance,
+  validateMeetingCheckIn,
+  validateMeetingRecap,
   validateNotice,
   validateRule,
   validateRsvp,

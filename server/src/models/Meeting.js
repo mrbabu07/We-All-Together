@@ -47,6 +47,16 @@ const meetingSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    minutesStatus: {
+      type: String,
+      enum: ['draft', 'published'],
+      default: 'draft',
+      index: true,
+    },
+    minutesPublishedAt: {
+      type: Date,
+      default: null,
+    },
     agendaItems: [
       {
         title: {
@@ -58,6 +68,11 @@ const meetingSchema = new mongoose.Schema(
           type: String,
           trim: true,
           default: '',
+        },
+        durationMinutes: {
+          type: Number,
+          min: [0, 'Agenda duration cannot be negative.'],
+          default: 0,
         },
         order: {
           type: Number,
@@ -92,6 +107,11 @@ const meetingSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+      method: {
+        type: String,
+        enum: ['manual', 'otp', 'qr'],
+        default: 'manual',
+      },
       otp: {
         type: String,
         trim: true,
@@ -101,6 +121,14 @@ const meetingSchema = new mongoose.Schema(
         type: String,
         trim: true,
         default: '',
+      },
+      openedAt: {
+        type: Date,
+        default: null,
+      },
+      closedAt: {
+        type: Date,
+        default: null,
       },
     },
     attendance: [
@@ -149,6 +177,20 @@ const meetingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    recapSentAt: {
+      type: Date,
+      default: null,
+    },
+    recapMessage: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    recapSentBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
   },
   {

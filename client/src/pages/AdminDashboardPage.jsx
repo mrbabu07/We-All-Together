@@ -752,6 +752,18 @@ export default function AdminDashboardPage() {
     }, 'Meeting attendance saved successfully.')
   }
 
+  const saveMeetingAdvanced = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/meetings/${id}/advanced`, payload)
+    }, 'Meeting workflow saved successfully.')
+  }
+
+  const publishMeetingRecap = async (id, payload) => {
+    await runAction(async () => {
+      await api.post(`/meetings/${id}/recap`, payload)
+    }, 'Meeting recap sent successfully.')
+  }
+
   const saveTourParticipants = async (id, payload) => {
     await runAction(async () => {
       await api.patch(`/tours/${id}/participants`, payload)
@@ -1183,6 +1195,8 @@ export default function AdminDashboardPage() {
             setPollForm((current) => ({ ...current, [field]: value }))
           }
           onPollCreate={createPoll}
+          onPublishMeetingRecap={publishMeetingRecap}
+          onSaveMeetingAdvanced={saveMeetingAdvanced}
           onSaveMeetingAttendance={saveMeetingAttendance}
           onSaveTourParticipants={saveTourParticipants}
           pollForm={pollForm}
@@ -2826,6 +2840,8 @@ function ContentTab({
   onImageUpload,
   onPollChange,
   onPollCreate,
+  onPublishMeetingRecap,
+  onSaveMeetingAdvanced,
   onSaveMeetingAttendance,
   onSaveTourParticipants,
   pollForm,
@@ -2889,6 +2905,9 @@ function ContentTab({
                   {config.key === 'notices' ? (
                     <NoticeMeta item={item} />
                   ) : null}
+                  {config.key === 'meetings' ? (
+                    <MeetingMeta item={item} />
+                  ) : null}
                   {['meetings', 'tours'].includes(config.key) ? (
                     <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
                   ) : null}
@@ -2909,7 +2928,9 @@ function ContentTab({
               <MeetingWorkflowPanel
                 meetings={data.content.meetings}
                 members={approvedMembers}
-                onSave={onSaveMeetingAttendance}
+                onPublishRecap={onPublishMeetingRecap}
+                onSaveAdvanced={onSaveMeetingAdvanced}
+                onSaveAttendance={onSaveMeetingAttendance}
               />
               <PollWorkflowPanel
                 meetings={data.content.meetings}
@@ -2997,10 +3018,37 @@ function NoticeMeta({ item }) {
   )
 }
 
-function MeetingWorkflowPanel({ meetings, members, onSave }) {
+function MeetingMeta({ item }) {
+  const attendanceMode = item.attendanceMode?.active
+    ? item.attendanceMode.method || 'manual'
+    : 'closed'
+  const pendingActions = (item.actionItems || []).filter((action) => !action.completed).length
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-500">
+      <span>Date: {toReadableDate(item.meetingDate)}</span>
+      <span>Location: {item.location}</span>
+      <span>Agenda items: {item.agendaItems?.length || 0}</span>
+      <span>Open actions: {pendingActions}</span>
+      <span>Minutes: {item.minutesStatus || 'draft'}</span>
+      <span>Attendance: {attendanceMode}</span>
+      {item.recapSentAt ? <span>Recap sent: {toReadableDate(item.recapSentAt)}</span> : null}
+    </div>
+  )
+}
+
+function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvanced, onSaveAttendance }) {
   const [selectedMeetingId, setSelectedMeetingId] = useState('')
   const [minutes, setMinutes] = useState('')
+  const [minutesRichText, setMinutesRichText] = useState('')
+  const [minutesStatus, setMinutesStatus] = useState('draft')
+  const [attendanceMode, setAttendanceMode] = useState('closed')
+  const [attendanceOtp, setAttendanceOtp] = useState('')
+  const [agendaItems, setAgendaItems] = useState([])
+  const [actionItems, setActionItems] = useState([])
+  const [recapMessage, setRecapMessage] = useState('')
   const [attendance, setAttendance] = useState({})
+  const selectedMeeting = meetings.find((item) => item._id === selectedMeetingId)
 
   const selectMeeting = (id) => {
     const meeting = meetings.find((item) => item._id === id)
@@ -3018,7 +3066,110 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
 
     setSelectedMeetingId(id)
     setMinutes(meeting?.minutes || '')
+    setMinutesRichText(meeting?.minutesRichText || '')
+    setMinutesStatus(meeting?.minutesStatus || 'draft')
+    setAttendanceMode(
+      meeting?.attendanceMode?.active ? meeting.attendanceMode.method || 'manual' : 'closed',
+    )
+    setAttendanceOtp(meeting?.attendanceMode?.otp || '')
+    setAgendaItems(
+      [...(meeting?.agendaItems || [])]
+        .sort((a, b) => Number(a.order || 0) - Number(b.order || 0))
+        .map((item, index) => ({
+          details: item.details || '',
+          durationMinutes: item.durationMinutes || '',
+          order: Number(item.order ?? index),
+          title: item.title || '',
+        })),
+    )
+    setActionItems(
+      (meeting?.actionItems || []).map((item) => ({
+        assignedTo: item.assignedTo?._id || item.assignedTo || '',
+        completed: Boolean(item.completed),
+        dueDate: toDateInput(item.dueDate),
+        title: item.title || '',
+      })),
+    )
+    setRecapMessage(meeting?.recapMessage || '')
     setAttendance(rows)
+  }
+
+  const updateAgendaItem = (index, field, value) => {
+    setAgendaItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    )
+  }
+
+  const addAgendaItem = () => {
+    setAgendaItems((current) => [
+      ...current,
+      { details: '', durationMinutes: '', order: current.length, title: '' },
+    ])
+  }
+
+  const removeAgendaItem = (index) => {
+    setAgendaItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const moveAgendaItem = (index, direction) => {
+    setAgendaItems((current) => {
+      const nextIndex = index + direction
+
+      if (nextIndex < 0 || nextIndex >= current.length) {
+        return current
+      }
+
+      const next = [...current]
+      const [item] = next.splice(index, 1)
+      next.splice(nextIndex, 0, item)
+      return next
+    })
+  }
+
+  const updateActionItem = (index, field, value) => {
+    setActionItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    )
+  }
+
+  const addActionItem = () => {
+    setActionItems((current) => [
+      ...current,
+      { assignedTo: '', completed: false, dueDate: '', title: '' },
+    ])
+  }
+
+  const removeActionItem = (index) => {
+    setActionItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const saveAdvanced = async (event) => {
+    event.preventDefault()
+
+    await onSaveAdvanced(selectedMeetingId, {
+      actionItems: actionItems.map((item) => ({
+        assignedTo: item.assignedTo || '',
+        completed: Boolean(item.completed),
+        dueDate: item.dueDate || '',
+        title: item.title,
+      })),
+      agendaItems: agendaItems.map((item, index) => ({
+        details: item.details,
+        durationMinutes: item.durationMinutes || 0,
+        order: index,
+        title: item.title,
+      })),
+      attendanceMode,
+      attendanceOtp,
+      attendanceQrCodeDataUrl: selectedMeeting?.attendanceMode?.qrCodeDataUrl || '',
+      minutes,
+      minutesRichText,
+      minutesStatus,
+    })
   }
 
   const updateAttendance = (memberId, field, value) => {
@@ -3034,7 +3185,7 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
   const saveAttendance = async (event) => {
     event.preventDefault()
 
-    await onSave(selectedMeetingId, {
+    await onSaveAttendance(selectedMeetingId, {
       attendance: Object.entries(attendance).map(([member, row]) => ({
         member,
         note: row.note,
@@ -3044,10 +3195,16 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
     })
   }
 
+  const publishRecap = async () => {
+    await onPublishRecap(selectedMeetingId, {
+      message: recapMessage,
+    })
+  }
+
   return (
     <div className="mt-5 rounded-md border border-gray-200 bg-gray-50 p-4">
-      <h3 className="font-bold text-gray-950">Meeting Attendance</h3>
-      <form className="mt-4 grid gap-4" onSubmit={saveAttendance}>
+      <h3 className="font-bold text-gray-950">Meeting Workflow</h3>
+      <div className="mt-4 grid gap-4">
         <SelectField
           label="Meeting"
           name="meeting"
@@ -3061,17 +3218,198 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
             </option>
           ))}
         </SelectField>
-        {selectedMeetingId ? (
+        {selectedMeeting ? (
           <>
-            <Field
-              label="Minutes"
-              name="minutes"
-              onChange={(event) => setMinutes(event.target.value)}
-              textarea
-              value={minutes}
-            />
-            <div className="grid gap-3">
-              {members.map((member) => (
+            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveAdvanced}>
+              <div className="grid gap-4 md:grid-cols-3">
+                <SelectField
+                  label="Minutes Status"
+                  name="minutesStatus"
+                  onChange={(event) => setMinutesStatus(event.target.value)}
+                  value={minutesStatus}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </SelectField>
+                <SelectField
+                  label="Attendance Mode"
+                  name="attendanceMode"
+                  onChange={(event) => setAttendanceMode(event.target.value)}
+                  value={attendanceMode}
+                >
+                  <option value="closed">Closed</option>
+                  <option value="manual">Manual</option>
+                  <option value="otp">Code</option>
+                  <option value="qr">QR</option>
+                </SelectField>
+                <Field
+                  label="Attendance Code"
+                  name="attendanceOtp"
+                  onChange={(event) => setAttendanceOtp(event.target.value)}
+                  placeholder="Auto-generated if blank"
+                  value={attendanceOtp}
+                />
+              </div>
+              {selectedMeeting.attendanceMode?.qrCodeDataUrl ? (
+                <img
+                  alt="Meeting attendance QR"
+                  className="h-32 w-32 rounded-md border border-gray-200 bg-white p-2"
+                  src={selectedMeeting.attendanceMode.qrCodeDataUrl}
+                />
+              ) : null}
+              <Field
+                label="Minutes"
+                name="minutes"
+                onChange={(event) => setMinutes(event.target.value)}
+                textarea
+                value={minutes}
+              />
+              <Field
+                label="Rich Minutes"
+                name="minutesRichText"
+                onChange={(event) => setMinutesRichText(event.target.value)}
+                textarea
+                value={minutesRichText}
+              />
+              <div className="grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-semibold text-gray-950">Agenda Builder</h4>
+                  <Button onClick={addAgendaItem} size="sm" variant="secondary">
+                    Add Agenda
+                  </Button>
+                </div>
+                {agendaItems.length === 0 ? <Empty text="No agenda items added." /> : null}
+                {agendaItems.map((item, index) => (
+                  <div
+                    className="grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-3 md:grid-cols-[1fr_120px_140px]"
+                    key={`${item.order}-${index}`}
+                  >
+                    <Field
+                      label="Title"
+                      name={`agenda-title-${index}`}
+                      onChange={(event) => updateAgendaItem(index, 'title', event.target.value)}
+                      value={item.title}
+                    />
+                    <Field
+                      label="Minutes"
+                      name={`agenda-duration-${index}`}
+                      onChange={(event) =>
+                        updateAgendaItem(index, 'durationMinutes', event.target.value)
+                      }
+                      type="number"
+                      value={item.durationMinutes}
+                    />
+                    <div className="flex items-end gap-2">
+                      <Button
+                        disabled={index === 0}
+                        onClick={() => moveAgendaItem(index, -1)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Up
+                      </Button>
+                      <Button
+                        disabled={index === agendaItems.length - 1}
+                        onClick={() => moveAgendaItem(index, 1)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Down
+                      </Button>
+                      <Button onClick={() => removeAgendaItem(index)} size="sm" variant="danger">
+                        Remove
+                      </Button>
+                    </div>
+                    <Field
+                      className="md:col-span-3"
+                      label="Details"
+                      name={`agenda-details-${index}`}
+                      onChange={(event) => updateAgendaItem(index, 'details', event.target.value)}
+                      value={item.details}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="grid gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-semibold text-gray-950">Action Items</h4>
+                  <Button onClick={addActionItem} size="sm" variant="secondary">
+                    Add Action
+                  </Button>
+                </div>
+                {actionItems.length === 0 ? <Empty text="No action items assigned." /> : null}
+                {actionItems.map((item, index) => (
+                  <div
+                    className="grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-3 md:grid-cols-[1fr_180px_150px_120px_auto]"
+                    key={`${item.title}-${index}`}
+                  >
+                    <Field
+                      label="Task"
+                      name={`action-title-${index}`}
+                      onChange={(event) => updateActionItem(index, 'title', event.target.value)}
+                      value={item.title}
+                    />
+                    <SelectField
+                      label="Assigned To"
+                      name={`action-assignee-${index}`}
+                      onChange={(event) => updateActionItem(index, 'assignedTo', event.target.value)}
+                      value={item.assignedTo}
+                    >
+                      <option value="">Unassigned</option>
+                      {members.map((member) => (
+                        <option key={member._id} value={member._id}>
+                          {member.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <Field
+                      label="Due Date"
+                      name={`action-due-${index}`}
+                      onChange={(event) => updateActionItem(index, 'dueDate', event.target.value)}
+                      type="date"
+                      value={item.dueDate}
+                    />
+                    <SelectField
+                      label="Status"
+                      name={`action-status-${index}`}
+                      onChange={(event) =>
+                        updateActionItem(index, 'completed', event.target.value === 'done')
+                      }
+                      value={item.completed ? 'done' : 'open'}
+                    >
+                      <option value="open">Open</option>
+                      <option value="done">Done</option>
+                    </SelectField>
+                    <div className="flex items-end">
+                      <Button onClick={() => removeActionItem(index)} size="sm" variant="danger">
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button icon={Save} type="submit">
+                Save Meeting Workflow
+              </Button>
+            </form>
+            <div className="grid gap-3 rounded-md border border-gray-200 bg-white p-4">
+              <h4 className="font-semibold text-gray-950">Meeting Recap</h4>
+              <Field
+                label="Recap Message"
+                name="meetingRecap"
+                onChange={(event) => setRecapMessage(event.target.value)}
+                placeholder="Blank uses the saved minutes"
+                textarea
+                value={recapMessage}
+              />
+              <Button icon={Bell} onClick={publishRecap} variant="secondary">
+                Send Recap to Attendees
+              </Button>
+            </div>
+            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveAttendance}>
+              <h4 className="font-semibold text-gray-950">Manual Attendance</h4>
+              <div className="grid gap-3">
+                {members.map((member) => (
                 <div
                   className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[1fr_160px_1fr]"
                   key={member._id}
@@ -3100,13 +3438,14 @@ function MeetingWorkflowPanel({ meetings, members, onSave }) {
                   />
                 </div>
               ))}
-            </div>
-            <Button icon={Save} type="submit">
-              Save Attendance
-            </Button>
+              </div>
+              <Button icon={Save} type="submit">
+                Save Attendance
+              </Button>
+            </form>
           </>
         ) : null}
-      </form>
+      </div>
     </div>
   )
 }

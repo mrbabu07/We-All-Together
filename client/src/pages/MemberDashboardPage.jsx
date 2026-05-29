@@ -109,6 +109,7 @@ export default function MemberDashboardPage() {
   const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
   const [commentForms, setCommentForms] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
+  const [meetingCheckInForms, setMeetingCheckInForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
   const [data, setData] = useState({
@@ -514,6 +515,30 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const updateMeetingCheckInCode = (id, value) => {
+    setMeetingCheckInForms((current) => ({
+      ...current,
+      [id]: value,
+    }))
+  }
+
+  const checkInMeeting = async (id) => {
+    try {
+      setMessage('')
+      await api.post(`/meetings/${id}/check-in`, {
+        code: meetingCheckInForms[id] || '',
+      })
+      setMeetingCheckInForms((current) => ({
+        ...current,
+        [id]: '',
+      }))
+      setMessage('Meeting attendance checked in successfully.')
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -624,6 +649,9 @@ export default function MemberDashboardPage() {
       {!loading && activeTab === 'updates' ? (
         <Updates
           data={data}
+          meetingCheckInForms={meetingCheckInForms}
+          onMeetingCheckIn={checkInMeeting}
+          onMeetingCheckInChange={updateMeetingCheckInCode}
           onMeetingRsvp={(id, status) => submitRsvp('meetings', id, status)}
           onNoticeCommentChange={(id, value) =>
             setNoticeCommentForms((current) => ({ ...current, [id]: value }))
@@ -1264,7 +1292,10 @@ function PaymentTargetInfo({ label, value }) {
 
 function Updates({
   data,
+  meetingCheckInForms,
   noticeCommentForms,
+  onMeetingCheckIn,
+  onMeetingCheckInChange,
   onMeetingRsvp,
   onNoticeCommentChange,
   onNoticeCommentSubmit,
@@ -1288,7 +1319,11 @@ function Updates({
         user={user}
       />
       <UpdateList
+        checkInForms={meetingCheckInForms}
         items={data.meetings}
+        meetingActions
+        onCheckInChange={onMeetingCheckInChange}
+        onCheckInSubmit={onMeetingCheckIn}
         onRsvp={onMeetingRsvp}
         rsvpEnabled
         textKey="agenda"
@@ -1414,9 +1449,13 @@ function MemberDirectory({ members }) {
 }
 
 function UpdateList({
+  checkInForms = {},
   commentForms = {},
   items,
+  meetingActions = false,
   noticeActions = false,
+  onCheckInChange,
+  onCheckInSubmit,
   onCommentChange,
   onCommentSubmit,
   onNoticeRead,
@@ -1447,7 +1486,7 @@ function UpdateList({
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
             </div>
             <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey] || item.location}</p>
-            {item.minutes ? (
+            {item.minutes && (item.minutesStatus === 'published' || !item.minutesStatus) ? (
               <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">
                 {item.minutes}
               </p>
@@ -1466,6 +1505,15 @@ function UpdateList({
             {rsvpEnabled ? (
               <RsvpActions item={item} onRsvp={onRsvp} user={user} />
             ) : null}
+            {meetingActions ? (
+              <MeetingActions
+                checkInValue={checkInForms[item._id] || ''}
+                item={item}
+                onCheckInChange={onCheckInChange}
+                onCheckInSubmit={onCheckInSubmit}
+                user={user}
+              />
+            ) : null}
             {noticeActions ? (
               <NoticeActions
                 commentValue={commentForms[item._id] || ''}
@@ -1481,6 +1529,79 @@ function UpdateList({
         ))}
       </div>
     </Panel>
+  )
+}
+
+function MeetingActions({ checkInValue, item, onCheckInChange, onCheckInSubmit, user }) {
+  const myId = String(user?._id || '')
+  const attendanceOpen = Boolean(item.attendanceMode?.active)
+  const attendanceMode = item.attendanceMode?.method || 'manual'
+  const needsCode = ['otp', 'qr'].includes(attendanceMode)
+  const checkedIn = (item.attendance || []).some(
+    (row) =>
+      String(row.member?._id || row.member) === myId && row.status === 'present',
+  )
+  const myActions = (item.actionItems || []).filter(
+    (action) => String(action.assignedTo?._id || action.assignedTo || '') === myId,
+  )
+  const agendaItems = [...(item.agendaItems || [])].sort(
+    (left, right) => Number(left.order || 0) - Number(right.order || 0),
+  )
+
+  return (
+    <div className="mt-4 grid gap-3 rounded-md bg-gray-50 p-3">
+      {agendaItems.length ? (
+        <div>
+          <p className="text-xs font-semibold uppercase text-gray-500">Agenda</p>
+          <div className="mt-2 grid gap-2">
+            {agendaItems.map((agenda, index) => (
+              <div className="rounded-md bg-white px-3 py-2 text-sm text-gray-600" key={`${agenda.title}-${index}`}>
+                <span className="font-semibold text-gray-950">{agenda.title}</span>
+                {agenda.durationMinutes ? ` | ${agenda.durationMinutes} min` : ''}
+                {agenda.details ? <p className="mt-1">{agenda.details}</p> : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {myActions.length ? (
+        <div>
+          <p className="text-xs font-semibold uppercase text-gray-500">My Action Items</p>
+          <div className="mt-2 grid gap-2">
+            {myActions.map((action, index) => (
+              <div className="rounded-md bg-white px-3 py-2 text-sm text-gray-600" key={`${action.title}-${index}`}>
+                <span className="font-semibold text-gray-950">{action.title}</span>
+                {action.dueDate ? ` | Due ${formatDate(action.dueDate)}` : ''}
+                {action.completed ? ' | Done' : ' | Open'}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {attendanceOpen ? (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase text-gray-600">
+            <span>Attendance open</span>
+            <span>Mode: {attendanceMode}</span>
+            {checkedIn ? <Badge value="approved">Checked in</Badge> : null}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            {needsCode ? (
+              <Field
+                className="min-w-48 flex-1"
+                label="Attendance Code"
+                name={`attendance-code-${item._id}`}
+                onChange={(event) => onCheckInChange(item._id, event.target.value)}
+                value={checkInValue}
+              />
+            ) : null}
+            <Button disabled={checkedIn} onClick={() => onCheckInSubmit(item._id)} size="sm">
+              {checkedIn ? 'Checked In' : 'Check In'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

@@ -2,7 +2,10 @@ const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const {
   validateMeetingAttendance,
+  validateMeetingAdvanced,
+  validateMeetingCheckIn,
   validateMeeting,
+  validateMeetingRecap,
   validateNotice,
   validateRsvp,
   validateTour,
@@ -48,6 +51,45 @@ test('validateMeeting defaults meetings to members audience', () => {
 
   assert.equal(payload.audience, 'members')
   assert.equal(payload.meetingDate instanceof Date, true)
+})
+
+test('validateMeetingAdvanced accepts agenda action items and attendance mode', () => {
+  const payload = validateMeetingAdvanced({
+    actionItems: [
+      {
+        assignedTo: '665f88f930d34b816c9d0001',
+        dueDate: '2026-06-05',
+        title: 'Call venue manager',
+      },
+    ],
+    agendaItems: [
+      {
+        details: 'Review all pending items.',
+        durationMinutes: 20,
+        order: 2,
+        title: 'Finance update',
+      },
+    ],
+    attendanceMode: 'otp',
+    attendanceOtp: '884422',
+    minutes: 'Draft minutes.',
+    minutesRichText: '<p>Draft minutes.</p>',
+    minutesStatus: 'published',
+  })
+
+  assert.equal(payload.agendaItems.length, 1)
+  assert.equal(payload.agendaItems[0].durationMinutes, 20)
+  assert.equal(payload.actionItems[0].assignedTo, '665f88f930d34b816c9d0001')
+  assert.equal(payload.actionItems[0].dueDate instanceof Date, true)
+  assert.equal(payload.attendanceMode.active, true)
+  assert.equal(payload.attendanceMode.method, 'otp')
+  assert.equal(payload.attendanceMode.otp, '884422')
+  assert.equal(payload.minutesStatus, 'published')
+})
+
+test('validateMeetingCheckIn and recap sanitize text payloads', () => {
+  assert.equal(validateMeetingCheckIn({ code: ' 884422 ' }).code, '884422')
+  assert.equal(validateMeetingRecap({ message: ' Recap ready ' }).message, 'Recap ready')
 })
 
 test('validateTour rejects an end date before start date', () => {
