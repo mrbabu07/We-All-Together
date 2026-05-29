@@ -30,6 +30,8 @@ test('public namespace aliases existing public routes', async () => {
 
 test('admin and member namespace aliases keep auth protection', async () => {
   await request(app).get('/api/v1/admin/controls').expect(401)
+  await request(app).get('/api/v1/admin/donations/verified').expect(401)
+  await request(app).get('/api/v1/member/donations/verified').expect(401)
   await request(app).get('/api/v1/member/fees/my-status').expect(401)
   await request(app).get('/api/v1/member/donations/my').expect(401)
 })
