@@ -34,6 +34,7 @@ import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
+import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
@@ -186,6 +187,31 @@ const escapeHtml = (value = '') =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
+
+const sanitizeRichContent = (html = '') => {
+  const parsedDocument = new DOMParser().parseFromString(String(html), 'text/html')
+
+  parsedDocument.querySelectorAll('script, iframe, object, embed, style').forEach((node) => {
+    node.remove()
+  })
+  parsedDocument.querySelectorAll('*').forEach((node) => {
+    Array.from(node.attributes).forEach((attribute) => {
+      const name = attribute.name.toLowerCase()
+      const value = attribute.value.trim().toLowerCase()
+
+      if (name.startsWith('on') || (['href', 'src'].includes(name) && value.startsWith('javascript:'))) {
+        node.removeAttribute(attribute.name)
+      }
+    })
+  })
+
+  return parsedDocument.body.innerHTML
+}
+
+const getNoticeDetailHtml = (notice) =>
+  notice?.richBody
+    ? sanitizeRichContent(notice.richBody)
+    : escapeHtml(notice?.body || '').replace(/\n/g, '<br />')
 
 const cssVar = (name) =>
   window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -2065,10 +2091,15 @@ function UpdateList({
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [query, setQuery] = useState('')
+  const [selectedNoticeId, setSelectedNoticeId] = useState('')
   const noticeCategories = useMemo(
     () => [...new Set(items.map((item) => item.category).filter(Boolean))].sort(),
     [items],
   )
+  const selectedNotice =
+    noticeActions && selectedNoticeId
+      ? items.find((item) => String(item._id) === String(selectedNoticeId))
+      : null
   const visibleItems = noticeActions
     ? items.filter((item) => {
         const normalizedQuery = query.trim().toLowerCase()
@@ -2089,6 +2120,10 @@ function UpdateList({
         return matchesQuery && matchesCategory && matchesFrom && matchesTo
       })
     : items
+  const openNoticeDetail = (item) => {
+    setSelectedNoticeId(item._id)
+    onNoticeRead?.(item._id)
+  }
 
   return (
     <Panel>
@@ -2136,85 +2171,177 @@ function UpdateList({
       ) : null}
       <div className="mt-4 grid gap-3">
         {visibleItems.length === 0 ? <Empty text={`No ${title.toLowerCase()} found.`} /> : null}
-        {visibleItems.map((item) => (
-          <div className="rounded-md border border-gray-200 p-4" key={item._id}>
-            {item.imageUrl ? (
-              <img
-                alt=""
-                className="mb-3 h-36 w-full rounded-md object-cover"
-                src={item.imageUrl}
-              />
-            ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-gray-950">{item.title}</h3>
-              {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
-              {noticeActions && item.audience === 'members' ? (
-                <Badge value="pending">Member-only</Badge>
+        {visibleItems.map((item) => {
+          const itemText = noticeActions
+            ? plainText(item.richBody || item.body).slice(0, 260)
+            : item[textKey] || item.location
+
+          return (
+            <div className="rounded-md border border-gray-200 p-4" key={item._id}>
+              {item.imageUrl ? (
+                <img
+                  alt=""
+                  className="mb-3 h-36 w-full rounded-md object-cover"
+                  src={item.imageUrl}
+                />
               ) : null}
-              {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
-              {noticeActions && item.category ? (
-                <span className="rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                  {item.category}
-                </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-gray-950">{item.title}</h3>
+                {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
+                {noticeActions && item.audience === 'members' ? (
+                  <Badge value="pending">Member-only</Badge>
+                ) : null}
+                {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
+                {noticeActions && item.category ? (
+                  <span className="rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                    {item.category}
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-2 text-sm leading-6 text-gray-600">{itemText}</p>
+              {noticeActions ? (
+                <div className="mt-3">
+                  <Button icon={FileText} onClick={() => openNoticeDetail(item)} size="sm" variant="secondary">
+                    Read full notice
+                  </Button>
+                </div>
+              ) : null}
+              {item.minutes && (item.minutesStatus === 'published' || !item.minutesStatus) ? (
+                <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">
+                  {item.minutes}
+                </p>
+              ) : null}
+              {Array.isArray(item.attendance) && item.attendance.length ? (
+                <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
+                  Attendance recorded: {item.attendance.length}
+                </p>
+              ) : null}
+              {Array.isArray(item.participants) && item.participants.length ? (
+                <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
+                  Participants: {item.participants.length} | Paid:{' '}
+                  {money(item.participants.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0))}
+                </p>
+              ) : null}
+              {rsvpEnabled ? (
+                <RsvpActions item={item} onRsvp={onRsvp} user={user} />
+              ) : null}
+              {tourActions ? (
+                <TourActions
+                  feedbackErrors={tourFeedbackErrors[item._id] || {}}
+                  feedbackForm={tourFeedbackForms[item._id] || { rating: '5', comment: '' }}
+                  item={item}
+                  onFeedbackChange={onTourFeedbackChange}
+                  onFeedbackSubmit={onTourFeedbackSubmit}
+                  onRegister={onTourRegister}
+                  user={user}
+                />
+              ) : null}
+              {meetingActions ? (
+                <MeetingActions
+                  checkInError={checkInErrors[item._id]}
+                  checkInValue={checkInForms[item._id] || ''}
+                  item={item}
+                  onCheckInChange={onCheckInChange}
+                  onCheckInSubmit={onCheckInSubmit}
+                  user={user}
+                />
+              ) : null}
+              {noticeActions ? (
+                <NoticeActions
+                  commentError={commentErrors[item._id]}
+                  commentValue={commentForms[item._id] || ''}
+                  item={item}
+                  onCommentChange={onCommentChange}
+                  onCommentSubmit={onCommentSubmit}
+                  onRead={onNoticeRead}
+                  onReact={onNoticeReact}
+                  user={user}
+                />
               ) : null}
             </div>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey] || item.location}</p>
-            {item.minutes && (item.minutesStatus === 'published' || !item.minutesStatus) ? (
-              <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">
-                {item.minutes}
-              </p>
-            ) : null}
-            {Array.isArray(item.attendance) && item.attendance.length ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
-                Attendance recorded: {item.attendance.length}
-              </p>
-            ) : null}
-            {Array.isArray(item.participants) && item.participants.length ? (
-              <p className="mt-3 text-xs font-semibold uppercase text-indigo-700">
-                Participants: {item.participants.length} | Paid:{' '}
-                {money(item.participants.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0))}
-              </p>
-            ) : null}
-            {rsvpEnabled ? (
-              <RsvpActions item={item} onRsvp={onRsvp} user={user} />
-            ) : null}
-            {tourActions ? (
-              <TourActions
-                feedbackErrors={tourFeedbackErrors[item._id] || {}}
-                feedbackForm={tourFeedbackForms[item._id] || { rating: '5', comment: '' }}
-                item={item}
-                onFeedbackChange={onTourFeedbackChange}
-                onFeedbackSubmit={onTourFeedbackSubmit}
-                onRegister={onTourRegister}
-                user={user}
-              />
-            ) : null}
-            {meetingActions ? (
-              <MeetingActions
-                checkInError={checkInErrors[item._id]}
-                checkInValue={checkInForms[item._id] || ''}
-                item={item}
-                onCheckInChange={onCheckInChange}
-                onCheckInSubmit={onCheckInSubmit}
-                user={user}
-              />
-            ) : null}
-            {noticeActions ? (
-              <NoticeActions
-                commentError={commentErrors[item._id]}
-                commentValue={commentForms[item._id] || ''}
-                item={item}
-                onCommentChange={onCommentChange}
-                onCommentSubmit={onCommentSubmit}
-                onRead={onNoticeRead}
-                onReact={onNoticeReact}
-                user={user}
-              />
+          )
+        })}
+      </div>
+      {noticeActions ? (
+        <NoticeDetailModal
+          commentError={selectedNotice ? commentErrors[selectedNotice._id] : ''}
+          commentValue={selectedNotice ? commentForms[selectedNotice._id] || '' : ''}
+          item={selectedNotice}
+          onClose={() => setSelectedNoticeId('')}
+          onCommentChange={onCommentChange}
+          onCommentSubmit={onCommentSubmit}
+          open={Boolean(selectedNotice)}
+        />
+      ) : null}
+    </Panel>
+  )
+}
+
+function NoticeDetailModal({
+  commentError,
+  commentValue,
+  item,
+  onClose,
+  onCommentChange,
+  onCommentSubmit,
+  open,
+}) {
+  if (!item) return null
+
+  return (
+    <Modal className="max-w-3xl" onClose={onClose} open={open} title={item.title || 'Notice'}>
+      {item.imageUrl ? (
+        <img
+          alt={item.title || 'Notice image'}
+          className="mb-4 h-56 w-full rounded-md object-cover"
+          src={item.imageUrl}
+        />
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500">
+        {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
+        {item.audience === 'members' ? <Badge value="pending">Member-only</Badge> : null}
+        {item.category ? (
+          <span className="rounded-full bg-gray-50 px-2.5 py-1 text-gray-600">{item.category}</span>
+        ) : null}
+        <span>{formatDate(item.scheduledFor || item.createdAt || item.updatedAt)}</span>
+      </div>
+      <div
+        className="mt-5 max-w-none text-sm leading-7 text-gray-700 [&_a]:font-semibold [&_a]:text-indigo-700 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-200 [&_blockquote]:pl-4 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:text-xl [&_h2]:font-bold [&_h3]:text-lg [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+        dangerouslySetInnerHTML={{ __html: getNoticeDetailHtml(item) }}
+      />
+      <div className="mt-6 border-t border-gray-200 pt-4">
+        <h3 className="font-semibold text-gray-950">Comments</h3>
+        <div className="mt-3 grid gap-2">
+          {(item.comments || []).length === 0 ? (
+            <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">
+              No comments yet.
+            </p>
+          ) : null}
+          {(item.comments || []).map((comment) => (
+            <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600" key={comment._id || comment.createdAt}>
+              <span className="font-semibold text-gray-900">{comment.user?.name || 'Member'}:</span>{' '}
+              {comment.body}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <div className="min-w-64 flex-1">
+            <input
+              className="min-h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              onChange={(event) => onCommentChange(item._id, event.target.value)}
+              placeholder="Ask a question"
+              value={commentValue}
+            />
+            {commentError ? (
+              <p className="mt-1 text-xs font-medium text-[var(--danger)]">{commentError}</p>
             ) : null}
           </div>
-        ))}
+          <Button onClick={() => onCommentSubmit(item._id)} size="sm">
+            Comment
+          </Button>
+        </div>
       </div>
-    </Panel>
+    </Modal>
   )
 }
 
