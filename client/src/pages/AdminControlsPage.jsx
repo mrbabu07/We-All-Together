@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { HexColorPicker } from 'react-colorful'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { useLocation } from 'react-router-dom'
 import { z } from 'zod'
@@ -68,6 +68,36 @@ const adminPasswordSchema = z
       })
     }
   })
+
+const defaultManualFeeForm = {
+  amount: '',
+  method: 'Manual',
+  month: new Date().toISOString().slice(0, 7),
+  transactionId: '',
+  userId: '',
+}
+
+const defaultWaiveForm = {
+  month: new Date().toISOString().slice(0, 7),
+  reason: '',
+  userId: '',
+}
+
+const monthSchema = z.string().trim().regex(/^\d{4}-\d{2}$/, 'Month is required.')
+
+const manualFeeSchema = z.object({
+  amount: z.coerce.number().min(0, 'Amount must be zero or more.'),
+  method: z.string().trim().min(1, 'Method is required.'),
+  month: monthSchema,
+  transactionId: z.string().trim().optional(),
+  userId: z.string().trim().min(1, 'Member is required.'),
+})
+
+const waiveFeeSchema = z.object({
+  month: monthSchema,
+  reason: z.string().trim().min(1, 'Reason is required.'),
+  userId: z.string().trim().min(1, 'Member is required.'),
+})
 
 const defaultSettings = {
   appearance: {
@@ -254,18 +284,6 @@ export default function AdminControlsPage() {
   })
   const [passwordReset, setPasswordReset] = useState({ newPassword: '', userId: '' })
   const [activityUser, setActivityUser] = useState(null)
-  const [manualFeeForm, setManualFeeForm] = useState({
-    amount: '',
-    method: 'Manual',
-    month: new Date().toISOString().slice(0, 7),
-    transactionId: '',
-    userId: '',
-  })
-  const [waiveForm, setWaiveForm] = useState({
-    month: new Date().toISOString().slice(0, 7),
-    reason: '',
-    userId: '',
-  })
   const [archiveForm, setArchiveForm] = useState({ from: '', to: '' })
   const [announcementForm, setAnnouncementForm] = useState(defaultAnnouncementForm)
 
@@ -749,29 +767,23 @@ export default function AdminControlsPage() {
         <FinanceControlsTab
           donations={controls.donations}
           form={settingsForm}
-          manualFeeForm={manualFeeForm}
           members={approvedMembers}
           onChange={updateSettingsField}
           onDonationStatus={(donation, action) =>
             runAction(() => api.patch(`/donations/${donation._id}/${action}`), 'Donation updated')
           }
           onExportFinance={() => runAction(exportFinancePdf, 'Finance PDF downloaded')}
-          onManualFee={(event) => {
-            event.preventDefault()
+          onManualFee={(values) => {
             runAction(
-              () => api.post('/admin-controls/finance/manual-fee', manualFeeForm),
+              () => api.post('/admin-controls/finance/manual-fee', values),
               'Manual fee saved',
             )
           }}
           onSave={saveSettings}
-          onWaive={(event) => {
-            event.preventDefault()
-            runAction(() => api.post('/admin-controls/finance/waive-fee', waiveForm), 'Fee waived')
-          }}
+          onWaive={(values) =>
+            runAction(() => api.post('/admin-controls/finance/waive-fee', values), 'Fee waived')
+          }
           saving={saving}
-          setManualFeeForm={setManualFeeForm}
-          setWaiveForm={setWaiveForm}
-          waiveForm={waiveForm}
         />
       ) : null}
       {activeTab === 'content' ? (
@@ -1693,7 +1705,6 @@ function MemberControlsTab({
 function FinanceControlsTab({
   donations,
   form,
-  manualFeeForm,
   members,
   onChange,
   onDonationStatus,
@@ -1702,10 +1713,30 @@ function FinanceControlsTab({
   onSave,
   onWaive,
   saving,
-  setManualFeeForm,
-  setWaiveForm,
-  waiveForm,
 }) {
+  const {
+    control: manualFeeControl,
+    formState: { errors: manualFeeErrors, isSubmitting: isSavingManualFee },
+    handleSubmit: handleManualFeeSubmit,
+    register: registerManualFee,
+    setValue: setManualFeeValue,
+  } = useForm({
+    defaultValues: defaultManualFeeForm,
+    resolver: zodResolver(manualFeeSchema),
+  })
+  const {
+    control: waiveControl,
+    formState: { errors: waiveErrors, isSubmitting: isWaivingFee },
+    handleSubmit: handleWaiveSubmit,
+    register: registerWaive,
+    setValue: setWaiveValue,
+  } = useForm({
+    defaultValues: defaultWaiveForm,
+    resolver: zodResolver(waiveFeeSchema),
+  })
+  const manualFeeMemberId = useWatch({ control: manualFeeControl, name: 'userId' })
+  const waiveMemberId = useWatch({ control: waiveControl, name: 'userId' })
+
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
@@ -1765,74 +1796,69 @@ function FinanceControlsTab({
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel>
           <SectionTitle icon={WalletCards} title="Manual fee entry" />
-          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onManualFee}>
+          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handleManualFeeSubmit(onManualFee)}>
+            <input type="hidden" {...registerManualFee('method')} />
             <MemberSelect
+              error={manualFeeErrors.userId?.message}
               members={members}
               onChange={(value) =>
-                setManualFeeForm((current) => ({ ...current, userId: value }))
+                setManualFeeValue('userId', value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
               }
-              value={manualFeeForm.userId}
+              value={manualFeeMemberId || ''}
             />
             <Field
+              error={manualFeeErrors.month?.message}
               label="Month"
-              name="manualMonth"
-              onChange={(event) =>
-                setManualFeeForm((current) => ({ ...current, month: event.target.value }))
-              }
               type="month"
-              value={manualFeeForm.month}
+              {...registerManualFee('month')}
             />
             <Field
+              error={manualFeeErrors.amount?.message}
               label="Amount"
-              name="manualAmount"
-              onChange={(event) =>
-                setManualFeeForm((current) => ({ ...current, amount: event.target.value }))
-              }
               type="number"
-              value={manualFeeForm.amount}
+              {...registerManualFee('amount')}
             />
             <Field
+              error={manualFeeErrors.transactionId?.message}
               label="Transaction ID"
-              name="manualTransaction"
-              onChange={(event) =>
-                setManualFeeForm((current) => ({
-                  ...current,
-                  transactionId: event.target.value,
-                }))
-              }
-              value={manualFeeForm.transactionId}
+              {...registerManualFee('transactionId')}
             />
-            <Button className="md:col-span-2" type="submit">
+            <Button className="md:col-span-2" loading={isSavingManualFee} type="submit">
               Save manual fee
             </Button>
           </form>
         </Panel>
         <Panel>
           <SectionTitle icon={WalletCards} title="Fee waive" />
-          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onWaive}>
+          <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={handleWaiveSubmit(onWaive)}>
             <MemberSelect
+              error={waiveErrors.userId?.message}
               members={members}
-              onChange={(value) => setWaiveForm((current) => ({ ...current, userId: value }))}
-              value={waiveForm.userId}
+              onChange={(value) =>
+                setWaiveValue('userId', value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+              value={waiveMemberId || ''}
             />
             <Field
+              error={waiveErrors.month?.message}
               label="Month"
-              name="waiveMonth"
-              onChange={(event) => setWaiveForm((current) => ({ ...current, month: event.target.value }))}
               type="month"
-              value={waiveForm.month}
+              {...registerWaive('month')}
             />
             <Field
               className="md:col-span-2"
+              error={waiveErrors.reason?.message}
               label="Reason"
-              name="waiveReason"
-              onChange={(event) =>
-                setWaiveForm((current) => ({ ...current, reason: event.target.value }))
-              }
               textarea
-              value={waiveForm.reason}
+              {...registerWaive('reason')}
             />
-            <Button className="md:col-span-2" type="submit" variant="secondary">
+            <Button className="md:col-span-2" loading={isWaivingFee} type="submit" variant="secondary">
               Waive fee
             </Button>
           </form>
@@ -1867,13 +1893,13 @@ function FinanceControlsTab({
   )
 }
 
-function MemberSelect({ members, onChange, value }) {
+function MemberSelect({ error, members, onChange, value }) {
   return (
     <SelectField
+      error={error}
       label="Member"
       name="memberId"
       onChange={(event) => onChange(event.target.value)}
-      required
       value={value}
     >
       <option value="">Select member</option>
