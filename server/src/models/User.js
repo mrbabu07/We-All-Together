@@ -170,6 +170,15 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    sessionVersion: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+    },
     registrationPayment: {
       amount: {
         type: Number,

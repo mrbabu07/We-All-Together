@@ -835,6 +835,15 @@ export default function AdminControlsPage() {
       {activeTab === 'security' ? (
         <SecurityTab
           form={settingsForm}
+          onAuditExport={() =>
+            runAction(async () => {
+              const response = await api.get('/audit-logs', {
+                params: { format: 'csv', limit: 200 },
+                responseType: 'blob',
+              })
+              downloadBlob(response.data, 'audit-logs.csv')
+            }, 'Audit CSV downloaded')
+          }
           onBackup={() =>
             runAction(async () => {
               const response = await api.get('/backup')
@@ -845,6 +854,28 @@ export default function AdminControlsPage() {
             }, 'Backup downloaded')
           }
           onChange={updateSettingsField}
+          onForceLogout={(targetUser) =>
+            requestConfirm({
+              action: () =>
+                runAction(
+                  () => api.post(`/admin-controls/sessions/${targetUser._id}/revoke`),
+                  'User sessions revoked',
+                ),
+              message: `${targetUser.name} will need to log in again on every device.`,
+              title: 'Force logout?',
+              variant: 'danger',
+            })
+          }
+          onPasswordChange={async (payload) => {
+            try {
+              await api.patch('/auth/change-password', payload)
+              toast.success('Password changed. Please log in again on other devices.')
+            } catch (error) {
+              const errorMessage = getErrorMessage(error)
+              setMessage(errorMessage)
+              toast.error(errorMessage)
+            }
+          }}
           onSave={saveSettings}
           presence={controls.presence}
           recentActivity={controls.recentActivity}
@@ -2293,7 +2324,51 @@ function AppearanceTab({ form, onChange, onPreview, onSave, onUpload, saving }) 
   )
 }
 
-function SecurityTab({ form, onBackup, onChange, onSave, recentActivity, saving, users }) {
+function SecurityTab({
+  form,
+  onAuditExport,
+  onBackup,
+  onChange,
+  onForceLogout,
+  onPasswordChange,
+  onSave,
+  recentActivity,
+  saving,
+  users,
+}) {
+  const [auditFilter, setAuditFilter] = useState({ action: '', actor: '' })
+  const [passwordForm, setPasswordForm] = useState({
+    confirmPassword: '',
+    currentPassword: '',
+    newPassword: '',
+  })
+  const filteredActivity = recentActivity.filter((log) => {
+    const matchesAction = auditFilter.action
+      ? String(log.action || '').toLowerCase().includes(auditFilter.action.toLowerCase())
+      : true
+    const actor = `${log.actor?.name || 'System'} ${log.actor?.phone || ''}`.toLowerCase()
+    const matchesActor = auditFilter.actor
+      ? actor.includes(auditFilter.actor.toLowerCase())
+      : true
+
+    return matchesAction && matchesActor
+  })
+  const failedLogins = recentActivity.filter((log) => log.action === 'auth.login.failed')
+
+  const submitPasswordChange = async (event) => {
+    event.preventDefault()
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error('New passwords do not match.')
+      return
+    }
+
+    await onPasswordChange({
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword,
+    })
+    setPasswordForm({ confirmPassword: '', currentPassword: '', newPassword: '' })
+  }
+
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
@@ -2339,10 +2414,51 @@ function SecurityTab({ form, onBackup, onChange, onSave, recentActivity, saving,
           <Button icon={DatabaseBackup} onClick={onBackup} variant="secondary">
             Manual JSON backup
           </Button>
+          <Button icon={FileDown} onClick={onAuditExport} variant="secondary">
+            Export audit CSV
+          </Button>
           <Button icon={Save} loading={saving} onClick={onSave}>
             Save security
           </Button>
         </div>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={Lock} title="Admin password change" />
+        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={submitPasswordChange}>
+          <Field
+            label="Current password"
+            name="currentPassword"
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
+            }
+            required
+            type="password"
+            value={passwordForm.currentPassword}
+          />
+          <Field
+            label="New password"
+            name="newPassword"
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
+            }
+            required
+            type="password"
+            value={passwordForm.newPassword}
+          />
+          <Field
+            label="Confirm password"
+            name="confirmPassword"
+            onChange={(event) =>
+              setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))
+            }
+            required
+            type="password"
+            value={passwordForm.confirmPassword}
+          />
+          <Button className="md:col-span-3" icon={Lock} type="submit">
+            Change password
+          </Button>
+        </form>
       </Panel>
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel>
@@ -2356,25 +2472,73 @@ function SecurityTab({ form, onBackup, onChange, onSave, recentActivity, saving,
                     IP {user.lastLoginIp || 'N/A'} | {toDate(user.lastLoginAt)}
                   </p>
                 </div>
-                <Badge value={user.status}>{user.status}</Badge>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge value={user.status}>{user.status}</Badge>
+                  <Button
+                    disabled={!user.lastLoginAt}
+                    onClick={() => onForceLogout(user)}
+                    size="sm"
+                    variant="danger"
+                  >
+                    Force logout
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         </Panel>
         <Panel>
           <SectionTitle icon={Lock} title="Audit/Admin activity log" />
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Field
+              label="Filter by action"
+              name="auditAction"
+              onChange={(event) =>
+                setAuditFilter((current) => ({ ...current, action: event.target.value }))
+              }
+              value={auditFilter.action}
+            />
+            <Field
+              label="Filter by actor"
+              name="auditActor"
+              onChange={(event) =>
+                setAuditFilter((current) => ({ ...current, actor: event.target.value }))
+              }
+              value={auditFilter.actor}
+            />
+          </div>
           <div className="mt-5 grid gap-3">
-            {recentActivity.map((log) => (
+            {filteredActivity.map((log) => (
               <div className="rounded-xl border border-gray-200 p-4" key={log._id}>
                 <p className="font-semibold text-gray-900">{log.action}</p>
                 <p className="text-sm text-gray-500">
-                  {log.actor?.name || 'System'} | {toDate(log.createdAt)}
+                  {log.actor?.name || 'System'} | IP {log.ip || 'N/A'} | {toDate(log.createdAt)}
                 </p>
               </div>
             ))}
           </div>
         </Panel>
       </div>
+      <Panel>
+        <SectionTitle icon={Lock} title="Failed login attempts" />
+        <div className="mt-5 grid gap-3">
+          {failedLogins.map((log) => (
+            <div className="rounded-xl border border-red-100 bg-red-50 p-4" key={log._id}>
+              <p className="font-semibold text-red-900">
+                {log.metadata?.identifier || 'Unknown identifier'}
+              </p>
+              <p className="text-sm text-red-700">
+                IP {log.ip || 'N/A'} | {toDate(log.createdAt)}
+              </p>
+            </div>
+          ))}
+          {!failedLogins.length ? (
+            <p className="rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+              No failed login attempts in the recent audit window.
+            </p>
+          ) : null}
+        </div>
+      </Panel>
     </div>
   )
 }

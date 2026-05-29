@@ -240,6 +240,36 @@ const setMemberSuspension = asyncHandler(async (req, res) => {
   })
 })
 
+const revokeMemberSessions = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id)
+
+  if (!user) {
+    throw new AppError('User not found.', 404)
+  }
+
+  user.sessionVersion = Number(user.sessionVersion || 0) + 1
+  await user.save()
+  await recordAuditLog({
+    action: 'security.session.revoke',
+    actor: req.user,
+    entityId: user._id,
+    entityType: 'User',
+    ip: req.ip || '',
+    metadata: {
+      phone: user.phone,
+      sessionVersion: user.sessionVersion,
+    },
+  })
+
+  res.status(200).json({
+    success: true,
+    message: 'User sessions revoked successfully.',
+    data: {
+      user,
+    },
+  })
+})
+
 const manualFeeEntry = asyncHandler(async (req, res) => {
   const settings = await getSettings()
   const user = await User.findById(req.body.userId)
@@ -596,6 +626,7 @@ module.exports = {
   globalSearch,
   importMembers,
   manualFeeEntry,
+  revokeMemberSessions,
   setMemberSuspension,
   updateControls,
   waiveFee,

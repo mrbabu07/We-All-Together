@@ -10,6 +10,7 @@ const {
   validateProfileUpdate,
 } = require('../validators/authValidators')
 const env = require('../config/env')
+const { recordAuditLog } = require('../services/auditService')
 
 const sendAuthResponse = (res, user, statusCode = 200) => {
   const token = generateAccessToken(user)
@@ -57,12 +58,30 @@ const login = asyncHandler(async (req, res) => {
   const user = await User.findOne(query).select('+password')
 
   if (!user || !(await user.comparePassword(payload.password))) {
+    await recordAuditLog({
+      action: 'auth.login.failed',
+      actor: user || null,
+      entityType: 'Auth',
+      ip: req.ip || '',
+      metadata: {
+        identifier: payload.email || payload.phone,
+      },
+    })
     throw new AppError('Invalid email/phone or password.', 401)
   }
 
   user.lastLoginAt = new Date()
   user.lastLoginIp = req.ip || ''
   await user.save()
+  await recordAuditLog({
+    action: 'auth.login.success',
+    actor: user,
+    entityType: 'Auth',
+    ip: req.ip || '',
+    metadata: {
+      identifier: payload.email || payload.phone,
+    },
+  })
 
   sendAuthResponse(res, user)
 })
@@ -129,7 +148,15 @@ const changePassword = asyncHandler(async (req, res) => {
   }
 
   user.password = payload.newPassword
+  user.passwordChangedAt = new Date()
+  user.sessionVersion = Number(user.sessionVersion || 0) + 1
   await user.save()
+  await recordAuditLog({
+    action: 'auth.password.change',
+    actor: user,
+    entityType: 'User',
+    ip: req.ip || '',
+  })
 
   res.status(200).json({
     success: true,

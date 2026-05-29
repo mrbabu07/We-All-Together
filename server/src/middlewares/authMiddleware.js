@@ -19,6 +19,10 @@ const authenticate = asyncHandler(async (req, res, next) => {
     throw new AppError('Authenticated user no longer exists.', 401)
   }
 
+  if (Number(user.sessionVersion || 0) > Number(decoded.sessionVersion || 0)) {
+    throw new AppError('Your session has expired. Please log in again.', 401)
+  }
+
   req.user = user
   next()
 })

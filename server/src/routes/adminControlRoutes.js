@@ -18,6 +18,7 @@ router.post('/members/bulk-approve', adminControlController.bulkApprovePending)
 router.post('/members/bulk-reject', adminControlController.bulkRejectPending)
 router.post('/members/import', adminControlController.importMembers)
 router.patch('/members/:id/suspension', adminControlController.setMemberSuspension)
+router.post('/sessions/:id/revoke', adminControlController.revokeMemberSessions)
 router.post('/finance/manual-fee', adminControlController.manualFeeEntry)
 router.post('/finance/waive-fee', adminControlController.waiveFee)
 

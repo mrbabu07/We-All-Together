@@ -13,6 +13,7 @@ const recordAuditLog = async ({
   actor = null,
   entityId = null,
   entityType,
+  ip = '',
   metadata = {},
 }) => {
   try {
@@ -21,6 +22,7 @@ const recordAuditLog = async ({
       actor: getActorId(actor),
       entityId,
       entityType,
+      ip,
       metadata,
     })
   } catch (error) {

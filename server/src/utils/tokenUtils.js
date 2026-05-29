@@ -15,6 +15,7 @@ const generateAccessToken = (user) => {
     {
       id: user._id.toString(),
       role: user.role,
+      sessionVersion: Number(user.sessionVersion || 0),
       status: user.status,
     },
     env.jwtAccessSecret,

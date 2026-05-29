@@ -29,6 +29,12 @@ const auditLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    ip: {
+      type: String,
+      trim: true,
+      default: '',
+      index: true,
+    },
   },
   {
     timestamps: true,
