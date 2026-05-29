@@ -349,6 +349,34 @@ const optionalAmountText = z
     message: 'Enter a valid amount.',
   })
 
+const getDefaultTourExpenseForm = () => ({
+  amount: '',
+  category: 'Other',
+  date: new Date().toISOString().slice(0, 10),
+  receiptImageUrl: '',
+  title: '',
+})
+
+const tourRegistrationSettingsSchema = z.object({
+  registrationOpen: z.boolean(),
+  seatCapacity: optionalAmountText,
+  tourFee: optionalAmountText,
+})
+
+const tourWorkflowExpenseSchema = z.object({
+  amount: z
+    .string()
+    .trim()
+    .min(1, 'Amount is required.')
+    .refine((value) => Number.isFinite(Number(value)) && Number(value) >= 0, {
+      message: 'Enter a valid amount.',
+    }),
+  category: z.string().trim().optional(),
+  date: z.string().trim().min(1, 'Date is required.'),
+  receiptImageUrl: z.string().trim().optional(),
+  title: z.string().trim().min(1, 'Title is required.'),
+})
+
 const contentFormSchemas = {
   notices: z.object({
     archivedAt: z.string().trim().optional(),
@@ -4926,18 +4954,35 @@ function TourWorkflowPanel({
 }) {
   const [selectedTourId, setSelectedTourId] = useState('')
   const [participants, setParticipants] = useState({})
-  const [registrationForm, setRegistrationForm] = useState({
+  const {
+    control: registrationControl,
+    formState: { errors: registrationErrors, isSubmitting: isSavingRegistration },
+    handleSubmit: handleRegistrationSubmit,
+    register: registerRegistration,
+    reset: resetRegistration,
+    setValue: setRegistrationValue,
+  } = useForm({
+    defaultValues: {
+      registrationOpen: true,
+      seatCapacity: '',
+      tourFee: '',
+    },
+    resolver: zodResolver(tourRegistrationSettingsSchema),
+  })
+  const {
+    formState: { errors: tourExpenseErrors, isSubmitting: isAddingTourExpense },
+    handleSubmit: handleTourExpenseSubmit,
+    register: registerTourExpense,
+    reset: resetTourExpense,
+  } = useForm({
+    defaultValues: getDefaultTourExpenseForm(),
+    resolver: zodResolver(tourWorkflowExpenseSchema),
+  })
+  const registrationValues = useWatch({ control: registrationControl }) || {
     registrationOpen: true,
     seatCapacity: '',
     tourFee: '',
-  })
-  const [expenseForm, setExpenseForm] = useState({
-    amount: '',
-    category: 'Other',
-    date: new Date().toISOString().slice(0, 10),
-    receiptImageUrl: '',
-    title: '',
-  })
+  }
   const selectedTour = tours.find((item) => item._id === selectedTourId)
 
   const selectTour = (id) => {
@@ -4958,18 +5003,12 @@ function TourWorkflowPanel({
 
     setSelectedTourId(id)
     setParticipants(rows)
-    setRegistrationForm({
+    resetRegistration({
       registrationOpen: tour?.registrationOpen !== false,
       seatCapacity: tour?.seatCapacity || '',
       tourFee: tour?.tourFee || '',
     })
-    setExpenseForm({
-      amount: '',
-      category: 'Other',
-      date: new Date().toISOString().slice(0, 10),
-      receiptImageUrl: '',
-      title: '',
-    })
+    resetTourExpense(getDefaultTourExpenseForm())
   }
 
   const updateParticipant = (memberId, field, value) => {
@@ -4998,23 +5037,13 @@ function TourWorkflowPanel({
     })
   }
 
-  const saveRegistration = async (event) => {
-    event.preventDefault()
-
-    await onSaveRegistration(selectedTourId, registrationForm)
+  const saveRegistration = async (values) => {
+    await onSaveRegistration(selectedTourId, values)
   }
 
-  const addExpense = async (event) => {
-    event.preventDefault()
-
-    await onAddExpense(selectedTourId, expenseForm)
-    setExpenseForm({
-      amount: '',
-      category: 'Other',
-      date: new Date().toISOString().slice(0, 10),
-      receiptImageUrl: '',
-      title: '',
-    })
+  const addExpense = async (values) => {
+    await onAddExpense(selectedTourId, values)
+    resetTourExpense(getDefaultTourExpenseForm())
   }
 
   const totalDue = Object.values(participants).reduce(
@@ -5058,45 +5087,36 @@ function TourWorkflowPanel({
               <SummaryStat label="Tour Expense" value={money(summary.totalExpense)} />
               <SummaryStat label="Per Head" value={money(summary.perHeadCost)} />
             </div>
-            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveRegistration}>
+            <form
+              className="grid gap-4 rounded-md border border-gray-200 bg-white p-4"
+              onSubmit={handleRegistrationSubmit(saveRegistration)}
+            >
               <h4 className="font-semibold text-gray-950">Registration Settings</h4>
               <div className="grid gap-4 md:grid-cols-3">
                 <ToggleField
-                  checked={Boolean(registrationForm.registrationOpen)}
+                  checked={Boolean(registrationValues.registrationOpen)}
                   label="Registration open"
                   onChange={(value) =>
-                    setRegistrationForm((current) => ({
-                      ...current,
-                      registrationOpen: value,
-                    }))
+                    setRegistrationValue('registrationOpen', value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
                   }
                 />
                 <Field
+                  error={registrationErrors.seatCapacity?.message}
                   label="Max Seats"
-                  name="tourSeatCapacity"
-                  onChange={(event) =>
-                    setRegistrationForm((current) => ({
-                      ...current,
-                      seatCapacity: event.target.value,
-                    }))
-                  }
                   type="number"
-                  value={registrationForm.seatCapacity}
+                  {...registerRegistration('seatCapacity')}
                 />
                 <Field
+                  error={registrationErrors.tourFee?.message}
                   label="Cost Per Head"
-                  name="tourFee"
-                  onChange={(event) =>
-                    setRegistrationForm((current) => ({
-                      ...current,
-                      tourFee: event.target.value,
-                    }))
-                  }
                   type="number"
-                  value={registrationForm.tourFee}
+                  {...registerRegistration('tourFee')}
                 />
               </div>
-              <Button icon={Save} type="submit">
+              <Button icon={Save} loading={isSavingRegistration} type="submit">
                 Save Registration
               </Button>
             </form>
@@ -5142,58 +5162,43 @@ function TourWorkflowPanel({
                 </div>
               ) : null}
             </div>
-            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={addExpense}>
+            <form
+              className="grid gap-4 rounded-md border border-gray-200 bg-white p-4"
+              onSubmit={handleTourExpenseSubmit(addExpense)}
+            >
               <h4 className="font-semibold text-gray-950">Expense Tracker</h4>
               <div className="grid gap-4 md:grid-cols-5">
                 <Field
+                  error={tourExpenseErrors.title?.message}
                   label="Title"
-                  name="tourExpenseTitle"
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({ ...current, title: event.target.value }))
-                  }
                   required
-                  value={expenseForm.title}
+                  {...registerTourExpense('title')}
                 />
                 <Field
+                  error={tourExpenseErrors.category?.message}
                   label="Category"
-                  name="tourExpenseCategory"
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({ ...current, category: event.target.value }))
-                  }
-                  value={expenseForm.category}
+                  {...registerTourExpense('category')}
                 />
                 <Field
+                  error={tourExpenseErrors.amount?.message}
                   label="Amount"
-                  name="tourExpenseAmount"
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({ ...current, amount: event.target.value }))
-                  }
                   required
                   type="number"
-                  value={expenseForm.amount}
+                  {...registerTourExpense('amount')}
                 />
                 <Field
+                  error={tourExpenseErrors.date?.message}
                   label="Date"
-                  name="tourExpenseDate"
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({ ...current, date: event.target.value }))
-                  }
                   type="date"
-                  value={expenseForm.date}
+                  {...registerTourExpense('date')}
                 />
                 <Field
+                  error={tourExpenseErrors.receiptImageUrl?.message}
                   label="Receipt URL"
-                  name="tourExpenseReceipt"
-                  onChange={(event) =>
-                    setExpenseForm((current) => ({
-                      ...current,
-                      receiptImageUrl: event.target.value,
-                    }))
-                  }
-                  value={expenseForm.receiptImageUrl}
+                  {...registerTourExpense('receiptImageUrl')}
                 />
               </div>
-              <Button icon={FilePlus2} type="submit">
+              <Button icon={FilePlus2} loading={isAddingTourExpense} type="submit">
                 Add Expense
               </Button>
               <div className="grid gap-2">
