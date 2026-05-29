@@ -79,7 +79,7 @@ export default function AccountStatusPage() {
     let active = true
 
     api
-      .get('/settings/public')
+      .get('/public/settings')
       .then((response) => {
         if (active) {
           setSiteSettings(response.data.data.settings?.siteSettings || null)

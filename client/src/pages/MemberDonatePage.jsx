@@ -88,7 +88,7 @@ export default function MemberDonatePage() {
 
     try {
       const [settingsResponse, donationsResponse] = await Promise.all([
-        api.get('/settings/public'),
+        api.get('/public/settings'),
         api.get('/donations/my'),
       ])
 

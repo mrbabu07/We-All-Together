@@ -85,7 +85,7 @@ export default function RegisterPage() {
   })
 
   useEffect(() => {
-    api.get('/settings/public').then((response) => {
+    api.get('/public/settings').then((response) => {
       const settings = response.data.data.settings || {}
       setPaymentSettings({
         donationNumber: settings.donationNumber || '',
@@ -99,7 +99,7 @@ export default function RegisterPage() {
     setMessage('')
 
     try {
-      await api.post('/registrations', values)
+      await api.post('/public/registrations', values)
       reset(initialForm)
       setStep(1)
       setMessage('Registration submitted. Please wait for admin approval.')
@@ -121,7 +121,7 @@ export default function RegisterPage() {
 
     try {
       const image = await readFileAsDataUrl(file)
-      const response = await api.post('/uploads/payment-proof', {
+      const response = await api.post('/public/uploads/payment-proof', {
         image,
         name: `registration-${Date.now()}`,
       })

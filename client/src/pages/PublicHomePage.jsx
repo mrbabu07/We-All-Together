@@ -214,20 +214,20 @@ export default function PublicHomePage() {
         partnersResponse,
         tickerResponse,
       ] = await Promise.all([
-        api.get('/settings/public'),
-        api.get('/notices/public'),
-        api.get('/meetings/public'),
-        api.get('/tours/public'),
-        api.get('/activities/public'),
-        api.get('/rules/public'),
-        api.get('/donations/verified'),
-        api.get('/blogs/public'),
-        api.get('/gallery/public'),
-        api.get('/committee'),
-        api.get('/achievements'),
-        api.get('/testimonials'),
-        api.get('/partners'),
-        api.get('/notices?public=true&limit=5'),
+        api.get('/public/settings'),
+        api.get('/public/notices'),
+        api.get('/public/meetings'),
+        api.get('/public/tours'),
+        api.get('/public/activities'),
+        api.get('/public/rules'),
+        api.get('/public/donations'),
+        api.get('/public/blogs'),
+        api.get('/public/gallery'),
+        api.get('/public/committee'),
+        api.get('/public/achievements'),
+        api.get('/public/testimonials'),
+        api.get('/public/partners'),
+        api.get('/public/notices?limit=5'),
       ])
 
       setData({
@@ -344,7 +344,7 @@ export default function PublicHomePage() {
     setMessage('')
 
     try {
-      await api.post('/donations', values)
+      await api.post('/public/donations', values)
       resetDonation(initialDonationForm)
       setSuccessMessage('ধন্যবাদ। আপনার দানের তথ্য যাচাইয়ের জন্য জমা হয়েছে।')
       confetti({

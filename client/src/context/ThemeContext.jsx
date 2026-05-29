@@ -41,7 +41,7 @@ export function ThemeProvider({ children }) {
     let active = true
 
     api
-      .get('/settings/public')
+      .get('/public/settings')
       .then((response) => {
         if (active) {
           const settings = response.data.data.settings || {}

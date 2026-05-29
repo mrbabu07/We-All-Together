@@ -750,7 +750,7 @@ export default function AdminDashboardPage() {
         feeOverdueResponse,
       ] = await Promise.all([
         api.get('/registrations/pending'),
-        api.get('/settings/public'),
+        api.get('/public/settings'),
         api.get('/members/users'),
         api.get('/payments'),
         api.get('/donations'),

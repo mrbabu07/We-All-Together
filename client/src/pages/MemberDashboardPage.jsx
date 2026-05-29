@@ -289,7 +289,7 @@ export default function MemberDashboardPage() {
         pollsResponse,
         feeStatusResponse,
       ] = await Promise.all([
-        api.get('/settings/public'),
+        api.get('/public/settings'),
         api.get('/payments/my'),
         api.get('/notices/members'),
         api.get('/meetings/members'),

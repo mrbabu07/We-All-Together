@@ -54,6 +54,7 @@ test('public namespace exposes exact public API aliases', () => {
       'GET /settings',
       'GET /testimonials',
       'GET /tours',
+      'POST /uploads/payment-proof',
     ].sort(),
     aliases.sort(),
   )

@@ -15,6 +15,7 @@ const ruleController = require('../controllers/ruleController')
 const settingsController = require('../controllers/settingsController')
 const testimonialController = require('../controllers/testimonialController')
 const tourController = require('../controllers/tourController')
+const uploadController = require('../controllers/uploadController')
 
 const router = express.Router()
 
@@ -40,6 +41,7 @@ const publicAliases = [
   { method: 'get', path: '/settings', handler: settingsController.getPublicSettings },
   { method: 'get', path: '/testimonials', handler: testimonialController.getPublicItems },
   { method: 'get', path: '/tours', handler: tourController.getPublicItems },
+  { method: 'post', path: '/uploads/payment-proof', handler: uploadController.uploadImage },
 ]
 
 publicAliases.forEach(({ method, path, handler }) => {

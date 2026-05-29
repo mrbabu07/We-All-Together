@@ -50,8 +50,10 @@ const getNotices = asyncHandler(async (req, res) => {
 })
 
 const getPublicNotices = asyncHandler(async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 100)
   const items = await Notice.find(getVisibleNoticeFilter({ publicOnly: true }))
     .sort({ pinned: -1, scheduledFor: -1, createdAt: -1 })
+    .limit(limit)
 
   res.status(200).json({
     success: true,
