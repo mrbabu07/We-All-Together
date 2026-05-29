@@ -256,6 +256,34 @@ const validateTourParticipants = (body) => {
   }
 }
 
+const validateTourRegistration = (body) => ({
+  registrationOpen:
+    body.registrationOpen === undefined ? false : Boolean(body.registrationOpen),
+  seatCapacity: readNumber(body, 'seatCapacity', 'Seat capacity'),
+  tourFee: readNumber(body, 'tourFee', 'Tour fee'),
+})
+
+const validateTourExpense = (body) => ({
+  amount: readNumber(body, 'amount', 'Expense amount'),
+  category: optionalString(body, 'category') || 'Other',
+  date: body.date ? readDate(body, 'date', 'Expense date') : new Date(),
+  receiptImageUrl: optionalString(body, 'receiptImageUrl'),
+  title: requireString(body, 'title', 'Expense title'),
+})
+
+const validateTourFeedback = (body) => {
+  const rating = Number(body.rating)
+
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    throw new AppError('Rating must be between 1 and 5.', 400)
+  }
+
+  return {
+    comment: optionalString(body, 'comment'),
+    rating,
+  }
+}
+
 const validateRsvp = (body) => {
   const validStatuses = ['going', 'not_going', 'maybe']
   const status = typeof body.status === 'string' ? body.status : ''
@@ -299,5 +327,8 @@ module.exports = {
   validateRule,
   validateRsvp,
   validateTour,
+  validateTourExpense,
+  validateTourFeedback,
   validateTourParticipants,
+  validateTourRegistration,
 }

@@ -127,7 +127,10 @@ const emptyContentForms = {
     details: '',
     audience: 'members',
     imageUrl: '',
+    registrationOpen: true,
+    seatCapacity: '',
     status: 'planned',
+    tourFee: '',
   },
   activities: {
     title: '',
@@ -187,7 +190,10 @@ const getContentEditForm = (key, item) => {
       details: item.details || '',
       audience: item.audience || 'members',
       imageUrl: item.imageUrl || '',
+      registrationOpen: item.registrationOpen !== false,
+      seatCapacity: item.seatCapacity || '',
       status: item.status || 'planned',
+      tourFee: item.tourFee || '',
     }
   }
 
@@ -770,6 +776,44 @@ export default function AdminDashboardPage() {
     }, 'Tour participants saved successfully.')
   }
 
+  const saveTourRegistration = async (id, payload) => {
+    await runAction(async () => {
+      await api.patch(`/tours/${id}/registration`, payload)
+    }, 'Tour registration settings saved successfully.')
+  }
+
+  const addTourExpense = async (id, payload) => {
+    await runAction(async () => {
+      await api.post(`/tours/${id}/expenses`, payload)
+    }, 'Tour expense added successfully.')
+  }
+
+  const deleteTourExpense = async (tourId, expenseId) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/tours/${tourId}/expenses/${expenseId}`)
+        }, 'Tour expense deleted successfully.'),
+      confirmLabel: 'Delete Expense',
+      message: 'This tour expense will be removed from the cost tracker.',
+      title: 'Delete tour expense?',
+      variant: 'danger',
+    })
+  }
+
+  const completeTour = async (id) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.post(`/tours/${id}/complete`)
+        }, 'Tour marked complete successfully.'),
+      confirmLabel: 'Mark Complete',
+      message: 'This will close registration and prepare the gallery album.',
+      title: 'Mark tour complete?',
+      variant: 'success',
+    })
+  }
+
   const createPoll = async (event) => {
     event.preventDefault()
     await runAction(async () => {
@@ -1196,8 +1240,12 @@ export default function AdminDashboardPage() {
           }
           onPollCreate={createPoll}
           onPublishMeetingRecap={publishMeetingRecap}
+          onAddTourExpense={addTourExpense}
+          onCompleteTour={completeTour}
+          onDeleteTourExpense={deleteTourExpense}
           onSaveMeetingAdvanced={saveMeetingAdvanced}
           onSaveMeetingAttendance={saveMeetingAttendance}
+          onSaveTourRegistration={saveTourRegistration}
           onSaveTourParticipants={saveTourParticipants}
           pollForm={pollForm}
           uploadingContentKey={uploadingContentKey}
@@ -2840,9 +2888,13 @@ function ContentTab({
   onImageUpload,
   onPollChange,
   onPollCreate,
+  onAddTourExpense,
+  onCompleteTour,
+  onDeleteTourExpense,
   onPublishMeetingRecap,
   onSaveMeetingAdvanced,
   onSaveMeetingAttendance,
+  onSaveTourRegistration,
   onSaveTourParticipants,
   pollForm,
   uploadingContentKey,
@@ -2908,6 +2960,9 @@ function ContentTab({
                   {config.key === 'meetings' ? (
                     <MeetingMeta item={item} />
                   ) : null}
+                  {config.key === 'tours' ? (
+                    <TourMeta item={item} />
+                  ) : null}
                   {['meetings', 'tours'].includes(config.key) ? (
                     <RsvpSummary members={approvedMembers} rsvp={item.rsvp || []} />
                   ) : null}
@@ -2943,6 +2998,10 @@ function ContentTab({
           ) : null}
           {config.key === 'tours' ? (
             <TourWorkflowPanel
+              onAddExpense={onAddTourExpense}
+              onComplete={onCompleteTour}
+              onDeleteExpense={onDeleteTourExpense}
+              onSaveRegistration={onSaveTourRegistration}
               members={approvedMembers}
               onSave={onSaveTourParticipants}
               tours={data.content.tours}
@@ -3033,6 +3092,46 @@ function MeetingMeta({ item }) {
       <span>Minutes: {item.minutesStatus || 'draft'}</span>
       <span>Attendance: {attendanceMode}</span>
       {item.recapSentAt ? <span>Recap sent: {toReadableDate(item.recapSentAt)}</span> : null}
+    </div>
+  )
+}
+
+const getTourSummary = (tour) => {
+  const activeParticipants = (tour.participants || []).filter(
+    (participant) => participant.status !== 'cancelled',
+  )
+  const totalExpense = (tour.expenses || []).reduce(
+    (sum, expense) => sum + Number(expense.amount || 0),
+    0,
+  )
+  const totalPaid = (tour.participants || []).reduce(
+    (sum, participant) => sum + Number(participant.paidAmount || 0),
+    0,
+  )
+  const capacity = Number(tour.seatCapacity || 0)
+
+  return {
+    activeCount: activeParticipants.length,
+    openSeats: capacity > 0 ? Math.max(capacity - activeParticipants.length, 0) : 'Open',
+    perHeadCost: activeParticipants.length ? Math.ceil(totalExpense / activeParticipants.length) : 0,
+    totalExpense,
+    totalPaid,
+  }
+}
+
+function TourMeta({ item }) {
+  const summary = getTourSummary(item)
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-500">
+      <span>Dates: {toDate(item.startDate)} - {toDate(item.endDate)}</span>
+      <span>Registration: {item.registrationOpen ? 'open' : 'closed'}</span>
+      <span>Seats: {summary.activeCount}/{item.seatCapacity || 'unlimited'}</span>
+      <span>Waitlist: {item.waitlist?.length || 0}</span>
+      <span>Expense: {money(summary.totalExpense)}</span>
+      <span>Per head: {money(summary.perHeadCost)}</span>
+      <span>Feedback: {item.feedback?.length || 0}</span>
+      {item.albumCreated ? <span>Album: {item.galleryAlbum || item.title}</span> : null}
     </div>
   )
 }
@@ -3580,9 +3679,30 @@ function RsvpSummary({ members, rsvp }) {
   )
 }
 
-function TourWorkflowPanel({ members, onSave, tours }) {
+function TourWorkflowPanel({
+  members,
+  onAddExpense,
+  onComplete,
+  onDeleteExpense,
+  onSave,
+  onSaveRegistration,
+  tours,
+}) {
   const [selectedTourId, setSelectedTourId] = useState('')
   const [participants, setParticipants] = useState({})
+  const [registrationForm, setRegistrationForm] = useState({
+    registrationOpen: true,
+    seatCapacity: '',
+    tourFee: '',
+  })
+  const [expenseForm, setExpenseForm] = useState({
+    amount: '',
+    category: 'Other',
+    date: new Date().toISOString().slice(0, 10),
+    receiptImageUrl: '',
+    title: '',
+  })
+  const selectedTour = tours.find((item) => item._id === selectedTourId)
 
   const selectTour = (id) => {
     const tour = tours.find((item) => item._id === id)
@@ -3602,6 +3722,18 @@ function TourWorkflowPanel({ members, onSave, tours }) {
 
     setSelectedTourId(id)
     setParticipants(rows)
+    setRegistrationForm({
+      registrationOpen: tour?.registrationOpen !== false,
+      seatCapacity: tour?.seatCapacity || '',
+      tourFee: tour?.tourFee || '',
+    })
+    setExpenseForm({
+      amount: '',
+      category: 'Other',
+      date: new Date().toISOString().slice(0, 10),
+      receiptImageUrl: '',
+      title: '',
+    })
   }
 
   const updateParticipant = (memberId, field, value) => {
@@ -3630,6 +3762,25 @@ function TourWorkflowPanel({ members, onSave, tours }) {
     })
   }
 
+  const saveRegistration = async (event) => {
+    event.preventDefault()
+
+    await onSaveRegistration(selectedTourId, registrationForm)
+  }
+
+  const addExpense = async (event) => {
+    event.preventDefault()
+
+    await onAddExpense(selectedTourId, expenseForm)
+    setExpenseForm({
+      amount: '',
+      category: 'Other',
+      date: new Date().toISOString().slice(0, 10),
+      receiptImageUrl: '',
+      title: '',
+    })
+  }
+
   const totalDue = Object.values(participants).reduce(
     (sum, row) => sum + Number(row.amountDue || 0),
     0,
@@ -3638,11 +3789,18 @@ function TourWorkflowPanel({ members, onSave, tours }) {
     (sum, row) => sum + Number(row.paidAmount || 0),
     0,
   )
+  const summary = selectedTour ? getTourSummary(selectedTour) : null
+  const averageRating = selectedTour?.feedback?.length
+    ? (
+        selectedTour.feedback.reduce((sum, feedback) => sum + Number(feedback.rating || 0), 0) /
+        selectedTour.feedback.length
+      ).toFixed(1)
+    : 'N/A'
 
   return (
     <div className="mt-5 rounded-md border border-gray-200 bg-gray-50 p-4">
-      <h3 className="font-bold text-gray-950">Tour Participants</h3>
-      <form className="mt-4 grid gap-4" onSubmit={saveParticipants}>
+      <h3 className="font-bold text-gray-950">Tour Operations</h3>
+      <div className="mt-4 grid gap-4">
         <SelectField
           label="Tour"
           name="tour"
@@ -3656,71 +3814,238 @@ function TourWorkflowPanel({ members, onSave, tours }) {
             </option>
           ))}
         </SelectField>
-        {selectedTourId ? (
+        {selectedTour ? (
           <>
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-4">
               <SummaryStat label="Total Due" value={money(totalDue)} />
               <SummaryStat label="Total Paid" value={money(totalPaid)} />
+              <SummaryStat label="Tour Expense" value={money(summary.totalExpense)} />
+              <SummaryStat label="Per Head" value={money(summary.perHeadCost)} />
             </div>
-            <div className="grid gap-3">
-              {members.map((member) => (
-                <div
-                  className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[1fr_150px_120px_120px_1fr]"
-                  key={member._id}
+            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveRegistration}>
+              <h4 className="font-semibold text-gray-950">Registration Settings</h4>
+              <div className="grid gap-4 md:grid-cols-3">
+                <ToggleField
+                  checked={Boolean(registrationForm.registrationOpen)}
+                  label="Registration open"
+                  onChange={(value) =>
+                    setRegistrationForm((current) => ({
+                      ...current,
+                      registrationOpen: value,
+                    }))
+                  }
+                />
+                <Field
+                  label="Max Seats"
+                  name="tourSeatCapacity"
+                  onChange={(event) =>
+                    setRegistrationForm((current) => ({
+                      ...current,
+                      seatCapacity: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  value={registrationForm.seatCapacity}
+                />
+                <Field
+                  label="Cost Per Head"
+                  name="tourFee"
+                  onChange={(event) =>
+                    setRegistrationForm((current) => ({
+                      ...current,
+                      tourFee: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  value={registrationForm.tourFee}
+                />
+              </div>
+              <Button icon={Save} type="submit">
+                Save Registration
+              </Button>
+            </form>
+            <div className="grid gap-4 rounded-md border border-gray-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-semibold text-gray-950">Waitlist & Feedback</h4>
+                <Button
+                  disabled={selectedTour.status === 'completed'}
+                  onClick={() => onComplete(selectedTourId)}
+                  size="sm"
+                  variant="secondary"
                 >
-                  <div>
-                    <p className="font-semibold text-gray-950">{member.name}</p>
-                    <p className="text-sm text-gray-500">{member.phone}</p>
-                  </div>
-                  <SelectField
-                    label="Status"
-                    name={`tour-status-${member._id}`}
-                    onChange={(event) =>
-                      updateParticipant(member._id, 'status', event.target.value)
-                    }
-                    value={participants[member._id]?.status || ''}
-                  >
-                    <option value="">Not going</option>
-                    <option value="interested">Interested</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="paid">Paid</option>
-                    <option value="cancelled">Cancelled</option>
-                  </SelectField>
-                  <Field
-                    label="Due"
-                    name={`amountDue-${member._id}`}
-                    onChange={(event) =>
-                      updateParticipant(member._id, 'amountDue', event.target.value)
-                    }
-                    type="number"
-                    value={participants[member._id]?.amountDue || ''}
-                  />
-                  <Field
-                    label="Paid"
-                    name={`paidAmount-${member._id}`}
-                    onChange={(event) =>
-                      updateParticipant(member._id, 'paidAmount', event.target.value)
-                    }
-                    type="number"
-                    value={participants[member._id]?.paidAmount || ''}
-                  />
-                  <Field
-                    label="Note"
-                    name={`tour-note-${member._id}`}
-                    onChange={(event) =>
-                      updateParticipant(member._id, 'note', event.target.value)
-                    }
-                    value={participants[member._id]?.note || ''}
-                  />
+                  Mark Complete
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <SummaryStat label="Open Seats" value={summary.openSeats} />
+                <SummaryStat label="Waitlist" value={selectedTour.waitlist?.length || 0} />
+                <SummaryStat label="Average Rating" value={averageRating} />
+              </div>
+              {selectedTour.waitlist?.length ? (
+                <div className="grid gap-2">
+                  {selectedTour.waitlist.map((row) => (
+                    <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600" key={row._id || row.joinedAt}>
+                      <span className="font-semibold text-gray-950">
+                        {row.member?.name || 'Member'}
+                      </span>{' '}
+                      joined waitlist {toReadableDate(row.joinedAt)}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : null}
+              {selectedTour.feedback?.length ? (
+                <div className="grid gap-2">
+                  {selectedTour.feedback.map((row) => (
+                    <div className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-600" key={row._id || row.createdAt}>
+                      <span className="font-semibold text-gray-950">
+                        {row.member?.name || 'Member'}:
+                      </span>{' '}
+                      {row.rating}/5 {row.comment ? `- ${row.comment}` : ''}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <Button icon={Save} type="submit">
-              Save Participants
-            </Button>
+            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={addExpense}>
+              <h4 className="font-semibold text-gray-950">Expense Tracker</h4>
+              <div className="grid gap-4 md:grid-cols-5">
+                <Field
+                  label="Title"
+                  name="tourExpenseTitle"
+                  onChange={(event) =>
+                    setExpenseForm((current) => ({ ...current, title: event.target.value }))
+                  }
+                  required
+                  value={expenseForm.title}
+                />
+                <Field
+                  label="Category"
+                  name="tourExpenseCategory"
+                  onChange={(event) =>
+                    setExpenseForm((current) => ({ ...current, category: event.target.value }))
+                  }
+                  value={expenseForm.category}
+                />
+                <Field
+                  label="Amount"
+                  name="tourExpenseAmount"
+                  onChange={(event) =>
+                    setExpenseForm((current) => ({ ...current, amount: event.target.value }))
+                  }
+                  required
+                  type="number"
+                  value={expenseForm.amount}
+                />
+                <Field
+                  label="Date"
+                  name="tourExpenseDate"
+                  onChange={(event) =>
+                    setExpenseForm((current) => ({ ...current, date: event.target.value }))
+                  }
+                  type="date"
+                  value={expenseForm.date}
+                />
+                <Field
+                  label="Receipt URL"
+                  name="tourExpenseReceipt"
+                  onChange={(event) =>
+                    setExpenseForm((current) => ({
+                      ...current,
+                      receiptImageUrl: event.target.value,
+                    }))
+                  }
+                  value={expenseForm.receiptImageUrl}
+                />
+              </div>
+              <Button icon={FilePlus2} type="submit">
+                Add Expense
+              </Button>
+              <div className="grid gap-2">
+                {selectedTour.expenses?.length ? null : <Empty text="No tour expenses added." />}
+                {selectedTour.expenses?.map((expense) => (
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm"
+                    key={expense._id}
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-950">{expense.title}</p>
+                      <p className="text-gray-600">
+                        {expense.category} | {money(expense.amount)} | {toDate(expense.date)}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => onDeleteExpense(selectedTourId, expense._id)}
+                      size="sm"
+                      variant="danger"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </form>
+            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveParticipants}>
+              <h4 className="font-semibold text-gray-950">Participants</h4>
+              <div className="grid gap-3">
+                {members.map((member) => (
+                  <div
+                    className="grid gap-3 rounded-md border border-gray-200 bg-white p-3 md:grid-cols-[1fr_150px_120px_120px_1fr]"
+                    key={member._id}
+                  >
+                    <div>
+                      <p className="font-semibold text-gray-950">{member.name}</p>
+                      <p className="text-sm text-gray-500">{member.phone}</p>
+                    </div>
+                    <SelectField
+                      label="Status"
+                      name={`tour-status-${member._id}`}
+                      onChange={(event) =>
+                        updateParticipant(member._id, 'status', event.target.value)
+                      }
+                      value={participants[member._id]?.status || ''}
+                    >
+                      <option value="">Not going</option>
+                      <option value="interested">Interested</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="paid">Paid</option>
+                      <option value="cancelled">Cancelled</option>
+                    </SelectField>
+                    <Field
+                      label="Due"
+                      name={`amountDue-${member._id}`}
+                      onChange={(event) =>
+                        updateParticipant(member._id, 'amountDue', event.target.value)
+                      }
+                      type="number"
+                      value={participants[member._id]?.amountDue || ''}
+                    />
+                    <Field
+                      label="Paid"
+                      name={`paidAmount-${member._id}`}
+                      onChange={(event) =>
+                        updateParticipant(member._id, 'paidAmount', event.target.value)
+                      }
+                      type="number"
+                      value={participants[member._id]?.paidAmount || ''}
+                    />
+                    <Field
+                      label="Note"
+                      name={`tour-note-${member._id}`}
+                      onChange={(event) =>
+                        updateParticipant(member._id, 'note', event.target.value)
+                      }
+                      value={participants[member._id]?.note || ''}
+                    />
+                  </div>
+                ))}
+              </div>
+              <Button icon={Save} type="submit">
+                Save Participants
+              </Button>
+            </form>
           </>
         ) : null}
-      </form>
+      </div>
     </div>
   )
 }
@@ -4285,6 +4610,17 @@ function ContentFields({ config, form, onChange, onImageUpload, uploading }) {
         <Field label="Start Date" name="startDate" onChange={(e) => onChange(key, 'startDate', e.target.value)} required type="date" value={form.startDate} />
         <Field label="End Date" name="endDate" onChange={(e) => onChange(key, 'endDate', e.target.value)} required type="date" value={form.endDate} />
         <Field label="Budget" name="budget" onChange={(e) => onChange(key, 'budget', e.target.value)} type="number" value={form.budget} />
+        <Field label="Cost Per Head" name="tourFee" onChange={(e) => onChange(key, 'tourFee', e.target.value)} type="number" value={form.tourFee} />
+        <Field label="Max Seats" name="seatCapacity" onChange={(e) => onChange(key, 'seatCapacity', e.target.value)} type="number" value={form.seatCapacity} />
+        <ToggleField
+          checked={Boolean(form.registrationOpen)}
+          label="Registration open"
+          onChange={(value) => onChange(key, 'registrationOpen', value)}
+        />
+        <SelectField label="Audience" name="audience" onChange={(e) => onChange(key, 'audience', e.target.value)} value={form.audience}>
+          <option value="public">Public</option>
+          <option value="members">Members</option>
+        </SelectField>
         <SelectField label="Status" name="status" onChange={(e) => onChange(key, 'status', e.target.value)} value={form.status}>
           <option value="planned">Planned</option>
           <option value="active">Active</option>

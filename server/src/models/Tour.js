@@ -65,6 +65,39 @@ const tourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    expenses: [
+      {
+        title: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        category: {
+          type: String,
+          trim: true,
+          default: 'Other',
+        },
+        amount: {
+          type: Number,
+          min: [0, 'Tour expense amount cannot be negative.'],
+          default: 0,
+        },
+        date: {
+          type: Date,
+          default: Date.now,
+        },
+        receiptImageUrl: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          default: null,
+        },
+      },
+    ],
     waitlist: [
       {
         member: {
@@ -102,6 +135,15 @@ const tourSchema = new mongoose.Schema(
     albumCreated: {
       type: Boolean,
       default: false,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    galleryAlbum: {
+      type: String,
+      trim: true,
+      default: '',
     },
     participants: [
       {

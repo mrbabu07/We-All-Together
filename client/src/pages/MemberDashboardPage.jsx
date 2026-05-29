@@ -110,6 +110,7 @@ export default function MemberDashboardPage() {
   const [commentForms, setCommentForms] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
   const [meetingCheckInForms, setMeetingCheckInForms] = useState({})
+  const [tourFeedbackForms, setTourFeedbackForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
   const [data, setData] = useState({
@@ -539,6 +540,46 @@ export default function MemberDashboardPage() {
     }
   }
 
+  const registerForTour = async (id) => {
+    try {
+      setMessage('')
+      const response = await api.post(`/tours/${id}/register`)
+      setMessage(
+        response.data.data.waitlisted
+          ? 'Tour is full. You were added to the waitlist.'
+          : 'Tour registration saved successfully.',
+      )
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
+  const updateTourFeedback = (id, field, value) => {
+    setTourFeedbackForms((current) => ({
+      ...current,
+      [id]: {
+        rating: '5',
+        comment: '',
+        ...(current[id] || {}),
+        [field]: value,
+      },
+    }))
+  }
+
+  const submitTourFeedback = async (id) => {
+    try {
+      setMessage('')
+      const form = tourFeedbackForms[id] || { rating: '5', comment: '' }
+
+      await api.post(`/tours/${id}/feedback`, form)
+      setMessage('Tour feedback submitted successfully.')
+      await loadDashboard()
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -659,8 +700,12 @@ export default function MemberDashboardPage() {
           onNoticeCommentSubmit={addNoticeComment}
           onNoticeRead={markNoticeRead}
           onNoticeReact={reactToNotice}
+          onTourFeedbackChange={updateTourFeedback}
+          onTourFeedbackSubmit={submitTourFeedback}
+          onTourRegister={registerForTour}
           onTourRsvp={(id, status) => submitRsvp('tours', id, status)}
           noticeCommentForms={noticeCommentForms}
+          tourFeedbackForms={tourFeedbackForms}
           user={user}
         />
       ) : null}
@@ -1301,7 +1346,11 @@ function Updates({
   onNoticeCommentSubmit,
   onNoticeRead,
   onNoticeReact,
+  onTourFeedbackChange,
+  onTourFeedbackSubmit,
+  onTourRegister,
   onTourRsvp,
+  tourFeedbackForms,
   user,
 }) {
   return (
@@ -1332,10 +1381,15 @@ function Updates({
       />
       <UpdateList
         items={data.tours}
+        onTourFeedbackChange={onTourFeedbackChange}
+        onTourFeedbackSubmit={onTourFeedbackSubmit}
+        onTourRegister={onTourRegister}
         onRsvp={onTourRsvp}
         rsvpEnabled
         textKey="details"
         title="Tours"
+        tourActions
+        tourFeedbackForms={tourFeedbackForms}
         user={user}
       />
       <UpdateList items={data.activities} title="Activities" textKey="description" />
@@ -1461,9 +1515,14 @@ function UpdateList({
   onNoticeRead,
   onNoticeReact,
   onRsvp,
+  onTourFeedbackChange,
+  onTourFeedbackSubmit,
+  onTourRegister,
   rsvpEnabled = false,
   textKey,
   title,
+  tourActions = false,
+  tourFeedbackForms = {},
   user,
 }) {
   return (
@@ -1505,6 +1564,16 @@ function UpdateList({
             {rsvpEnabled ? (
               <RsvpActions item={item} onRsvp={onRsvp} user={user} />
             ) : null}
+            {tourActions ? (
+              <TourActions
+                feedbackForm={tourFeedbackForms[item._id] || { rating: '5', comment: '' }}
+                item={item}
+                onFeedbackChange={onTourFeedbackChange}
+                onFeedbackSubmit={onTourFeedbackSubmit}
+                onRegister={onTourRegister}
+                user={user}
+              />
+            ) : null}
             {meetingActions ? (
               <MeetingActions
                 checkInValue={checkInForms[item._id] || ''}
@@ -1529,6 +1598,95 @@ function UpdateList({
         ))}
       </div>
     </Panel>
+  )
+}
+
+function TourActions({
+  feedbackForm,
+  item,
+  onFeedbackChange,
+  onFeedbackSubmit,
+  onRegister,
+  user,
+}) {
+  const myId = String(user?._id || '')
+  const myParticipant = (item.participants || []).find(
+    (row) => String(row.member?._id || row.member) === myId,
+  )
+  const myWaitlist = (item.waitlist || []).find(
+    (row) => String(row.member?._id || row.member) === myId,
+  )
+  const myFeedback = (item.feedback || []).find(
+    (row) => String(row.member?._id || row.member) === myId,
+  )
+  const activeParticipants = (item.participants || []).filter(
+    (row) => row.status !== 'cancelled',
+  )
+  const capacity = Number(item.seatCapacity || 0)
+  const openSeats = capacity > 0 ? Math.max(capacity - activeParticipants.length, 0) : 'Open'
+  const totalExpense = (item.expenses || []).reduce(
+    (sum, expense) => sum + Number(expense.amount || 0),
+    0,
+  )
+  const perHeadCost = activeParticipants.length
+    ? Math.ceil(totalExpense / activeParticipants.length)
+    : Number(item.tourFee || 0)
+  const canRegister = item.registrationOpen && !myParticipant && !myWaitlist
+
+  return (
+    <div className="mt-4 grid gap-3 rounded-md bg-gray-50 p-3">
+      <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-600">
+        <span>Registration: {item.registrationOpen ? 'open' : 'closed'}</span>
+        <span>Seats: {activeParticipants.length}/{capacity || 'unlimited'}</span>
+        <span>Open: {openSeats}</span>
+        <span>Fee: {money(item.tourFee || 0)}</span>
+        <span>Per head cost: {money(perHeadCost)}</span>
+        <span>Waitlist: {item.waitlist?.length || 0}</span>
+      </div>
+      {myParticipant ? (
+        <Badge value={myParticipant.status || 'approved'}>
+          My status: {myParticipant.status || 'registered'}
+        </Badge>
+      ) : null}
+      {myWaitlist ? <Badge value="pending">I am on waitlist</Badge> : null}
+      {canRegister ? (
+        <Button onClick={() => onRegister(item._id)} size="sm">
+          {capacity > 0 && openSeats === 0 ? 'Join Waitlist' : 'Register'}
+        </Button>
+      ) : null}
+      {item.status === 'completed' ? (
+        <div className="grid gap-3 rounded-md bg-white p-3">
+          <p className="text-xs font-semibold uppercase text-gray-500">
+            {myFeedback ? `My feedback: ${myFeedback.rating}/5` : 'Tour Feedback'}
+          </p>
+          <div className="grid gap-3 md:grid-cols-[140px_1fr_auto]">
+            <SelectField
+              label="Rating"
+              name={`tour-rating-${item._id}`}
+              onChange={(event) => onFeedbackChange(item._id, 'rating', event.target.value)}
+              value={feedbackForm.rating || '5'}
+            >
+              <option value="5">5</option>
+              <option value="4">4</option>
+              <option value="3">3</option>
+              <option value="2">2</option>
+              <option value="1">1</option>
+            </SelectField>
+            <Field
+              label="Comment"
+              name={`tour-comment-${item._id}`}
+              onChange={(event) => onFeedbackChange(item._id, 'comment', event.target.value)}
+              value={feedbackForm.comment || ''}
+            />
+            <div className="flex items-end">
+              <Button onClick={() => onFeedbackSubmit(item._id)} size="sm" variant="secondary">
+                Save Feedback
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

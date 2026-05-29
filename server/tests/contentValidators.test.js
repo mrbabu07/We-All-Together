@@ -9,7 +9,10 @@ const {
   validateNotice,
   validateRsvp,
   validateTour,
+  validateTourExpense,
+  validateTourFeedback,
   validateTourParticipants,
+  validateTourRegistration,
 } = require('../src/validators/contentValidators')
 
 test('validateNotice defaults notices to public audience', () => {
@@ -131,6 +134,36 @@ test('validateTourParticipants accepts cost tracking rows', () => {
   assert.equal(payload.participants.length, 1)
   assert.equal(payload.participants[0].amountDue, 500)
   assert.equal(payload.participants[0].status, 'confirmed')
+})
+
+test('validateTourRegistration accepts capacity fee and open flag', () => {
+  const payload = validateTourRegistration({
+    registrationOpen: true,
+    seatCapacity: 40,
+    tourFee: 1200,
+  })
+
+  assert.equal(payload.registrationOpen, true)
+  assert.equal(payload.seatCapacity, 40)
+  assert.equal(payload.tourFee, 1200)
+})
+
+test('validateTourExpense parses title amount and date', () => {
+  const payload = validateTourExpense({
+    amount: 2500,
+    category: 'Food',
+    date: '2026-07-10',
+    title: 'Lunch advance',
+  })
+
+  assert.equal(payload.title, 'Lunch advance')
+  assert.equal(payload.amount, 2500)
+  assert.equal(payload.date instanceof Date, true)
+})
+
+test('validateTourFeedback requires rating between one and five', () => {
+  assert.equal(validateTourFeedback({ rating: 5, comment: 'Great tour' }).rating, 5)
+  assert.throws(() => validateTourFeedback({ rating: 6 }), /Rating must be between 1 and 5/)
 })
 
 test('validateRsvp accepts going maybe and not going statuses', () => {
