@@ -1106,6 +1106,31 @@ function Overview({ data, monthlyFee, onMeetingRsvp, onPay, onTourRsvp, stats, u
     currentFeeState === 'overdue'
       ? moneyPaisa(feeStatus.nextPaymentAmountPaisa || feeStatus.totalDuePaisa || 0)
       : money(monthlyFee)
+  const userId = String(user?._id || '')
+  const myBlogs = data.blogs.filter(
+    (blog) => String(blog.createdBy?._id || blog.createdBy || '') === userId,
+  )
+  const recentActivity = [
+    ...data.payments.map((payment) => ({
+      badge: payment.status,
+      date: payment.verifiedAt || payment.rejectedAt || payment.createdAt,
+      description: paymentCoveredMonthsLabel(payment),
+      icon: CreditCard,
+      id: `payment-${payment._id}`,
+      title: `Fee payment ${payment.status}`,
+    })),
+    ...myBlogs.map((blog) => ({
+      badge: blog.moderationStatus || 'approved',
+      date: blog.updatedAt || blog.createdAt,
+      description: blog.title,
+      icon: BookOpen,
+      id: `blog-${blog._id}`,
+      title: 'Blog activity',
+    })),
+  ]
+    .filter((item) => item.date)
+    .sort((left, right) => new Date(right.date) - new Date(left.date))
+    .slice(0, 6)
   const welcomeMessage = plainText(data.settings?.siteSettings?.welcomeMessage)
   const upcomingEvents = [...data.meetings, ...data.tours]
     .map((item) => ({
@@ -1215,6 +1240,36 @@ function Overview({ data, monthlyFee, onMeetingRsvp, onPay, onTourRsvp, stats, u
               </div>
             </div>
           ))}
+        </div>
+      </Panel>
+      <Panel>
+        <SectionTitle icon={RefreshCw} title="Recent Activity" />
+        <div className="mt-4 grid gap-3">
+          {recentActivity.length === 0 ? <Empty text="No recent activity yet." /> : null}
+          {recentActivity.map((item) => {
+            const Icon = item.icon
+
+            return (
+              <div
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4"
+                key={item.id}
+              >
+                <div className="flex min-w-0 gap-3">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-700">
+                    <Icon aria-hidden="true" className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-950">{item.title}</p>
+                    <p className="mt-1 break-words text-sm text-gray-500">{item.description}</p>
+                    <p className="mt-1 text-xs font-semibold uppercase text-gray-400">
+                      {formatDate(item.date)}
+                    </p>
+                  </div>
+                </div>
+                <Badge value={item.badge}>{item.badge}</Badge>
+              </div>
+            )
+          })}
         </div>
       </Panel>
     </div>
