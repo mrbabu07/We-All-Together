@@ -1,38 +1,39 @@
-import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { LogIn } from 'lucide-react'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { z } from 'zod'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
 import { getAccountStatusPath, getDashboardPath, isSafeReturnUrl } from '../utils/authState'
 
+const loginSchema = z.object({
+  identifier: z.string().trim().min(1, 'ইমেইল বা ফোন নম্বর দিন।'),
+  password: z.string().min(1, 'পাসওয়ার্ড দিন।'),
+})
+
 export default function LoginPage() {
   const { login } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ identifier: '', password: '' })
-  const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    setError,
+  } = useForm({
+    defaultValues: { identifier: '', password: '' },
+    resolver: zodResolver(loginSchema),
+  })
 
-  const handleChange = (event) => {
-    setForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value,
-    }))
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setSubmitting(true)
-    setMessage('')
-
-    const result = await login(form)
-    setSubmitting(false)
+  const submitLogin = async (values) => {
+    const result = await login(values)
 
     if (!result.ok) {
-      setMessage(result.message)
+      setError('root', { message: result.message })
       toast.error(result.message)
       return
     }
@@ -61,25 +62,23 @@ export default function LoginPage() {
         <p className="mt-2 text-center text-sm text-gray-500">
           সদস্য বা অ্যাডমিন অ্যাকাউন্টে প্রবেশ করুন
         </p>
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
+        <form className="mt-6 grid gap-4" onSubmit={handleSubmit(submitLogin)}>
           <Field
+            error={errors.identifier?.message}
             label="ইমেইল বা ফোন নম্বর"
-            name="identifier"
-            onChange={handleChange}
             placeholder="admin@gmail.com"
-            required
-            value={form.identifier}
+            {...register('identifier')}
           />
           <Field
+            error={errors.password?.message}
             label="পাসওয়ার্ড"
-            name="password"
-            onChange={handleChange}
-            required
             type="password"
-            value={form.password}
+            {...register('password')}
           />
-          {message ? <p className="text-sm font-medium text-red-600">{message}</p> : null}
-          <Button icon={LogIn} loading={submitting} type="submit">
+          {errors.root?.message ? (
+            <p className="text-sm font-medium text-red-600">{errors.root.message}</p>
+          ) : null}
+          <Button icon={LogIn} loading={isSubmitting} type="submit">
             লগইন
           </Button>
         </form>
