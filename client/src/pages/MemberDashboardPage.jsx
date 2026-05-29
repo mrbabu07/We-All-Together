@@ -180,6 +180,22 @@ const paymentCoveredMonthsLabel = (payment) => {
   return coveredMonths.map(monthLabel).join(', ') || 'N/A'
 }
 
+const paymentCoversMonth = (payment, monthKeyValue) => {
+  if (!payment || !monthKeyValue) {
+    return false
+  }
+
+  if (payment.month === monthKeyValue) {
+    return true
+  }
+
+  const [year, month] = monthKeyValue.split('-').map(Number)
+
+  return (payment.coveredMonths || []).some(
+    (item) => Number(item.month) === month && Number(item.year) === year,
+  )
+}
+
 const escapeHtml = (value = '') =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -1065,7 +1081,28 @@ export default function MemberDashboardPage() {
 
 function Overview({ data, monthlyFee, onPay, stats, user }) {
   const currentMonth = new Date().toISOString().slice(0, 7)
-  const currentPayment = data.payments.find((payment) => payment.month === currentMonth)
+  const currentPayment = data.payments.find((payment) => paymentCoversMonth(payment, currentMonth))
+  const feeStatus = data.feeStatus || {}
+  const currentMonthIsPaid = feeStatus.currentMonthPaid || currentPayment?.status === 'verified'
+  const currentFeeState = currentMonthIsPaid
+    ? 'paid'
+    : feeStatus.isOverdue
+      ? 'overdue'
+      : currentPayment?.status === 'pending'
+        ? 'pending'
+        : 'unpaid'
+  const currentFeeLabel = {
+    overdue: 'Overdue',
+    paid: 'Paid',
+    pending: 'Pending approval',
+    unpaid: 'Unpaid',
+  }[currentFeeState]
+  const currentFeeBadge =
+    currentFeeState === 'paid' ? 'verified' : currentFeeState === 'overdue' ? 'rejected' : 'pending'
+  const feeDisplayAmount =
+    currentFeeState === 'overdue'
+      ? moneyPaisa(feeStatus.nextPaymentAmountPaisa || feeStatus.totalDuePaisa || 0)
+      : money(monthlyFee)
   const welcomeMessage = plainText(data.settings?.siteSettings?.welcomeMessage)
   const upcomingEvents = [...data.meetings, ...data.tours]
     .map((item) => ({
@@ -1104,14 +1141,16 @@ function Overview({ data, monthlyFee, onPay, stats, user }) {
           <div>
             <p className="text-sm font-semibold text-gray-500">চলতি মাসের ফি</p>
             <h3 className="mt-1 text-3xl font-bold tracking-tight text-gray-900">
-              {money(monthlyFee)}
+              {feeDisplayAmount}
             </h3>
-            <p className="mt-1 text-sm text-gray-500">{currentMonth}</p>
+            <p className="mt-1 text-sm text-gray-500">
+              {currentFeeState === 'overdue'
+                ? `${feeStatus.overdueMonths?.length || 0} overdue month(s)`
+                : currentMonth}
+            </p>
           </div>
-          <Badge value={currentPayment?.status === 'verified' ? 'verified' : 'pending'}>
-            {currentPayment?.status === 'verified' ? 'পরিশোধিত' : 'অপরিশোধিত'}
-          </Badge>
-          {currentPayment?.status !== 'verified' ? (
+          <Badge value={currentFeeBadge}>{currentFeeLabel}</Badge>
+          {currentFeeState !== 'paid' && currentFeeState !== 'pending' ? (
             <Button icon={CreditCard} onClick={onPay}>
               ফি দিন
             </Button>
