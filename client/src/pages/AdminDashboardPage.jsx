@@ -1442,7 +1442,7 @@ export default function AdminDashboardPage() {
           onLoadFinanceAnalytics={loadFinanceAnalytics}
           onMonthChange={setMonthlyStatusMonth}
           onPaymentReject={(id, reason) => {
-            const trimmedReason = reason?.trim() || window.prompt('Payment rejection reason')?.trim()
+            const trimmedReason = reason?.trim()
             if (!trimmedReason) {
               setMessage('Payment rejection reason is required.')
               return Promise.resolve()
@@ -1491,7 +1491,7 @@ export default function AdminDashboardPage() {
             api.get(`/fees/member/${memberId}/history`, { params: { year } })
           }
           onDonationReject={(id, reason) => {
-            const trimmedReason = reason?.trim() || window.prompt('Donation rejection reason')?.trim()
+            const trimmedReason = reason?.trim()
             if (!trimmedReason) {
               setMessage('Donation rejection reason is required.')
               return Promise.resolve()
