@@ -8,6 +8,46 @@ import Skeleton from '../components/ui/Skeleton'
 
 const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleString('bn-BD')}`
 
+const monthNames = [
+  'à¦œà¦¾à¦¨à§à¦¯à¦¼à¦¾à¦°à¦¿',
+  'à¦«à§‡à¦¬à§à¦°à§à¦¯à¦¼à¦¾à¦°à¦¿',
+  'à¦®à¦¾à¦°à§à¦š',
+  'à¦à¦ªà§à¦°à¦¿à¦²',
+  'à¦®à§‡',
+  'à¦œà§à¦¨',
+  'à¦œà§à¦²à¦¾à¦‡',
+  'à¦†à¦—à¦¸à§à¦Ÿ',
+  'à¦¸à§‡à¦ªà§à¦Ÿà§‡à¦®à§à¦¬à¦°',
+  'à¦…à¦•à§à¦Ÿà§‹à¦¬à¦°',
+  'à¦¨à¦­à§‡à¦®à§à¦¬à¦°',
+  'à¦¡à¦¿à¦¸à§‡à¦®à§à¦¬à¦°',
+]
+
+const monthLabel = ({ label, month, year }) =>
+  label || `${monthNames[Number(month || 1) - 1]} ${year}`
+
+const paymentAmountPaisa = (payment) =>
+  Number(payment.amountPaisa || Math.round(Number(payment.amount || 0) * 100))
+
+const paymentLateFeePaisa = (payment) =>
+  Number(
+    payment.lateFeeAppliedPaisa ||
+      Math.round(Number(payment.lateFeeApplied || payment.lateFeeAmount || 0) * 100),
+  )
+
+const paymentCoveredMonthsLabel = (payment) => {
+  const coveredMonths =
+    Array.isArray(payment.coveredMonths) && payment.coveredMonths.length
+      ? payment.coveredMonths
+      : payment.forMonth && payment.forYear
+        ? [{ month: payment.forMonth, year: payment.forYear }]
+        : payment.month
+          ? [{ label: payment.month }]
+          : []
+
+  return coveredMonths.map(monthLabel).join(', ') || 'N/A'
+}
+
 const statusTone = {
   approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   future: 'border-gray-200 bg-gray-50 text-gray-400',
@@ -68,25 +108,30 @@ export default function MemberFeeHistoryPage() {
 
   const approvedPayments = data.payments.filter((payment) => payment.status === 'verified')
   const totalPaidPaisa = approvedPayments.reduce(
-    (sum, payment) => sum + Number(payment.amountPaisa || payment.amount * 100 || 0),
+    (sum, payment) => sum + paymentAmountPaisa(payment),
     0,
   )
   const yearlyPaidPaisa = approvedPayments
     .filter((payment) =>
       (payment.coveredMonths || []).some((item) => Number(item.year) === Number(selectedYear)),
     )
-    .reduce((sum, payment) => sum + Number(payment.amountPaisa || payment.amount * 100 || 0), 0)
+    .reduce((sum, payment) => sum + paymentAmountPaisa(payment), 0)
+  const totalPayablePaisa = totalPaidPaisa + Number(data.status.totalDuePaisa || 0)
 
   const downloadReceipt = async (id) => {
-    const response = await api.get(`/receipts/${id}`, { responseType: 'blob' })
-    const url = URL.createObjectURL(response.data)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `fee-receipt-${id}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    try {
+      const response = await api.get(`/receipts/${id}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `fee-receipt-${id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    }
   }
 
   return (
@@ -124,6 +169,7 @@ export default function MemberFeeHistoryPage() {
               value={moneyPaisa(data.status.totalDuePaisa)}
             />
             <SummaryCard label="সদস্যপদ থেকে মোট দেয়" value={moneyPaisa(totalPaidPaisa)} />
+            <SummaryCard label="Total payable" value={moneyPaisa(totalPayablePaisa)} />
           </div>
 
           <Panel>
@@ -183,15 +229,29 @@ export default function MemberFeeHistoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
+                  {data.payments.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-6 text-center text-sm font-semibold text-gray-500" colSpan={6}>
+                        No payment records found.
+                      </td>
+                    </tr>
+                  ) : null}
                   {data.payments.map((payment) => (
                     <tr key={payment._id}>
                       <td className="px-4 py-3">{payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('bn-BD') : 'N/A'}</td>
+                      <td className="px-4 py-3">{paymentCoveredMonthsLabel(payment)}</td>
+                      <td className="px-4 py-3 font-bold">{moneyPaisa(paymentAmountPaisa(payment))}</td>
+                      <td className="px-4 py-3">{moneyPaisa(paymentLateFeePaisa(payment))}</td>
                       <td className="px-4 py-3">
-                        {(payment.coveredMonths || []).map((item) => `${item.month}/${item.year}`).join(', ') || payment.month}
+                        <div className="grid gap-2">
+                          <Badge value={payment.status}>{payment.status}</Badge>
+                          {payment.rejectionReason ? (
+                            <span className="max-w-64 text-xs font-medium text-red-700">
+                              {payment.rejectionReason}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 font-bold">{moneyPaisa(payment.amountPaisa || payment.amount * 100)}</td>
-                      <td className="px-4 py-3">{moneyPaisa(payment.lateFeeAppliedPaisa || payment.lateFeeApplied * 100 || 0)}</td>
-                      <td className="px-4 py-3"><Badge value={payment.status}>{payment.status}</Badge></td>
                       <td className="px-4 py-3">
                         {payment.status === 'verified' ? (
                           <Button icon={Download} onClick={() => downloadReceipt(payment._id)} variant="secondary">
