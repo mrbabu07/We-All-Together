@@ -167,18 +167,17 @@ const paymentLateFeePaisa = (payment) =>
       Math.round(Number(payment.lateFeeApplied || payment.lateFeeAmount || 0) * 100),
   )
 
-const paymentCoveredMonthsLabel = (payment) => {
-  const coveredMonths =
-    Array.isArray(payment.coveredMonths) && payment.coveredMonths.length
-      ? payment.coveredMonths
-      : payment.forMonth && payment.forYear
-        ? [{ month: payment.forMonth, year: payment.forYear }]
-        : payment.month
-          ? [{ label: payment.month }]
-          : []
+const getPaymentCoveredMonths = (payment) =>
+  Array.isArray(payment.coveredMonths) && payment.coveredMonths.length
+    ? payment.coveredMonths
+    : payment.forMonth && payment.forYear
+      ? [{ month: payment.forMonth, year: payment.forYear }]
+      : payment.month
+        ? [{ label: payment.month }]
+        : []
 
-  return coveredMonths.map(monthLabel).join(', ') || 'N/A'
-}
+const paymentCoveredMonthsLabel = (payment) =>
+  getPaymentCoveredMonths(payment).map(monthLabel).join(', ') || 'N/A'
 
 const paymentCoversMonth = (payment, monthKeyValue) => {
   if (!payment || !monthKeyValue) {
@@ -435,15 +434,57 @@ export default function MemberDashboardPage() {
   }
 
   const stats = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    const now = new Date()
+    const userId = String(user?._id || '')
+    const paidMonthsThisYear = new Set()
+
+    data.payments
+      .filter((payment) => payment.status === 'verified')
+      .flatMap(getPaymentCoveredMonths)
+      .forEach((month) => {
+        const year = month.year || Number(String(month.label || '').slice(0, 4))
+        const monthNumber = month.month || Number(String(month.label || '').slice(5, 7))
+
+        if (year === currentYear && monthNumber) {
+          paidMonthsThisYear.add(`${year}-${monthNumber}`)
+        }
+      })
+
+    const meetingsAttended = data.meetings.filter((meeting) =>
+      (meeting.attendance || []).some(
+        (row) =>
+          String(row.member?._id || row.member || '') === userId && row.status === 'present',
+      ),
+    ).length
+    const toursAttended = data.tours.filter((tour) => {
+      const eventDate = tour.endDate || tour.startDate
+      const isPast = eventDate ? new Date(eventDate) < now : false
+      const registered = (tour.participants || []).some(
+        (row) =>
+          String(row.member?._id || row.member || '') === userId && row.status !== 'cancelled',
+      )
+
+      return isPast && registered
+    }).length
+    const upcomingEvents = [...data.meetings, ...data.tours].filter((item) => {
+      const eventDate = item.meetingDate || item.startDate
+
+      return eventDate && new Date(eventDate) >= now
+    }).length
+
     return {
       activities: data.activities.length,
-      meetings: data.meetings.length,
+      blogsWritten: data.blogs.filter(
+        (blog) => String(blog.createdBy?._id || blog.createdBy || '') === userId,
+      ).length,
+      eventsAttended: meetingsAttended + toursAttended,
       notices: data.notices.length,
-      blogs: data.blogs.length,
+      paidMonthsThisYear: paidMonthsThisYear.size,
+      upcomingEvents,
       gallery: data.gallery.length,
-      verifiedPayments: data.payments.filter((payment) => payment.status === 'verified').length,
     }
-  }, [data])
+  }, [data, user])
 
   const submitPayment = async (values) => {
     setMessage('')
@@ -1188,10 +1229,11 @@ function Overview({ data, monthlyFee, onMeetingRsvp, onPay, onTourRsvp, stats, u
       </Panel>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat label="Monthly Fee" value={money(monthlyFee)} />
-        <Stat label="Verified Payments" value={stats.verifiedPayments} />
+        <Stat label="Months Paid This Year" value={stats.paidMonthsThisYear} />
+        <Stat label="Events Attended" value={stats.eventsAttended} />
+        <Stat label="Blogs Written" value={stats.blogsWritten} />
+        <Stat label="Upcoming Events" value={stats.upcomingEvents} />
         <Stat label="Private Notices" value={stats.notices} />
-        <Stat label="Upcoming Meetings" value={stats.meetings} />
-        <Stat label="Blogs" value={stats.blogs} />
         <Stat label="Gallery Photos" value={stats.gallery} />
       </div>
       <Panel>
