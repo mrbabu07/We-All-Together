@@ -164,6 +164,17 @@ const rejectReasonSchema = z.object({
   reason: z.string().trim().min(1, 'Reject reason is required.'),
 })
 
+const feeAdjustmentSchema = z.object({
+  amount: z
+    .string()
+    .trim()
+    .min(1, 'Amount is required.')
+    .refine((value) => Number.isFinite(Number(value)) && Number(value) >= 0, {
+      message: 'Enter a valid amount.',
+    }),
+  reason: z.string().trim().min(1, 'Adjustment reason is required.'),
+})
+
 const bnMonths = [
   'জানুয়ারি',
   'ফেব্রুয়ারি',
@@ -2563,7 +2574,27 @@ function OverdueMembersPanel({
   const [query, setQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [sortBy, setSortBy] = useState('amount')
+  const [adjustmentModal, setAdjustmentModal] = useState(null)
+  const [paymentRejectModal, setPaymentRejectModal] = useState(null)
   const [waiverModal, setWaiverModal] = useState(null)
+  const {
+    formState: { errors: adjustmentErrors, isSubmitting: isSubmittingAdjustment },
+    handleSubmit: handleAdjustmentSubmit,
+    register: registerAdjustment,
+    reset: resetAdjustment,
+  } = useForm({
+    defaultValues: { amount: '', reason: '' },
+    resolver: zodResolver(feeAdjustmentSchema),
+  })
+  const {
+    formState: { errors: historyPaymentRejectErrors, isSubmitting: isRejectingHistoryPayment },
+    handleSubmit: handleHistoryPaymentRejectSubmit,
+    register: registerHistoryPaymentReject,
+    reset: resetHistoryPaymentReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(rejectReasonSchema),
+  })
 
   const collectionRate = summary.totalMembers
     ? Math.round((Number(summary.paidThisMonth || 0) / Number(summary.totalMembers || 1)) * 100)
@@ -2729,25 +2760,29 @@ function OverdueMembersPanel({
     await reloadHistory()
   }
 
-  const adjustMonthAmount = async ({ member, month, year }) => {
-    const amount = window.prompt(`${formatMonthYear(month, year)} fee amount (Tk)`)
-    if (amount === null) return
-    const numericAmount = Number(amount)
-    if (!Number.isFinite(numericAmount) || numericAmount < 0) {
-      window.alert('Enter a valid amount.')
+  const closeAdjustmentModal = () => {
+    setAdjustmentModal(null)
+    resetAdjustment({ amount: '', reason: '' })
+  }
+
+  const openAdjustmentModal = ({ amount, member, month, year }) => {
+    setAdjustmentModal({ member, month, year })
+    resetAdjustment({ amount: amount ? String(amount) : '', reason: '' })
+  }
+
+  const submitAdjustment = async ({ amount, reason }) => {
+    if (!adjustmentModal?.member) {
       return
     }
 
-    const reason = window.prompt('Adjustment reason')
-    if (!reason?.trim()) return
-
     await onAdjust({
-      amountPaisa: Math.round(numericAmount * 100),
-      memberId: member.memberId,
-      month,
+      amountPaisa: Math.round(Number(amount) * 100),
+      memberId: adjustmentModal.member.memberId,
+      month: adjustmentModal.month,
       reason: reason.trim(),
-      year,
+      year: adjustmentModal.year,
     })
+    closeAdjustmentModal()
     await reloadHistory()
   }
 
@@ -2759,6 +2794,28 @@ function OverdueMembersPanel({
   const handlePaymentAction = async (action, paymentId) => {
     await action(paymentId)
     await reloadHistory()
+  }
+
+  const closeHistoryPaymentRejectModal = () => {
+    setPaymentRejectModal(null)
+    resetHistoryPaymentReject({ reason: '' })
+  }
+
+  const openHistoryPaymentRejectModal = (paymentId, label) => {
+    setPaymentRejectModal({ label, paymentId })
+    resetHistoryPaymentReject({ reason: '' })
+  }
+
+  const submitHistoryPaymentReject = async ({ reason }) => {
+    if (!paymentRejectModal?.paymentId) {
+      return
+    }
+
+    await handlePaymentAction(
+      (paymentId) => onPaymentReject(paymentId, reason),
+      paymentRejectModal.paymentId,
+    )
+    closeHistoryPaymentRejectModal()
   }
 
   const downloadHistoryReceipt = async (paymentId) => {
@@ -3023,6 +3080,78 @@ function OverdueMembersPanel({
       </Modal>
 
       <Modal
+        className="max-w-lg"
+        onClose={closeAdjustmentModal}
+        open={Boolean(adjustmentModal)}
+        title="ফি সমন্বয় করুন"
+      >
+        {adjustmentModal ? (
+          <form className="grid gap-4" onSubmit={handleAdjustmentSubmit(submitAdjustment)}>
+            <p className="text-sm text-gray-600">
+              {adjustmentModal.member.name} এর {formatMonthYear(adjustmentModal.month, adjustmentModal.year)} ফি
+              পরিমাণ সেট করুন।
+            </p>
+            <Field
+              error={adjustmentErrors.amount?.message}
+              label="Amount (Tk)"
+              min="0"
+              step="0.01"
+              type="number"
+              {...registerAdjustment('amount')}
+            />
+            <Field
+              error={adjustmentErrors.reason?.message}
+              label="Adjustment reason"
+              required
+              textarea
+              {...registerAdjustment('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeAdjustmentModal} type="button" variant="secondary">
+                বাতিল
+              </Button>
+              <Button icon={CheckCircle2} loading={isSubmittingAdjustment} type="submit">
+                সংরক্ষণ
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
+        className="max-w-lg"
+        onClose={closeHistoryPaymentRejectModal}
+        open={Boolean(paymentRejectModal)}
+        title="Payment reject করুন"
+      >
+        {paymentRejectModal ? (
+          <form
+            className="grid gap-4"
+            onSubmit={handleHistoryPaymentRejectSubmit(submitHistoryPaymentReject)}
+          >
+            <p className="text-sm text-gray-600">
+              {paymentRejectModal.label || 'এই মাসের'} pending payment reject করার কারণ লিখুন।
+            </p>
+            <Field
+              error={historyPaymentRejectErrors.reason?.message}
+              label="Reason"
+              required
+              textarea
+              {...registerHistoryPaymentReject('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeHistoryPaymentRejectModal} type="button" variant="secondary">
+                বাতিল
+              </Button>
+              <Button icon={XCircle} loading={isRejectingHistoryPayment} type="submit" variant="danger">
+                Reject
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
         className="max-h-[90vh] max-w-6xl overflow-y-auto"
         onClose={() => {
           setHistoryMember(null)
@@ -3108,7 +3237,7 @@ function OverdueMembersPanel({
                         Approve
                       </Button>
                       <Button
-                        onClick={() => handlePaymentAction(onPaymentReject, cell.payment._id)}
+                        onClick={() => openHistoryPaymentRejectModal(cell.payment._id, cell.label)}
                         variant="danger"
                       >
                         Reject
@@ -3131,7 +3260,10 @@ function OverdueMembersPanel({
                       </Button>
                       <Button
                         onClick={() =>
-                          adjustMonthAmount({
+                          openAdjustmentModal({
+                            amount: cell.amountPaisa
+                              ? Number(cell.amountPaisa) / 100
+                              : cell.amount || '',
                             member: historyMember,
                             month: cell.month,
                             year: cell.year,
