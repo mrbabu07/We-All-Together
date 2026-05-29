@@ -2054,12 +2054,82 @@ function UpdateList({
   tourFeedbackForms = {},
   user,
 }) {
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [query, setQuery] = useState('')
+  const noticeCategories = useMemo(
+    () => [...new Set(items.map((item) => item.category).filter(Boolean))].sort(),
+    [items],
+  )
+  const visibleItems = noticeActions
+    ? items.filter((item) => {
+        const normalizedQuery = query.trim().toLowerCase()
+        const noticeDate = new Date(item.scheduledFor || item.createdAt || item.updatedAt)
+        const fromTime = dateFrom ? new Date(dateFrom).setHours(0, 0, 0, 0) : null
+        const toTime = dateTo ? new Date(dateTo).setHours(23, 59, 59, 999) : null
+        const matchesQuery = normalizedQuery
+          ? [item.title, item.body, item.richBody]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase().includes(normalizedQuery))
+          : true
+        const matchesCategory = categoryFilter ? item.category === categoryFilter : true
+        const matchesFrom =
+          !fromTime || (!Number.isNaN(noticeDate.getTime()) && noticeDate.getTime() >= fromTime)
+        const matchesTo =
+          !toTime || (!Number.isNaN(noticeDate.getTime()) && noticeDate.getTime() <= toTime)
+
+        return matchesQuery && matchesCategory && matchesFrom && matchesTo
+      })
+    : items
+
   return (
     <Panel>
       <SectionTitle icon={CalendarDays} title={title} />
+      {noticeActions ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <Field
+            className="md:col-span-2"
+            label="Search notices"
+            name="noticeSearch"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Title or body"
+            value={query}
+          />
+          <SelectField
+            label="Category"
+            name="noticeCategory"
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            value={categoryFilter}
+          >
+            <option value="">All categories</option>
+            {noticeCategories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </SelectField>
+          <div className="grid gap-3 sm:grid-cols-2 md:col-span-4">
+            <Field
+              label="From"
+              name="noticeDateFrom"
+              onChange={(event) => setDateFrom(event.target.value)}
+              type="date"
+              value={dateFrom}
+            />
+            <Field
+              label="To"
+              name="noticeDateTo"
+              onChange={(event) => setDateTo(event.target.value)}
+              type="date"
+              value={dateTo}
+            />
+          </div>
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-3">
-        {items.length === 0 ? <Empty text={`No ${title.toLowerCase()} yet.`} /> : null}
-        {items.map((item) => (
+        {visibleItems.length === 0 ? <Empty text={`No ${title.toLowerCase()} found.`} /> : null}
+        {visibleItems.map((item) => (
           <div className="rounded-md border border-gray-200 p-4" key={item._id}>
             {item.imageUrl ? (
               <img
@@ -2071,7 +2141,15 @@ function UpdateList({
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-gray-950">{item.title}</h3>
               {item.audience ? <Badge value={item.audience}>{item.audience}</Badge> : null}
+              {noticeActions && item.audience === 'members' ? (
+                <Badge value="pending">Member-only</Badge>
+              ) : null}
               {item.status ? <Badge value={item.status}>{item.status}</Badge> : null}
+              {noticeActions && item.category ? (
+                <span className="rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                  {item.category}
+                </span>
+              ) : null}
             </div>
             <p className="mt-2 text-sm leading-6 text-gray-600">{item[textKey] || item.location}</p>
             {item.minutes && (item.minutesStatus === 'published' || !item.minutesStatus) ? (
