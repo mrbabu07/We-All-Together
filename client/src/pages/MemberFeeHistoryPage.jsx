@@ -161,7 +161,7 @@ export default function MemberFeeHistoryPage() {
                     </div>
                     <p className="mt-3 text-sm font-semibold">{statusLabel[item.status]}</p>
                     {item.status === 'overdue' ? (
-                      <a className="mt-2 inline-flex text-sm font-bold text-red-700 underline" href="/member?tab=payments">
+                      <a className="mt-2 inline-flex text-sm font-bold text-red-700 underline" href="/member/fees">
                         পরিশোধ করুন
                       </a>
                     ) : null}

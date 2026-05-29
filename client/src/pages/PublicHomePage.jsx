@@ -331,7 +331,7 @@ export default function PublicHomePage() {
       return
     }
 
-    navigate('/member?tab=updates')
+    navigate('/member/events')
   }
 
   if (siteSettings.maintenanceMode && user?.role !== 'admin') {

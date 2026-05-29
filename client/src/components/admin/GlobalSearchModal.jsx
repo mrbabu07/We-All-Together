@@ -118,16 +118,21 @@ export default function GlobalSearchModal({ onClose, open, user }) {
   )
 
   const openResult = (type) => {
-    const target = user?.role === 'admin' ? '/admin' : '/member'
-    const tabs = {
-      blogs: 'blogs',
-      meetings: user?.role === 'admin' ? 'content' : 'updates',
-      notices: user?.role === 'admin' ? 'content' : 'updates',
-      users: 'members',
+    const adminRoutes = {
+      blogs: '/admin/blogs',
+      meetings: '/admin/meetings',
+      notices: '/admin/notices',
+      users: '/admin/members',
+    }
+    const memberRoutes = {
+      blogs: '/member/blogs',
+      meetings: '/member/events',
+      notices: '/member/notices',
+      users: '/member/members',
     }
 
     onClose()
-    navigate(`${target}?tab=${tabs[type]}`)
+    navigate(user?.role === 'admin' ? adminRoutes[type] : memberRoutes[type])
   }
 
   return (

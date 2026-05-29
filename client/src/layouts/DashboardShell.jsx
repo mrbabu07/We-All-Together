@@ -45,6 +45,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const profilePath = user?.role === 'member' ? '/member/profile' : '/account'
 
   const handleLogout = () => {
     logout()
@@ -116,7 +117,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{user?.name}</p>
             <p className="truncate text-xs text-[var(--text-muted)]">{user?.role || user?.phone}</p>
           </div>
-          <Link className="ml-auto hidden text-[var(--text-muted)] hover:text-[var(--brand-600)] lg:block" to="/account">
+          <Link className="ml-auto hidden text-[var(--text-muted)] hover:text-[var(--brand-600)] lg:block" to={profilePath}>
             <Settings aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>
@@ -128,7 +129,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
   )
 }
 
-function NotificationDropdown({ notifications, unreadCount }) {
+function NotificationDropdown({ notificationPath, notifications, unreadCount }) {
   return (
     <Menu as="div" className="relative">
       <MenuButton className="relative inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-2)] hover:text-[var(--brand-600)]">
@@ -151,7 +152,7 @@ function NotificationDropdown({ notifications, unreadCount }) {
       >
         <div className="flex items-center justify-between border-b border-[var(--gray-200)] px-4 py-3">
           <p className="font-semibold text-[var(--text-primary)]">বিজ্ঞপ্তি</p>
-          <Link className="text-xs font-semibold text-[var(--brand-600)] hover:text-[var(--brand-700)]" to="/notifications">
+          <Link className="text-xs font-semibold text-[var(--brand-600)] hover:text-[var(--brand-700)]" to={notificationPath}>
             সব পড়ুন
           </Link>
         </div>
@@ -171,7 +172,7 @@ function NotificationDropdown({ notifications, unreadCount }) {
                 className={`flex gap-3 rounded-[var(--radius-md)] px-3 py-2.5 transition hover:bg-[var(--surface-2)] ${
                   !item.readAt ? 'bg-[var(--brand-50)]' : ''
                 }`}
-                to={item.link || '/notifications'}
+                to={item.link || notificationPath}
               >
                 <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--brand-600)]" />
                 <span className="min-w-0 flex-1">
@@ -187,7 +188,7 @@ function NotificationDropdown({ notifications, unreadCount }) {
         </div>
         <Link
           className="block border-t border-[var(--gray-200)] px-4 py-3 text-center text-sm font-semibold text-[var(--brand-600)] hover:bg-[var(--brand-50)]"
-          to="/notifications"
+          to={notificationPath}
         >
           সব বিজ্ঞপ্তি দেখুন
         </Link>
@@ -206,6 +207,8 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
   const [notifications, setNotifications] = useState([])
   const [searchOpen, setSearchOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const notificationPath = user?.role === 'member' ? '/member/notifications' : '/notifications'
+  const profilePath = user?.role === 'member' ? '/member/profile' : '/account'
   const showDarkToggle = homepageControls.darkModeToggleEnabled !== false
   const showFontControls = homepageControls.fontSizeControlsEnabled !== false
 
@@ -321,7 +324,11 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
               <Button icon={Search} iconOnly onClick={() => setSearchOpen(true)} variant="ghost">
                 সার্চ
               </Button>
-              <NotificationDropdown notifications={notifications} unreadCount={unreadCount} />
+              <NotificationDropdown
+                notificationPath={notificationPath}
+                notifications={notifications}
+                unreadCount={unreadCount}
+              />
               <Button className="hidden sm:inline-flex" icon={Languages} onClick={toggleLanguage} variant="ghost">
                 {language === 'bn' ? 'বাং | EN' : 'BN | EN'}
               </Button>
@@ -342,7 +349,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                   <MenuItem>
                     <Link
                       className="flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
-                      to="/account"
+                      to={profilePath}
                     >
                       <UserRound className="h-4 w-4" /> প্রোফাইল
                     </Link>
@@ -350,7 +357,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                   <MenuItem>
                     <Link
                       className="flex items-center gap-2 rounded-[var(--radius-md)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
-                      to="/account"
+                      to={profilePath}
                     >
                       <Settings className="h-4 w-4" /> সেটিংস
                     </Link>

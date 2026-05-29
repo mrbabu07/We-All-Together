@@ -34,10 +34,10 @@ export default function AppLayout() {
 
   const mobileItems = [
     { icon: Home, label: t.home, to: '/' },
-    { icon: CreditCard, label: t.payment, to: user ? '/member?tab=payments' : '/login' },
-    { icon: Bell, label: t.notice, to: user ? '/member?tab=updates' : '/' },
-    { icon: Image, label: t.gallery, to: user ? '/member?tab=gallery' : '/' },
-    { icon: BookOpen, label: t.blog, to: user ? '/member?tab=blogs' : '/' },
+    { icon: CreditCard, label: t.payment, to: user ? '/member/fees' : '/login' },
+    { icon: Bell, label: t.notice, to: user ? '/member/notices' : '/notices' },
+    { icon: Image, label: t.gallery, to: user ? '/member/gallery' : '/gallery' },
+    { icon: BookOpen, label: t.blog, to: user ? '/member/blogs' : '/blog' },
   ]
 
   const isMobileActive = (to) => {
@@ -73,10 +73,10 @@ export default function AppLayout() {
                 <NavLink className={navLinkClass} to="/member">
                   <Users aria-hidden="true" className="inline h-4 w-4" /> {t.member}
                 </NavLink>
-                <NavLink className={navLinkClass} to="/account">
+                <NavLink className={navLinkClass} to="/member/profile">
                   <UserRound aria-hidden="true" className="inline h-4 w-4" /> {t.account}
                 </NavLink>
-                <NavLink className={navLinkClass} to="/notifications">
+                <NavLink className={navLinkClass} to="/member/notifications">
                   <Bell aria-hidden="true" className="inline h-4 w-4" /> {t.alerts}
                 </NavLink>
               </>
