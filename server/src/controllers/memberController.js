@@ -267,11 +267,32 @@ const requestAccountDeletion = asyncHandler(async (req, res) => {
   user.deleteRequestedAt = new Date()
   user.deleteRequestReason = typeof req.body.reason === 'string' ? req.body.reason.trim() : ''
   await user.save()
+  const admins = await User.find({
+    role: USER_ROLES.ADMIN,
+    softDeletedAt: null,
+    status: USER_STATUSES.APPROVED,
+  }).select('_id')
+
+  await Promise.all(
+    admins.map((admin) =>
+      createNotification({
+        createdBy: user,
+        link: '/admin/members',
+        message: `${user.name} (${user.phone}) requested account deletion. Reason: ${user.deleteRequestReason || 'No reason provided.'}`,
+        title: 'Account deletion request',
+        type: 'account',
+        user: admin,
+      }),
+    ),
+  )
   await recordAuditLog({
     action: 'member.delete.request',
     actor: req.user,
     entityId: user._id,
     entityType: 'User',
+    metadata: {
+      reason: user.deleteRequestReason,
+    },
   })
 
   res.status(200).json({

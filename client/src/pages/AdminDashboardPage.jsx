@@ -5696,6 +5696,10 @@ function MembersTab({
     const matchesStatus =
       statusFilter === 'suspended'
         ? Boolean(item.suspendedAt)
+        : statusFilter === 'delete_requested'
+          ? Boolean(item.deleteRequestedAt && !item.softDeletedAt)
+          : statusFilter === 'soft_deleted'
+            ? Boolean(item.softDeletedAt)
         : statusFilter
           ? item.status === statusFilter
           : true
@@ -5903,6 +5907,8 @@ function MembersTab({
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
             <option value="suspended">Suspended</option>
+            <option value="delete_requested">Delete requested</option>
+            <option value="soft_deleted">Soft deleted</option>
           </SelectField>
           <SelectField
             className="min-w-48"
@@ -5956,6 +5962,8 @@ function MembersTab({
                       <h3 className="truncate font-semibold text-gray-900">{item.name}</h3>
                       <Badge value={item.status}>{item.status}</Badge>
                       {item.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
+                      {item.deleteRequestedAt ? <Badge value="pending">Delete requested</Badge> : null}
+                      {item.softDeletedAt ? <Badge value="rejected">Soft deleted</Badge> : null}
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{item.phone}</p>
                     <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.address}</p>
@@ -5974,6 +5982,12 @@ function MembersTab({
                       Joined {toDate(item.approvedAt || item.createdAt)} | Last payment{' '}
                       {toDate(getMemberPaymentStats(item).lastPaymentAt)}
                     </p>
+                    {item.deleteRequestedAt ? (
+                      <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                        Delete request: {item.deleteRequestReason || 'No reason'} |{' '}
+                        {toDate(item.deleteRequestedAt)}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -5989,8 +6003,13 @@ function MembersTab({
                   >
                     {item.suspendedAt ? 'Unsuspend' : 'Suspend'}
                   </Button>
-                  <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
-                    Delete
+                  <Button
+                    disabled={Boolean(item.softDeletedAt)}
+                    icon={Trash2}
+                    onClick={() => onDeleteUser(item._id)}
+                    variant="danger"
+                  >
+                    {item.softDeletedAt ? 'Deleted' : 'Delete'}
                   </Button>
                 </div>
               </div>
@@ -6026,6 +6045,14 @@ function MembersTab({
                       <div className="flex flex-wrap gap-2">
                         <Badge value={item.status}>{item.status}</Badge>
                         {item.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
+                        {item.deleteRequestedAt ? <Badge value="pending">Delete requested</Badge> : null}
+                        {item.softDeletedAt ? <Badge value="rejected">Soft deleted</Badge> : null}
+                        {item.deleteRequestedAt ? (
+                          <span className="text-xs font-semibold text-red-700">
+                            {item.deleteRequestReason || 'No reason'} |{' '}
+                            {toDate(item.deleteRequestedAt)}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.address}</td>
@@ -6043,8 +6070,13 @@ function MembersTab({
                         >
                           {item.suspendedAt ? 'Unsuspend' : 'Suspend'}
                         </Button>
-                        <Button icon={Trash2} onClick={() => onDeleteUser(item._id)} variant="danger">
-                          Delete
+                        <Button
+                          disabled={Boolean(item.softDeletedAt)}
+                          icon={Trash2}
+                          onClick={() => onDeleteUser(item._id)}
+                          variant="danger"
+                        >
+                          {item.softDeletedAt ? 'Deleted' : 'Delete'}
                         </Button>
                       </div>
                     </td>
