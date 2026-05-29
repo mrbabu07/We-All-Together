@@ -131,6 +131,36 @@ const defaultNotificationForm = {
   type: 'general',
 }
 
+const defaultMemberEditForm = {
+  address: '',
+  birthCertificateUrl: '',
+  name: '',
+  nidImageUrl: '',
+  phone: '',
+  profilePhotoUrl: '',
+  role: 'member',
+  status: 'pending',
+}
+
+const memberEditSchema = z.object({
+  address: z.string().trim().optional(),
+  birthCertificateUrl: z.string().trim().optional(),
+  name: z.string().trim().min(1, 'Name is required.'),
+  nidImageUrl: z.string().trim().optional(),
+  phone: z.string().trim().min(1, 'Phone is required.'),
+  profilePhotoUrl: z.string().trim().optional(),
+  role: z.enum(['admin', 'member', 'moderator'], {
+    message: 'Choose a valid role.',
+  }),
+  status: z.enum(['pending', 'approved', 'rejected'], {
+    message: 'Choose a valid status.',
+  }),
+})
+
+const memberInlinePasswordSchema = z.object({
+  newPassword: z.string().min(6, 'Temporary password must be at least 6 characters.'),
+})
+
 const pollSchema = z
   .object({
     deadline: z.string().trim().min(1, 'Deadline is required.'),
@@ -5258,7 +5288,6 @@ function TourWorkflowPanel({
 
 function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdateProfile, payments, users }) {
   const [editingUserId, setEditingUserId] = useState(null)
-  const [newPassword, setNewPassword] = useState('')
   const [query, setQuery] = useState('')
   const [feeStatusFilter, setFeeStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -5266,21 +5295,31 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
   const [sortBy, setSortBy] = useState('joinDate')
   const [statusFilter, setStatusFilter] = useState('')
   const [viewMode, setViewMode] = useState('grid')
-  const [memberForm, setMemberForm] = useState({
-    address: '',
-    birthCertificateUrl: '',
-    name: '',
-    nidImageUrl: '',
-    phone: '',
-    profilePhotoUrl: '',
-    role: 'member',
-    status: 'pending',
+  const {
+    formState: { errors: memberErrors, isSubmitting: isSavingMember },
+    handleSubmit: handleMemberSubmit,
+    register: registerMember,
+    reset: resetMemberForm,
+  } = useForm({
+    defaultValues: defaultMemberEditForm,
+    resolver: zodResolver(memberEditSchema),
   })
+  const {
+    control: passwordControl,
+    formState: { errors: passwordErrors, isSubmitting: isResettingPassword },
+    handleSubmit: handleInlinePasswordSubmit,
+    register: registerInlinePassword,
+    reset: resetInlinePassword,
+  } = useForm({
+    defaultValues: { newPassword: '' },
+    resolver: zodResolver(memberInlinePasswordSchema),
+  })
+  const passwordForm = useWatch({ control: passwordControl }) || { newPassword: '' }
 
   const startEdit = (user) => {
     setEditingUserId(user._id)
-    setNewPassword('')
-    setMemberForm({
+    resetInlinePassword({ newPassword: '' })
+    resetMemberForm({
       address: user.address || '',
       birthCertificateUrl: user.birthCertificateUrl || '',
       name: user.name || '',
@@ -5294,51 +5333,29 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
 
   const cancelEdit = () => {
     setEditingUserId(null)
-    setNewPassword('')
-    setMemberForm({
-      address: '',
-      birthCertificateUrl: '',
-      name: '',
-      nidImageUrl: '',
-      phone: '',
-      profilePhotoUrl: '',
-      role: 'member',
-      status: 'pending',
-    })
+    resetInlinePassword({ newPassword: '' })
+    resetMemberForm(defaultMemberEditForm)
   }
 
-  const updateField = (field, value) => {
-    setMemberForm((current) => ({
-      ...current,
-      [field]: value,
-    }))
-  }
-
-  const saveMember = async (event) => {
-    event.preventDefault()
-
+  const saveMember = async (values) => {
     await onUpdateProfile(editingUserId, {
-      address: memberForm.address,
-      birthCertificateUrl: memberForm.birthCertificateUrl,
-      name: memberForm.name,
-      nidImageUrl: memberForm.nidImageUrl,
-      phone: memberForm.phone,
-      profilePhotoUrl: memberForm.profilePhotoUrl,
+      address: values.address,
+      birthCertificateUrl: values.birthCertificateUrl,
+      name: values.name,
+      nidImageUrl: values.nidImageUrl,
+      phone: values.phone,
+      profilePhotoUrl: values.profilePhotoUrl,
     })
     await onUpdateAccess(editingUserId, {
-      role: memberForm.role,
-      status: memberForm.status,
+      role: values.role,
+      status: values.status,
     })
     cancelEdit()
   }
 
-  const resetPassword = async () => {
-    if (!newPassword) {
-      return
-    }
-
+  const resetPassword = async ({ newPassword }) => {
     await onResetPassword(editingUserId, newPassword)
-    setNewPassword('')
+    resetInlinePassword({ newPassword: '' })
   }
 
   const normalizedQuery = query.trim().toLowerCase()
@@ -5438,92 +5455,88 @@ function MembersTab({ onDeleteUser, onResetPassword, onUpdateAccess, onUpdatePro
       {editingUserId ? (
         <Panel>
           <SectionTitle icon={Pencil} title="Edit User" />
-          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={saveMember}>
+          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleMemberSubmit(saveMember)}>
             <Field
+              error={memberErrors.name?.message}
               label="Name"
-              name="name"
-              onChange={(event) => updateField('name', event.target.value)}
               required
-              value={memberForm.name}
+              {...registerMember('name')}
             />
             <Field
+              error={memberErrors.phone?.message}
               label="Phone"
-              name="phone"
-              onChange={(event) => updateField('phone', event.target.value)}
               required
-              value={memberForm.phone}
+              {...registerMember('phone')}
             />
             <Field
               className="md:col-span-2"
+              error={memberErrors.address?.message}
               label="Address"
-              name="address"
-              onChange={(event) => updateField('address', event.target.value)}
-              value={memberForm.address}
+              {...registerMember('address')}
             />
             <SelectField
+              error={memberErrors.role?.message}
               label="Role"
-              name="role"
-              onChange={(event) => updateField('role', event.target.value)}
-              value={memberForm.role}
+              {...registerMember('role')}
             >
               <option value="admin">Admin</option>
+              <option value="moderator">Moderator</option>
               <option value="member">Member</option>
             </SelectField>
             <SelectField
+              error={memberErrors.status?.message}
               label="Status"
-              name="status"
-              onChange={(event) => updateField('status', event.target.value)}
-              value={memberForm.status}
+              {...registerMember('status')}
             >
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </SelectField>
             <Field
+              error={memberErrors.profilePhotoUrl?.message}
               label="Profile Photo URL"
-              name="profilePhotoUrl"
-              onChange={(event) => updateField('profilePhotoUrl', event.target.value)}
-              value={memberForm.profilePhotoUrl}
+              {...registerMember('profilePhotoUrl')}
             />
             <Field
+              error={memberErrors.nidImageUrl?.message}
               label="NID Image URL"
-              name="nidImageUrl"
-              onChange={(event) => updateField('nidImageUrl', event.target.value)}
-              value={memberForm.nidImageUrl}
+              {...registerMember('nidImageUrl')}
             />
             <Field
               className="md:col-span-2"
+              error={memberErrors.birthCertificateUrl?.message}
               label="Birth Certificate URL"
-              name="birthCertificateUrl"
-              onChange={(event) => updateField('birthCertificateUrl', event.target.value)}
-              value={memberForm.birthCertificateUrl}
+              {...registerMember('birthCertificateUrl')}
             />
-            <Button icon={Save} type="submit">
+            <Button icon={Save} loading={isSavingMember} type="submit">
               Save User
             </Button>
-            <Button onClick={cancelEdit} variant="secondary">
+            <Button onClick={cancelEdit} type="button" variant="secondary">
               Cancel
             </Button>
           </form>
-          <div className="mt-5 grid gap-4 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto]">
+          <form
+            className="mt-5 grid gap-4 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto]"
+            onSubmit={handleInlinePasswordSubmit(resetPassword)}
+          >
             <Field
+              error={passwordErrors.newPassword?.message}
               label="New Password"
-              name="newPassword"
-              onChange={(event) => setNewPassword(event.target.value)}
               type="password"
-              value={newPassword}
+              {...registerInlinePassword('newPassword')}
             />
             <div className="flex items-end">
               <Button
-                disabled={!newPassword}
+                disabled={!passwordForm.newPassword}
                 icon={KeyRound}
-                onClick={resetPassword}
+                loading={isResettingPassword}
+                type="submit"
                 variant="secondary"
               >
                 Reset Password
               </Button>
             </div>
-          </div>
+          </form>
         </Panel>
       ) : null}
 
