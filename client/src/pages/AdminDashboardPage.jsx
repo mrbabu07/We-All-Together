@@ -377,6 +377,19 @@ const tourWorkflowExpenseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required.'),
 })
 
+const tourParticipantsSchema = z.object({
+  participants: z.record(
+    z.object({
+      amountDue: optionalAmountText,
+      note: z.string().trim().optional(),
+      paidAmount: optionalAmountText,
+      status: z.enum(['', 'interested', 'confirmed', 'paid', 'cancelled'], {
+        message: 'Choose a valid participant status.',
+      }),
+    }),
+  ),
+})
+
 const defaultMeetingWorkflowForm = {
   attendanceMode: 'closed',
   attendanceOtp: '',
@@ -4983,7 +4996,6 @@ function TourWorkflowPanel({
   tours,
 }) {
   const [selectedTourId, setSelectedTourId] = useState('')
-  const [participants, setParticipants] = useState({})
   const {
     control: registrationControl,
     formState: { errors: registrationErrors, isSubmitting: isSavingRegistration },
@@ -5008,11 +5020,22 @@ function TourWorkflowPanel({
     defaultValues: getDefaultTourExpenseForm(),
     resolver: zodResolver(tourWorkflowExpenseSchema),
   })
+  const {
+    control: participantsControl,
+    formState: { errors: participantErrors, isSubmitting: isSavingParticipants },
+    handleSubmit: handleParticipantsSubmit,
+    register: registerParticipant,
+    reset: resetParticipants,
+  } = useForm({
+    defaultValues: { participants: {} },
+    resolver: zodResolver(tourParticipantsSchema),
+  })
   const registrationValues = useWatch({ control: registrationControl }) || {
     registrationOpen: true,
     seatCapacity: '',
     tourFee: '',
   }
+  const participantValues = useWatch({ control: participantsControl })?.participants || {}
   const selectedTour = tours.find((item) => item._id === selectedTourId)
 
   const selectTour = (id) => {
@@ -5032,7 +5055,7 @@ function TourWorkflowPanel({
     })
 
     setSelectedTourId(id)
-    setParticipants(rows)
+    resetParticipants({ participants: rows })
     resetRegistration({
       registrationOpen: tour?.registrationOpen !== false,
       seatCapacity: tour?.seatCapacity || '',
@@ -5041,21 +5064,9 @@ function TourWorkflowPanel({
     resetTourExpense(getDefaultTourExpenseForm())
   }
 
-  const updateParticipant = (memberId, field, value) => {
-    setParticipants((current) => ({
-      ...current,
-      [memberId]: {
-        ...current[memberId],
-        [field]: value,
-      },
-    }))
-  }
-
-  const saveParticipants = async (event) => {
-    event.preventDefault()
-
+  const saveParticipants = async (values) => {
     await onSave(selectedTourId, {
-      participants: Object.entries(participants)
+      participants: Object.entries(values.participants || {})
         .filter(([, row]) => row.status)
         .map(([member, row]) => ({
           amountDue: row.amountDue || 0,
@@ -5076,11 +5087,11 @@ function TourWorkflowPanel({
     resetTourExpense(getDefaultTourExpenseForm())
   }
 
-  const totalDue = Object.values(participants).reduce(
+  const totalDue = Object.values(participantValues).reduce(
     (sum, row) => sum + Number(row.amountDue || 0),
     0,
   )
-  const totalPaid = Object.values(participants).reduce(
+  const totalPaid = Object.values(participantValues).reduce(
     (sum, row) => sum + Number(row.paidAmount || 0),
     0,
   )
@@ -5255,7 +5266,10 @@ function TourWorkflowPanel({
                 ))}
               </div>
             </form>
-            <form className="grid gap-4 rounded-md border border-gray-200 bg-white p-4" onSubmit={saveParticipants}>
+            <form
+              className="grid gap-4 rounded-md border border-gray-200 bg-white p-4"
+              onSubmit={handleParticipantsSubmit(saveParticipants)}
+            >
               <h4 className="font-semibold text-gray-950">Participants</h4>
               <div className="grid gap-3">
                 {members.map((member) => (
@@ -5268,12 +5282,9 @@ function TourWorkflowPanel({
                       <p className="text-sm text-gray-500">{member.phone}</p>
                     </div>
                     <SelectField
+                      error={participantErrors.participants?.[member._id]?.status?.message}
                       label="Status"
-                      name={`tour-status-${member._id}`}
-                      onChange={(event) =>
-                        updateParticipant(member._id, 'status', event.target.value)
-                      }
-                      value={participants[member._id]?.status || ''}
+                      {...registerParticipant(`participants.${member._id}.status`)}
                     >
                       <option value="">Not going</option>
                       <option value="interested">Interested</option>
@@ -5282,35 +5293,26 @@ function TourWorkflowPanel({
                       <option value="cancelled">Cancelled</option>
                     </SelectField>
                     <Field
+                      error={participantErrors.participants?.[member._id]?.amountDue?.message}
                       label="Due"
-                      name={`amountDue-${member._id}`}
-                      onChange={(event) =>
-                        updateParticipant(member._id, 'amountDue', event.target.value)
-                      }
                       type="number"
-                      value={participants[member._id]?.amountDue || ''}
+                      {...registerParticipant(`participants.${member._id}.amountDue`)}
                     />
                     <Field
+                      error={participantErrors.participants?.[member._id]?.paidAmount?.message}
                       label="Paid"
-                      name={`paidAmount-${member._id}`}
-                      onChange={(event) =>
-                        updateParticipant(member._id, 'paidAmount', event.target.value)
-                      }
                       type="number"
-                      value={participants[member._id]?.paidAmount || ''}
+                      {...registerParticipant(`participants.${member._id}.paidAmount`)}
                     />
                     <Field
+                      error={participantErrors.participants?.[member._id]?.note?.message}
                       label="Note"
-                      name={`tour-note-${member._id}`}
-                      onChange={(event) =>
-                        updateParticipant(member._id, 'note', event.target.value)
-                      }
-                      value={participants[member._id]?.note || ''}
+                      {...registerParticipant(`participants.${member._id}.note`)}
                     />
                   </div>
                 ))}
               </div>
-              <Button icon={Save} type="submit">
+              <Button icon={Save} loading={isSavingParticipants} type="submit">
                 Save Participants
               </Button>
             </form>
