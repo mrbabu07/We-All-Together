@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm, useWatch } from 'react-hook-form'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import Lightbox from 'yet-another-react-lightbox'
 import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
 import Zoom from 'yet-another-react-lightbox/plugins/zoom'
+import { z } from 'zod'
 import {
   AlertTriangle,
   Bell,
@@ -45,6 +48,37 @@ const initialPaymentForm = {
   senderPhone: '',
   transactionId: '',
 }
+
+const normalizeBangladeshPhone = (value = '') => {
+  const phone = String(value).trim().replace(/[\s-]/g, '')
+
+  if (phone.startsWith('+88')) {
+    return phone.slice(3)
+  }
+
+  if (phone.startsWith('88') && phone.length === 13) {
+    return phone.slice(2)
+  }
+
+  return phone
+}
+
+const bangladeshPhoneSchema = (label) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} is required.`)
+    .transform(normalizeBangladeshPhone)
+    .refine((value) => /^01[3-9]\d{8}$/.test(value), `${label} must use Bangladeshi format like 017XXXXXXXX.`)
+
+const paymentSchema = z.object({
+  method: z.string().trim().min(1, 'Payment method is required.'),
+  month: z.string().trim().regex(/^\d{4}-\d{2}$/, 'Month is required.'),
+  note: z.string().trim().max(300, 'Note cannot exceed 300 characters.').optional(),
+  proofImageUrl: z.string().trim().min(1, 'Payment proof is required.'),
+  senderPhone: bangladeshPhoneSchema('Sender phone'),
+  transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
+})
 
 const initialBlogForm = {
   audience: 'public',
@@ -120,7 +154,6 @@ export default function MemberDashboardPage() {
   const activeTab = tabs.some(([key]) => key === requestedTab) ? requestedTab : pathTab || 'overview'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
   const [blogForm, setBlogForm] = useState(initialBlogForm)
   const [editingBlogId, setEditingBlogId] = useState('')
   const [lastBlogAutoSaveAt, setLastBlogAutoSaveAt] = useState(null)
@@ -131,6 +164,18 @@ export default function MemberDashboardPage() {
   const [tourFeedbackForms, setTourFeedbackForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
+  const {
+    control: paymentControl,
+    formState: { errors: paymentErrors, isSubmitting: isSubmittingPayment },
+    handleSubmit: handlePaymentSubmit,
+    register: registerPayment,
+    reset: resetPayment,
+    setValue: setPaymentValue,
+  } = useForm({
+    defaultValues: initialPaymentForm,
+    resolver: zodResolver(paymentSchema),
+  })
+  const paymentForm = useWatch({ control: paymentControl }) || initialPaymentForm
   const [data, setData] = useState({
     activities: [],
     blogs: [],
@@ -268,8 +313,7 @@ export default function MemberDashboardPage() {
     }
   }, [data])
 
-  const submitPayment = async (event) => {
-    event.preventDefault()
+  const submitPayment = async (values) => {
     setMessage('')
 
     try {
@@ -279,16 +323,16 @@ export default function MemberDashboardPage() {
           ? feeStatus.payableMonths.map(({ month, year }) => ({ month, year }))
           : [
               {
-                month: Number(paymentForm.month.slice(5, 7)),
-                year: Number(paymentForm.month.slice(0, 4)),
+                month: Number(values.month.slice(5, 7)),
+                year: Number(values.month.slice(0, 4)),
               },
             ]
 
       await api.post('/fees/pay', {
-        ...paymentForm,
+        ...values,
         months,
       })
-      setPaymentForm(initialPaymentForm)
+      resetPayment(initialPaymentForm)
       setMessage(
         months.length > 1
           ? 'Selected fee months submitted for admin verification.'
@@ -314,10 +358,10 @@ export default function MemberDashboardPage() {
         image,
         name: `monthly-payment-${Date.now()}`,
       })
-      setPaymentForm((current) => ({
-        ...current,
-        proofImageUrl: response.data.data.image.url,
-      }))
+      setPaymentValue('proofImageUrl', response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
       setMessage('Payment proof uploaded.')
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -742,17 +786,17 @@ export default function MemberDashboardPage() {
       ) : null}
       {!loading && activeTab === 'payments' ? (
         <Payments
+          feeStatus={data.feeStatus}
           form={paymentForm}
+          formErrors={paymentErrors}
+          isSubmitting={isSubmittingPayment}
           monthlyFee={data.settings.monthlyFee}
-          onChange={(field, value) =>
-            setPaymentForm((current) => ({ ...current, [field]: value }))
-          }
           onProofUpload={uploadPaymentProof}
           onReceiptDownload={downloadPaymentReceipt}
           onReceipt={printPaymentReceipt}
-          onSubmit={submitPayment}
+          onSubmit={handlePaymentSubmit(submitPayment)}
           paymentSettings={data.settings}
-          feeStatus={data.feeStatus}
+          registerPayment={registerPayment}
           payments={data.payments}
           uploadingProof={uploadingProof}
         />
@@ -1374,26 +1418,29 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
 function Payments({
   feeStatus,
   form,
+  formErrors,
+  isSubmitting,
   monthlyFee,
-  onChange,
   onProofUpload,
   onReceipt,
   onReceiptDownload,
   onSubmit,
   paymentSettings,
   payments,
+  registerPayment,
   uploadingProof,
 }) {
   const overdueMonths = feeStatus?.overdueMonths || []
+  const selectedMonth = form.month || initialPaymentForm.month
   const payableMonths =
     overdueMonths.length && feeStatus?.payableMonths?.length
       ? feeStatus.payableMonths
       : [
           {
             amountPaisa: Math.round(Number(monthlyFee || 0) * 100),
-            label: form.month,
-            month: Number(form.month.slice(5, 7)),
-            year: Number(form.month.slice(0, 4)),
+            label: selectedMonth,
+            month: Number(selectedMonth.slice(5, 7)),
+            year: Number(selectedMonth.slice(0, 4)),
           },
         ]
   const lateFeePaisa = feeStatus?.lateFeePaisa || 0
@@ -1463,49 +1510,39 @@ function Payments({
         </div>
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <Field
+            error={formErrors.month?.message}
             label="Month"
-            name="month"
-            onChange={(event) => onChange('month', event.target.value)}
-            required
             type="month"
-            disabled={overdueMonths.length > 0}
-            value={form.month}
+            readOnly={overdueMonths.length > 0}
+            {...registerPayment('month')}
           />
           <Field
+            error={formErrors.method?.message}
             label="Payment Method"
-            name="method"
-            onChange={(event) => onChange('method', event.target.value)}
             placeholder={paymentSettings?.donationProvider || 'bKash or Nagad'}
-            required
-            value={form.method}
+            {...registerPayment('method')}
           />
           <Field
+            error={formErrors.transactionId?.message}
             label="Transaction ID"
-            name="transactionId"
-            onChange={(event) => onChange('transactionId', event.target.value)}
-            required
-            value={form.transactionId}
+            {...registerPayment('transactionId')}
           />
           <Field
+            error={formErrors.senderPhone?.message}
             label="Sender Phone"
-            name="senderPhone"
-            onChange={(event) => onChange('senderPhone', event.target.value)}
-            required
-            value={form.senderPhone}
+            {...registerPayment('senderPhone')}
           />
           <Field
             className="md:col-span-2"
+            error={formErrors.note?.message}
             label="Note"
-            name="note"
-            onChange={(event) => onChange('note', event.target.value)}
             textarea
-            value={form.note}
+            {...registerPayment('note')}
           />
           <Field
+            error={formErrors.proofImageUrl?.message}
             label="Payment Proof URL"
-            name="proofImageUrl"
-            onChange={(event) => onChange('proofImageUrl', event.target.value)}
-            value={form.proofImageUrl}
+            {...registerPayment('proofImageUrl')}
           />
           <label className="grid gap-1.5 text-sm font-medium text-gray-700">
             <span>Upload Payment Proof</span>
@@ -1522,7 +1559,7 @@ function Payments({
               Uploading payment proof...
             </p>
           ) : null}
-          <Button className="md:col-span-2" icon={Send} type="submit">
+          <Button className="md:col-span-2" icon={Send} loading={isSubmitting} type="submit">
             Submit Payment ({moneyPaisa(totalPaisa)})
           </Button>
         </form>
