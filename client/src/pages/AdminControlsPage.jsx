@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import toast from 'react-hot-toast'
+import { useLocation } from 'react-router-dom'
 import {
   ArrowDown,
   ArrowUp,
@@ -145,6 +146,18 @@ const tabs = [
   { icon: Lock, key: 'security', label: 'সিকিউরিটি' },
 ]
 
+const pathTabs = {
+  '/admin/achievements': 'homepage',
+  '/admin/committee': 'homepage',
+  '/admin/notifications': 'notifications',
+  '/admin/partners': 'homepage',
+  '/admin/settings': 'site',
+  '/admin/settings/appearance': 'appearance',
+  '/admin/settings/org': 'site',
+  '/admin/settings/security': 'security',
+  '/admin/testimonials': 'homepage',
+}
+
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 const toDate = (value) => (value ? new Date(value).toLocaleString('en-BD') : 'N/A')
 
@@ -180,7 +193,8 @@ const downloadBlob = (blob, filename) => {
 
 export default function AdminControlsPage() {
   const { setPreviewAppearance } = useAppStore()
-  const [activeTab, setActiveTab] = useState('site')
+  const location = useLocation()
+  const [activeTab, setActiveTab] = useState(pathTabs[location.pathname] || 'site')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')

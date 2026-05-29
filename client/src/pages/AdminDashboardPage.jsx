@@ -238,14 +238,38 @@ const tabLabels = [
   ['logs', 'Logs & Alerts'],
 ]
 
+const pathTabs = {
+  '/admin/blogs': 'content',
+  '/admin/finance': 'finance',
+  '/admin/finance/analytics': 'finance',
+  '/admin/finance/donations': 'finance',
+  '/admin/finance/expenses': 'finance',
+  '/admin/finance/payments': 'finance',
+  '/admin/finance/settings': 'finance',
+  '/admin/gallery': 'content',
+  '/admin/meetings': 'content',
+  '/admin/members': 'members',
+  '/admin/notices': 'content',
+  '/admin/polls': 'content',
+  '/admin/rules': 'content',
+  '/admin/tours': 'content',
+}
+
+const financePathTabs = {
+  '/admin/finance/donations': 'donations',
+  '/admin/finance/expenses': 'expenses',
+  '/admin/finance/payments': 'payments',
+}
+
 export default function AdminDashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
-  const defaultTab = location.pathname === '/admin/members' ? 'members' : 'overview'
+  const defaultTab = pathTabs[location.pathname] || 'overview'
   const activeTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
+  const initialFinanceTab = financePathTabs[location.pathname] || 'payments'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [data, setData] = useState({
@@ -1321,6 +1345,7 @@ export default function AdminDashboardPage() {
           expenseForm={expenseForm}
           editingExpenseId={editingExpenseId}
           financeFilter={financeFilter}
+          initialTab={initialFinanceTab}
           monthlyStatus={monthlyStatus}
           monthlyStatusMonth={monthlyStatusMonth}
           onCancelExpenseEdit={cancelExpenseEdit}
@@ -1716,6 +1741,7 @@ function FinanceTab({
   editingExpenseId,
   expenseForm,
   financeFilter,
+  initialTab = 'payments',
   monthlyStatus,
   monthlyStatusMonth,
   onCancelExpenseEdit,
@@ -1762,7 +1788,7 @@ function FinanceTab({
       return totals
     }, {}),
   ).sort((left, right) => right[1] - left[1])
-  const [activeFinanceTab, setActiveFinanceTab] = useState('payments')
+  const [activeFinanceTab, setActiveFinanceTab] = useState(initialTab)
   const expenseCategoryOptions = ['ভাড়া', 'খাবার', 'অনুষ্ঠান', 'অন্যান্য']
   const expenseCategoriesForSelect =
     expenseForm.category && !expenseCategoryOptions.includes(expenseForm.category)
