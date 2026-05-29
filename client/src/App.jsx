@@ -68,6 +68,8 @@ function App() {
             <Route path="suspended" element={page(<AccountStatusPage />)} />
             <Route element={<AuthenticatedLayout />}>
               <Route path="account" element={page(<AccountPage />)} />
+              <Route path="member/profile" element={page(<AccountPage />)} />
+              <Route path="member/notifications" element={page(<NotificationsPage />)} />
               <Route path="notifications" element={page(<NotificationsPage />)} />
             </Route>
             <Route element={<AdminRoute />}>
@@ -82,8 +84,16 @@ function App() {
             <Route element={<RoleRoute allowedRoles={['admin', 'member', 'moderator']} />}>
               <Route element={<MemberLayout />}>
                 <Route path="member" element={page(<MemberDashboardPage />)} />
+                <Route path="member/blogs" element={page(<MemberDashboardPage />)} />
                 <Route path="member/dashboard" element={page(<MemberDashboardPage />)} />
+                <Route path="member/events" element={page(<MemberDashboardPage />)} />
+                <Route path="member/fees" element={page(<MemberDashboardPage />)} />
+                <Route path="member/fees/history" element={page(<MemberFeeHistoryPage />)} />
                 <Route path="member/fee-history" element={page(<MemberFeeHistoryPage />)} />
+                <Route path="member/gallery" element={page(<MemberDashboardPage />)} />
+                <Route path="member/members" element={page(<MemberDashboardPage />)} />
+                <Route path="member/notices" element={page(<MemberDashboardPage />)} />
+                <Route path="member/polls" element={page(<MemberDashboardPage />)} />
               </Route>
             </Route>
             <Route path="dashboard" element={<Navigate to="/member" replace />} />

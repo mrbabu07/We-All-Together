@@ -24,6 +24,17 @@ export default function MemberLayout() {
   }, [])
 
   const paymentBadge = overdueCount > 0 ? overdueCount : null
+  const memberRouteAliases = {
+    '/account': '/member/profile',
+    '/member/fee-history': '/member/fees/history',
+    '/member?tab=blogs': '/member/blogs',
+    '/member?tab=gallery': '/member/gallery',
+    '/member?tab=members': '/member/members',
+    '/member?tab=payments': '/member/fees',
+    '/member?tab=polls': '/member/polls',
+    '/member?tab=updates': '/member/notices',
+  }
+  const aliasMemberRoute = (item) => ({ ...item, to: memberRouteAliases[item.to] || item.to })
   const navItems = [
     { icon: Home, label: 'হোম', to: '/member' },
     { badge: paymentBadge, icon: CreditCard, label: 'পেমেন্ট', to: '/member?tab=payments' },
@@ -34,7 +45,7 @@ export default function MemberLayout() {
     { icon: Vote, label: 'ভোট', to: '/member?tab=polls' },
     { icon: Users, label: 'সদস্য', to: '/member?tab=members' },
     { icon: UserRound, label: 'প্রোফাইল', to: '/account' },
-  ]
+  ].map(aliasMemberRoute)
 
   return (
     <DashboardShell
@@ -44,7 +55,7 @@ export default function MemberLayout() {
         { icon: Bell, label: 'নোটিশ', to: '/member?tab=updates' },
         { icon: Image, label: 'গ্যালারি', to: '/member?tab=gallery' },
         { icon: UserRound, label: 'প্রোফাইল', to: '/account' },
-      ]}
+      ].map(aliasMemberRoute)}
       navItems={navItems}
       title="সদস্য ড্যাশবোর্ড"
     />

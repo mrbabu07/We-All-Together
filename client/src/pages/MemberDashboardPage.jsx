@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import Lightbox from 'yet-another-react-lightbox'
 import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
 import Thumbnails from 'yet-another-react-lightbox/plugins/thumbnails'
@@ -100,12 +100,24 @@ const tabs = [
   ['members', 'Members'],
 ]
 
+const pathTabs = {
+  '/member/blogs': 'blogs',
+  '/member/events': 'updates',
+  '/member/fees': 'payments',
+  '/member/gallery': 'gallery',
+  '/member/members': 'members',
+  '/member/notices': 'updates',
+  '/member/polls': 'polls',
+}
+
 export default function MemberDashboardPage() {
   const { user } = useAuth()
   const { t } = useLanguage()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
-  const activeTab = tabs.some(([key]) => key === requestedTab) ? requestedTab : 'overview'
+  const pathTab = pathTabs[location.pathname]
+  const activeTab = tabs.some(([key]) => key === requestedTab) ? requestedTab : pathTab || 'overview'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
