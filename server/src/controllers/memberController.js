@@ -10,6 +10,7 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { createMemberDataPdf } = require('../services/memberDataPdfService')
 const { validateAdminPasswordReset } = require('../validators/authValidators')
 const { isBangladeshiPhone, normalizeBangladeshiPhone } = require('../utils/phoneUtils')
 
@@ -280,27 +281,43 @@ const requestAccountDeletion = asyncHandler(async (req, res) => {
   })
 })
 
-const getMyData = asyncHandler(async (req, res) => {
+const loadMyData = async (user) => {
   const [payments, blogs, meetings, tours, donations] = await Promise.all([
-    Payment.find({ user: req.user._id }),
-    Blog.find({ createdBy: req.user._id }),
-    Meeting.find({ 'attendance.member': req.user._id }),
-    Tour.find({ 'participants.member': req.user._id }),
-    Donation.find({ phone: req.user.phone }),
+    Payment.find({ user: user._id }).sort({ createdAt: -1 }),
+    Blog.find({ createdBy: user._id }).sort({ createdAt: -1 }),
+    Meeting.find({ 'attendance.member': user._id }).sort({ meetingDate: -1 }),
+    Tour.find({ 'participants.member': user._id }).sort({ startDate: -1 }),
+    Donation.find({ phone: user.phone }).sort({ createdAt: -1 }),
   ])
+
+  return {
+    blogs,
+    donations,
+    meetings,
+    payments,
+    profile: user,
+    tours,
+  }
+}
+
+const getMyData = asyncHandler(async (req, res) => {
+  const data = await loadMyData(req.user)
 
   res.status(200).json({
     success: true,
     message: 'Member data export loaded successfully.',
-    data: {
-      blogs,
-      donations,
-      meetings,
-      payments,
-      profile: req.user,
-      tours,
-    },
+    data,
   })
+})
+
+const downloadMyDataPdf = asyncHandler(async (req, res) => {
+  const data = await loadMyData(req.user)
+  const buffer = await createMemberDataPdf({ data })
+  const safePhone = String(req.user.phone || req.user._id).replace(/[^\w-]/g, '-')
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="member-data-${safePhone}.pdf"`)
+  res.send(buffer)
 })
 
 const getMemberActivitySummary = asyncHandler(async (req, res) => {
@@ -369,6 +386,7 @@ module.exports = {
   getApprovedMembers,
   getMemberActivitySummary,
   getMyData,
+  downloadMyDataPdf,
   requestAccountDeletion,
   resetUserPassword,
   updateUserAccess,

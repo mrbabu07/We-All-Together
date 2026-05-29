@@ -2,6 +2,7 @@ const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
   deleteUser,
+  downloadMyDataPdf,
   getAllUsers,
   getApprovedMembers,
   getMemberActivitySummary,
@@ -25,6 +26,7 @@ router.get(
   getApprovedMembers,
 )
 router.get('/my-data', protect, getMyData)
+router.get('/my-data.pdf', protect, downloadMyDataPdf)
 router.get('/my-activity', protect, getMemberActivitySummary)
 router.post('/delete-request', protect, requestAccountDeletion)
 router.get('/users', protect, authorize(USER_ROLES.ADMIN), getAllUsers)

@@ -158,14 +158,6 @@ const buildProfileDefaults = (user = {}) => ({
   profilePhotoUrl: user.profilePhotoUrl || '',
 })
 
-const escapeHtml = (value = '') =>
-  String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-
 const cssVar = (name) =>
   window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
@@ -346,37 +338,19 @@ export default function AccountPage() {
 
   const downloadMyData = async () => {
     try {
-      const response = await api.get('/member/members/my-data')
-      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+      const response = await api.get('/member/members/my-data.pdf', { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const safePhone = String(user?.phone || 'member').replace(/[^\w-]/g, '-')
 
-      if (!printWindow) {
-        toast.error('Popup অনুমতি দিন।')
-        return
-      }
-
-      printWindow.document.write(`
-        <!doctype html>
-        <html>
-          <head>
-            <title>My Data</title>
-            <style>
-              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
-              h1 { color: ${cssVar('--brand-600')}; }
-              pre { white-space: pre-wrap; border: 1px solid ${cssVar('--gray-200')}; border-radius: 12px; padding: 16px; }
-              @media print { button { display: none; } }
-            </style>
-          </head>
-          <body>
-            <h1>Dargah Para OIkko Porishod - My Data</h1>
-            <p>Use browser print to save this page as PDF.</p>
-            <pre>${escapeHtml(JSON.stringify(response.data.data, null, 2))}</pre>
-            <button onclick="window.print()">Print / Save PDF</button>
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.focus()
-      printWindow.print()
+      link.href = url
+      link.download = `member-data-${safePhone}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('My data PDF downloaded.')
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
