@@ -101,6 +101,20 @@ const expenseSchema = z.object({
   title: z.string().trim().min(1, 'Title is required.'),
 })
 
+const financeSettingsSchema = z.object({
+  donationNumber: z.string().trim().optional(),
+  donationProvider: z.string().trim().optional(),
+  feeDueDay: z.coerce
+    .number()
+    .int('Fee due day must be a whole number.')
+    .min(1, 'Fee due day must be at least 1.')
+    .max(28, 'Fee due day cannot be after day 28.'),
+  feeLateFeeAmount: z.coerce.number().min(0, 'Late fee cannot be negative.'),
+  feeOverdueAlertEnabled: z.boolean(),
+  monthlyFee: z.coerce.number().min(0, 'Monthly fee cannot be negative.'),
+  registrationFee: z.coerce.number().min(0, 'Registration fee cannot be negative.'),
+})
+
 const defaultPollForm = {
   deadline: '',
   meetingId: '',
@@ -666,25 +680,30 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const updateSettings = async (event) => {
-    event.preventDefault()
+  const updateSettings = async (values) => {
+    const nextSettings = {
+      ...settingsForm,
+      ...values,
+      notificationSettings: settingsForm.notificationSettings,
+    }
+
     await runAction(async () => {
       await Promise.all([
         api.patch('/settings/registration-fee', {
-          registrationFee: settingsForm.registrationFee,
+          registrationFee: nextSettings.registrationFee,
         }),
         api.patch('/settings/monthly-fee', {
-          monthlyFee: settingsForm.monthlyFee,
+          monthlyFee: nextSettings.monthlyFee,
         }),
         api.patch('/settings/donation-number', {
-          donationNumber: settingsForm.donationNumber,
-          donationProvider: settingsForm.donationProvider,
+          donationNumber: nextSettings.donationNumber,
+          donationProvider: nextSettings.donationProvider,
         }),
-        api.patch('/settings/notification-settings', settingsForm.notificationSettings),
+        api.patch('/settings/notification-settings', nextSettings.notificationSettings),
         api.patch('/admin-controls', {
-          feeDueDay: Number(settingsForm.feeDueDay || 1),
-          feeLateFeeAmount: Math.round(Number(settingsForm.feeLateFeeAmount || 0) * 100),
-          feeOverdueAlertEnabled: settingsForm.feeOverdueAlertEnabled,
+          feeDueDay: Number(nextSettings.feeDueDay || 1),
+          feeLateFeeAmount: Math.round(Number(nextSettings.feeLateFeeAmount || 0) * 100),
+          feeOverdueAlertEnabled: nextSettings.feeOverdueAlertEnabled,
         }),
       ])
     }, 'Settings updated successfully.')
@@ -1532,9 +1551,6 @@ export default function AdminDashboardPage() {
           onDonationVerify={(id) =>
             runAction(() => api.patch(`/donations/${id}/verify`), 'Donation verified.')
           }
-          onSettingsChange={(field, value) =>
-            setSettingsForm((current) => ({ ...current, [field]: value }))
-          }
           onNotificationSettingChange={updateNotificationSetting}
           onSaveManualDonation={handleManualDonationSubmit(saveManualDonation)}
           onUpdateSettings={updateSettings}
@@ -1936,7 +1952,6 @@ function FinanceTab({
   onSaveManualDonation,
   onSaveExpense,
   onNotificationSettingChange,
-  onSettingsChange,
   onUpdateSettings,
   registerDonation,
   registerExpense,
@@ -1992,59 +2007,7 @@ function FinanceTab({
 
       <Panel>
         <SectionTitle icon={Save} title="Finance Settings" />
-        <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={onUpdateSettings}>
-          <Field
-            label="Registration Fee"
-            name="registrationFee"
-            onChange={(event) => onSettingsChange('registrationFee', event.target.value)}
-            type="number"
-            value={settingsForm.registrationFee}
-          />
-          <Field
-            label="Monthly Fee"
-            name="monthlyFee"
-            onChange={(event) => onSettingsChange('monthlyFee', event.target.value)}
-            type="number"
-            value={settingsForm.monthlyFee}
-          />
-          <Field
-            label="Donation Number"
-            name="donationNumber"
-            onChange={(event) => onSettingsChange('donationNumber', event.target.value)}
-            value={settingsForm.donationNumber}
-          />
-          <Field
-            label="Donation Provider"
-            name="donationProvider"
-            onChange={(event) => onSettingsChange('donationProvider', event.target.value)}
-            value={settingsForm.donationProvider}
-          />
-          <Field
-            label="Fee Due Day"
-            max="28"
-            min="1"
-            name="feeDueDay"
-            onChange={(event) => onSettingsChange('feeDueDay', event.target.value)}
-            type="number"
-            value={settingsForm.feeDueDay}
-          />
-          <Field
-            label="Late Fee"
-            min="0"
-            name="feeLateFeeAmount"
-            onChange={(event) => onSettingsChange('feeLateFeeAmount', event.target.value)}
-            type="number"
-            value={settingsForm.feeLateFeeAmount}
-          />
-          <ToggleField
-            checked={settingsForm.feeOverdueAlertEnabled}
-            label="Enable overdue alerts"
-            onChange={(value) => onSettingsChange('feeOverdueAlertEnabled', value)}
-          />
-          <Button className="md:col-span-2 xl:col-span-4" icon={Save} type="submit">
-            Save Settings
-          </Button>
-        </form>
+        <FinanceSettingsForm onSubmit={onUpdateSettings} settingsForm={settingsForm} />
       </Panel>
 
       <Panel>
@@ -2253,6 +2216,100 @@ function FinanceTab({
         setActiveTab={setActiveFinanceTab}
       />
     </div>
+  )
+}
+
+function FinanceSettingsForm({ onSubmit, settingsForm }) {
+  const settingsDefaults = useMemo(
+    () => ({
+      donationNumber: settingsForm.donationNumber || '',
+      donationProvider: settingsForm.donationProvider || '',
+      feeDueDay: settingsForm.feeDueDay || 1,
+      feeLateFeeAmount: settingsForm.feeLateFeeAmount || 0,
+      feeOverdueAlertEnabled: settingsForm.feeOverdueAlertEnabled !== false,
+      monthlyFee: settingsForm.monthlyFee || 0,
+      registrationFee: settingsForm.registrationFee || 0,
+    }),
+    [
+      settingsForm.donationNumber,
+      settingsForm.donationProvider,
+      settingsForm.feeDueDay,
+      settingsForm.feeLateFeeAmount,
+      settingsForm.feeOverdueAlertEnabled,
+      settingsForm.monthlyFee,
+      settingsForm.registrationFee,
+    ],
+  )
+  const {
+    control,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+  } = useForm({
+    defaultValues: settingsDefaults,
+    resolver: zodResolver(financeSettingsSchema),
+  })
+  const values = useWatch({ control }) || settingsDefaults
+
+  useEffect(() => {
+    reset(settingsDefaults)
+  }, [reset, settingsDefaults])
+
+  return (
+    <form className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4" onSubmit={handleSubmit(onSubmit)}>
+      <Field
+        error={errors.registrationFee?.message}
+        label="Registration Fee"
+        type="number"
+        {...register('registrationFee')}
+      />
+      <Field
+        error={errors.monthlyFee?.message}
+        label="Monthly Fee"
+        type="number"
+        {...register('monthlyFee')}
+      />
+      <Field
+        error={errors.donationNumber?.message}
+        label="Donation Number"
+        {...register('donationNumber')}
+      />
+      <Field
+        error={errors.donationProvider?.message}
+        label="Donation Provider"
+        {...register('donationProvider')}
+      />
+      <Field
+        error={errors.feeDueDay?.message}
+        label="Fee Due Day"
+        max="28"
+        min="1"
+        type="number"
+        {...register('feeDueDay')}
+      />
+      <Field
+        error={errors.feeLateFeeAmount?.message}
+        label="Late Fee"
+        min="0"
+        type="number"
+        {...register('feeLateFeeAmount')}
+      />
+      <ToggleField
+        checked={Boolean(values.feeOverdueAlertEnabled)}
+        label="Enable overdue alerts"
+        onChange={(value) =>
+          setValue('feeOverdueAlertEnabled', value, {
+            shouldDirty: true,
+            shouldValidate: true,
+          })
+        }
+      />
+      <Button className="md:col-span-2 xl:col-span-4" icon={Save} loading={isSubmitting} type="submit">
+        Save Settings
+      </Button>
+    </form>
   )
 }
 
