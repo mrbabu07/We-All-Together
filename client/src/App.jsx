@@ -17,6 +17,7 @@ const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
 const AuthenticatedLayout = lazy(() => import('./layouts/AuthenticatedLayout'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const MemberDashboardPage = lazy(() => import('./pages/MemberDashboardPage'))
+const MemberDonatePage = lazy(() => import('./pages/MemberDonatePage'))
 const MemberFeeHistoryPage = lazy(() => import('./pages/MemberFeeHistoryPage'))
 const MemberVerifyPage = lazy(() => import('./pages/MemberVerifyPage'))
 const MemberLayout = lazy(() => import('./layouts/MemberLayout'))
@@ -86,6 +87,7 @@ function App() {
                 <Route path="member" element={page(<MemberDashboardPage />)} />
                 <Route path="member/blogs" element={page(<MemberDashboardPage />)} />
                 <Route path="member/dashboard" element={page(<MemberDashboardPage />)} />
+                <Route path="member/donate" element={page(<MemberDonatePage />)} />
                 <Route path="member/events" element={page(<MemberDashboardPage />)} />
                 <Route path="member/fees" element={page(<MemberDashboardPage />)} />
                 <Route path="member/fees/history" element={page(<MemberFeeHistoryPage />)} />

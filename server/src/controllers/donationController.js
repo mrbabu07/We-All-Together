@@ -10,6 +10,19 @@ const {
   validateManualDonation,
 } = require('../validators/financeValidators')
 
+const createDonation = async (payload, extra = {}) => {
+  const donation = new Donation({
+    ...payload,
+    ...extra,
+    donorName: payload.anonymous ? 'Anonymous' : payload.donorName,
+  })
+  donation.receiptNumber = `DON-${donation._id}`
+  donation.receiptGeneratedAt = new Date()
+  await donation.save()
+
+  return donation
+}
+
 const submitDonation = asyncHandler(async (req, res) => {
   const payload = validateDonation(req.body)
   const settings = await getSettings()
@@ -18,13 +31,39 @@ const submitDonation = asyncHandler(async (req, res) => {
     throw new AppError('Public donations are currently disabled.', 403)
   }
 
-  const donation = new Donation({
-    ...payload,
-    donorName: payload.anonymous ? 'Anonymous' : payload.donorName,
+  const donation = await createDonation(payload)
+
+  res.status(201).json({
+    success: true,
+    message: 'Donation submitted for verification. Thank you.',
+    data: {
+      donation,
+    },
   })
-  donation.receiptNumber = `DON-${donation._id}`
-  donation.receiptGeneratedAt = new Date()
-  await donation.save()
+})
+
+const submitMemberDonation = asyncHandler(async (req, res) => {
+  const payload = validateDonation({
+    ...req.body,
+    donorName: req.body.donorName || req.user.name,
+    phone: req.body.phone || req.user.phone,
+  })
+  const donation = await createDonation(payload, {
+    user: req.user._id,
+  })
+
+  await recordAuditLog({
+    action: 'donation.member.submit',
+    actor: req.user,
+    entityId: donation._id,
+    entityType: 'Donation',
+    metadata: {
+      amount: donation.amount,
+      anonymous: donation.anonymous,
+      method: donation.method,
+      phone: donation.phone,
+    },
+  })
 
   res.status(201).json({
     success: true,
@@ -82,6 +121,25 @@ const getDonations = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Donations loaded successfully.',
+    data: {
+      donations,
+    },
+  })
+})
+
+const getMyDonations = asyncHandler(async (req, res) => {
+  const ownerFilters = [{ user: req.user._id }]
+  if (req.user.phone) {
+    ownerFilters.push({ phone: req.user.phone })
+  }
+
+  const donations = await Donation.find({ $or: ownerFilters })
+    .populate('verifiedBy', 'name phone')
+    .sort({ createdAt: -1 })
+
+  res.status(200).json({
+    success: true,
+    message: 'Your donations loaded successfully.',
     data: {
       donations,
     },
@@ -184,8 +242,10 @@ const rejectDonation = asyncHandler(async (req, res) => {
 module.exports = {
   createManualDonation,
   getDonations,
+  getMyDonations,
   getVerifiedDonations,
   rejectDonation,
+  submitMemberDonation,
   submitDonation,
   verifyDonation,
 }

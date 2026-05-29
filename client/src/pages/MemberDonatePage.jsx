@@ -1,0 +1,345 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { HeartHandshake, RefreshCw, Send, Upload } from 'lucide-react'
+import api, { getErrorMessage } from '../api/http'
+import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
+import Field from '../components/ui/Field'
+import Panel from '../components/ui/Panel'
+import Skeleton from '../components/ui/Skeleton'
+import useAuth from '../hooks/useAuth'
+import { readFileAsDataUrl } from '../utils/fileUtils'
+
+const quickAmounts = [500, 1000, 2000, 5000]
+
+const initialDonationForm = {
+  amount: '1000',
+  anonymous: false,
+  donorName: '',
+  method: '',
+  note: '',
+  phone: '',
+  proofImageUrl: '',
+  transactionId: '',
+}
+
+const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
+
+const formatDate = (value) => {
+  if (!value) {
+    return 'N/A'
+  }
+
+  return new Intl.DateTimeFormat('en-BD', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+export default function MemberDonatePage() {
+  const { user } = useAuth()
+  const [donations, setDonations] = useState([])
+  const [form, setForm] = useState(initialDonationForm)
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [settings, setSettings] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+
+  const loadDonations = useCallback(async () => {
+    setLoading(true)
+    setMessage('')
+
+    try {
+      const [settingsResponse, donationsResponse] = await Promise.all([
+        api.get('/settings/public'),
+        api.get('/donations/my'),
+      ])
+
+      setSettings(settingsResponse.data.data.settings || {})
+      setDonations(donationsResponse.data.data.donations || [])
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      loadDonations()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [loadDonations])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setForm((current) => ({
+        ...current,
+        donorName: current.donorName || user?.name || '',
+        phone: current.phone || user?.phone || '',
+      }))
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [user?.name, user?.phone])
+
+  const totals = useMemo(() => {
+    return donations.reduce(
+      (summary, donation) => {
+        const amount = Number(donation.amount || 0)
+        summary.all += amount
+        if (donation.status === 'verified') {
+          summary.verified += amount
+        }
+        if (donation.status === 'pending') {
+          summary.pending += amount
+        }
+        return summary
+      },
+      { all: 0, pending: 0, verified: 0 },
+    )
+  }, [donations])
+
+  const updateField = (event) => {
+    const { checked, name, type, value } = event.target
+    setForm((current) => ({
+      ...current,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
+  }
+
+  const uploadProof = async (file) => {
+    if (!file) {
+      return
+    }
+
+    setUploading(true)
+    setMessage('')
+
+    try {
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/uploads/payment-proof', {
+        image,
+        name: `member-donation-${Date.now()}`,
+      })
+      setForm((current) => ({
+        ...current,
+        proofImageUrl: response.data.data.image.url,
+      }))
+      setMessage('Payment screenshot uploaded.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const submitDonation = async (event) => {
+    event.preventDefault()
+    setSubmitting(true)
+    setMessage('')
+
+    try {
+      if (!form.proofImageUrl) {
+        setMessage('Payment screenshot is required.')
+        return
+      }
+
+      await api.post('/donations/my', form)
+      setForm({
+        ...initialDonationForm,
+        donorName: user?.name || '',
+        phone: user?.phone || '',
+      })
+      await loadDonations()
+      setMessage('Donation submitted. Admin will verify it soon.')
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold uppercase text-[var(--brand-700)]">দান</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Member Donation</h1>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            আপনার প্রোফাইল থেকে দান জমা দিন এবং স্ট্যাটাস দেখুন।
+          </p>
+        </div>
+        <Button icon={RefreshCw} onClick={loadDonations} variant="secondary">
+          Refresh
+        </Button>
+      </div>
+
+      {loading ? (
+        <Panel className="mt-6">
+          <Skeleton rows={6} />
+        </Panel>
+      ) : (
+        <div className="mt-6 grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div className="grid gap-6">
+            <Panel>
+              <div className="flex items-start gap-3">
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-[var(--brand-50)] text-[var(--brand-600)]">
+                  <HeartHandshake aria-hidden="true" className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">Payment Info</h2>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
+                    Send money first, then submit the transaction details.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <InfoBox label="Number" value={settings.donationNumber || 'Admin has not set a number yet'} />
+                <InfoBox label="Method" value={settings.donationProvider || 'bKash / Nagad'} />
+              </div>
+            </Panel>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <SummaryCard label="All time" value={money(totals.all)} />
+              <SummaryCard label="Verified" value={money(totals.verified)} />
+              <SummaryCard label="Pending" value={money(totals.pending)} />
+            </div>
+          </div>
+
+          <Panel>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">দান জমা দিন</h2>
+            <form className="mt-5 grid gap-4" onSubmit={submitDonation}>
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-secondary)]">Quick amount</p>
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {quickAmounts.map((amount) => (
+                    <button
+                      className={`min-h-11 rounded-[var(--radius-md)] border px-3 text-sm font-semibold transition ${
+                        Number(form.amount) === amount
+                          ? 'border-[var(--brand-600)] bg-[var(--brand-50)] text-[var(--brand-700)]'
+                          : 'border-[var(--gray-200)] bg-[var(--surface-0)] text-[var(--text-secondary)] hover:border-[var(--brand-300)]'
+                      }`}
+                      key={amount}
+                      onClick={() => setForm((current) => ({ ...current, amount: String(amount) }))}
+                      type="button"
+                    >
+                      {money(amount)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Amount" min="1" name="amount" onChange={updateField} required type="number" value={form.amount} />
+                <Field label="Payment Method" name="method" onChange={updateField} placeholder={settings.donationProvider || 'bKash / Nagad'} required value={form.method} />
+                <Field disabled={form.anonymous} label="Name" name="donorName" onChange={updateField} required={!form.anonymous} value={form.donorName} />
+                <Field label="Phone" name="phone" onChange={updateField} required value={form.phone} />
+                <Field label="Transaction ID" name="transactionId" onChange={updateField} required value={form.transactionId} />
+                <Field label="Proof URL" name="proofImageUrl" onChange={updateField} required value={form.proofImageUrl} />
+              </div>
+
+              <label className="flex min-h-11 items-center gap-3 rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--surface-0)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)]">
+                <Upload aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
+                <span>{uploading ? 'Uploading screenshot...' : 'Upload payment screenshot'}</span>
+                <input
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={(event) => uploadProof(event.target.files?.[0])}
+                  type="file"
+                />
+              </label>
+
+              <Field label="Message" name="note" onChange={updateField} textarea value={form.note} />
+              <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+                <input checked={form.anonymous} name="anonymous" onChange={updateField} type="checkbox" />
+                Anonymous হিসেবে দেখান
+              </label>
+
+              {message ? (
+                <p className="rounded-[var(--radius-md)] border border-[var(--brand-100)] bg-[var(--brand-50)] px-4 py-3 text-sm font-semibold text-[var(--brand-800)]">
+                  {message}
+                </p>
+              ) : null}
+
+              <Button icon={Send} loading={submitting} size="lg" type="submit">
+                Submit Donation
+              </Button>
+            </form>
+          </Panel>
+        </div>
+      )}
+
+      {!loading ? (
+        <Panel className="mt-6 overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[var(--text-primary)]">My Donation History</h2>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">Pending, verified, and rejected submissions.</p>
+            </div>
+            <Badge value={`${donations.length}`}>{donations.length} records</Badge>
+          </div>
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-[760px] divide-y divide-[var(--gray-200)] text-left text-sm">
+              <thead className="bg-[var(--surface-1)] text-xs uppercase text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Method</th>
+                  <th className="px-4 py-3">Transaction</th>
+                  <th className="px-4 py-3">Message</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--gray-100)]">
+                {donations.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-8 text-center text-[var(--text-muted)]" colSpan={6}>
+                      No donations submitted yet.
+                    </td>
+                  </tr>
+                ) : null}
+                {donations.map((donation) => (
+                  <tr className="align-top" key={donation._id}>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{formatDate(donation.createdAt)}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">{money(donation.amount)}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{donation.method}</td>
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">{donation.transactionId}</td>
+                    <td className="max-w-xs px-4 py-3 text-[var(--text-secondary)]">{donation.note || '-'}</td>
+                    <td className="px-4 py-3">
+                      <Badge value={donation.status}>{donation.status}</Badge>
+                      {donation.rejectionReason ? (
+                        <p className="mt-1 text-xs font-medium text-[var(--danger)]">{donation.rejectionReason}</p>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      ) : null}
+    </main>
+  )
+}
+
+function InfoBox({ label, value }) {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-[var(--gray-200)] bg-[var(--surface-1)] p-4">
+      <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-[var(--text-primary)]">{value}</p>
+    </div>
+  )
+}
+
+function SummaryCard({ label, value }) {
+  return (
+    <Panel className="p-4">
+      <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{value}</p>
+    </Panel>
+  )
+}

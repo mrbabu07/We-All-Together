@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CreditCard, Home, Image, UserRound, Users, Vote } from 'lucide-react'
+import { Bell, BookOpen, CreditCard, HeartHandshake, Home, Image, UserRound, Users, Vote } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../api/http'
 import DashboardShell from './DashboardShell'
@@ -43,6 +43,7 @@ export default function MemberLayout() {
     { icon: Image, label: 'গ্যালারি', to: '/member?tab=gallery' },
     { icon: Bell, label: 'নোটিশ', to: '/member?tab=updates' },
     { icon: Vote, label: 'ভোট', to: '/member?tab=polls' },
+    { icon: HeartHandshake, label: 'দান', to: '/member/donate' },
     { icon: Users, label: 'সদস্য', to: '/member?tab=members' },
     { icon: UserRound, label: 'প্রোফাইল', to: '/account' },
   ].map(aliasMemberRoute)
