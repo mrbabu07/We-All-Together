@@ -2256,6 +2256,7 @@ function ToggleField({ checked, label, onChange }) {
 }
 
 function FinanceAnalytics({ analytics, filter, onFilterChange, onLoad }) {
+  const [exportMessage, setExportMessage] = useState('')
   const monthly = analytics?.monthly || []
   const donationTrend = analytics?.donationTrend || []
   const expenseBreakdown = analytics?.expenseBreakdown || []
@@ -2265,6 +2266,7 @@ function FinanceAnalytics({ analytics, filter, onFilterChange, onLoad }) {
   const pieColors = ['#00ADB5', '#393E46', '#10B981', '#F59E0B', '#EF4444', '#6366F1']
 
   const exportReport = () => {
+    setExportMessage('')
     const ok = downloadCsv(
       `finance-report-${range.from || 'start'}-${range.to || 'end'}.csv`,
       monthly.map((row) => ({
@@ -2280,7 +2282,7 @@ function FinanceAnalytics({ analytics, filter, onFilterChange, onLoad }) {
     )
 
     if (!ok) {
-      window.alert('No finance report data to export.')
+      setExportMessage('No finance report data to export.')
     }
   }
 
@@ -2406,6 +2408,11 @@ function FinanceAnalytics({ analytics, filter, onFilterChange, onLoad }) {
             </Button>
           </div>
         </div>
+        {exportMessage ? (
+          <p className="mt-3 rounded-md border border-[var(--warning)] bg-[var(--warning-light)] px-3 py-2 text-sm font-medium text-[var(--warning-dark)]">
+            {exportMessage}
+          </p>
+        ) : null}
         <div className="mt-4 grid gap-3 md:grid-cols-4">
           <SummaryStat label="Income" value={money(summary.totalIncome || 0)} />
           <SummaryStat label="Expense" value={money(summary.totalExpense || 0)} />
@@ -3955,44 +3962,56 @@ function GalleryManagementPanel({
 }
 
 function NoticeArchiveControls({ onArchive }) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [form, setForm] = useState({ from: '', to: '' })
 
-  const submitArchive = async (event) => {
+  const submitArchive = (event) => {
     event.preventDefault()
+    setConfirmOpen(true)
+  }
 
-    if (!window.confirm('Archive notices in the selected date range?')) {
-      return
-    }
-
+  const confirmArchive = async () => {
     await onArchive(form)
     setForm({ from: '', to: '' })
+    setConfirmOpen(false)
   }
 
   return (
-    <form
-      className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto]"
-      onSubmit={submitArchive}
-    >
-      <Field
-        label="Archive From"
-        name="archiveNoticeFrom"
-        onChange={(event) => setForm((current) => ({ ...current, from: event.target.value }))}
-        type="date"
-        value={form.from}
+    <>
+      <form
+        className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto]"
+        onSubmit={submitArchive}
+      >
+        <Field
+          label="Archive From"
+          name="archiveNoticeFrom"
+          onChange={(event) => setForm((current) => ({ ...current, from: event.target.value }))}
+          type="date"
+          value={form.from}
+        />
+        <Field
+          label="Archive To"
+          name="archiveNoticeTo"
+          onChange={(event) => setForm((current) => ({ ...current, to: event.target.value }))}
+          type="date"
+          value={form.to}
+        />
+        <div className="flex items-end">
+          <Button className="w-full" icon={DatabaseBackup} type="submit" variant="secondary">
+            Archive
+          </Button>
+        </div>
+      </form>
+      <ConfirmDialog
+        confirmLabel="Archive"
+        message="Archive notices in the selected date range?"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmArchive}
+        open={confirmOpen}
+        title="Archive notices?"
+        variant="danger"
       />
-      <Field
-        label="Archive To"
-        name="archiveNoticeTo"
-        onChange={(event) => setForm((current) => ({ ...current, to: event.target.value }))}
-        type="date"
-        value={form.to}
-      />
-      <div className="flex items-end">
-        <Button className="w-full" icon={DatabaseBackup} type="submit" variant="secondary">
-          Archive
-        </Button>
-      </div>
-    </form>
+    </>
   )
 }
 
@@ -5900,6 +5919,7 @@ function VerificationList({
   title,
 }) {
   const [query, setQuery] = useState('')
+  const [bulkApproveConfirmOpen, setBulkApproveConfirmOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [rejectModal, setRejectModal] = useState(null)
@@ -5971,6 +5991,12 @@ function VerificationList({
     })
   }
 
+  const confirmBulkApprove = async () => {
+    await onBulkVerify(selectedPendingIds)
+    setSelectedIds([])
+    setBulkApproveConfirmOpen(false)
+  }
+
   const submitReject = async (event) => {
     event.preventDefault()
     const reason = rejectModal?.reason?.trim()
@@ -6038,15 +6064,7 @@ function VerificationList({
             <Button
               disabled={selectedPendingIds.length === 0}
               icon={CheckCircle2}
-              onClick={async () => {
-                if (
-                  selectedPendingIds.length &&
-                  window.confirm(`Approve ${selectedPendingIds.length} selected ${recordLabel}s?`)
-                ) {
-                  await onBulkVerify(selectedPendingIds)
-                  setSelectedIds([])
-                }
-              }}
+              onClick={() => setBulkApproveConfirmOpen(true)}
               variant="success"
             >
               Bulk approve
@@ -6100,6 +6118,17 @@ function VerificationList({
           </form>
         ) : null}
       </Modal>
+
+      <ConfirmDialog
+        confirmLabel="Approve"
+        message={`Approve ${selectedPendingIds.length} selected ${recordLabel}${
+          selectedPendingIds.length === 1 ? '' : 's'
+        }?`}
+        onCancel={() => setBulkApproveConfirmOpen(false)}
+        onConfirm={confirmBulkApprove}
+        open={bulkApproveConfirmOpen}
+        title={`Approve selected ${recordLabel}s?`}
+      />
 
       <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-gray-200">
