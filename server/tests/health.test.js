@@ -1,6 +1,7 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const request = require('supertest')
+const publicRoutes = require('../src/routes/publicRoutes')
 
 process.env.NODE_ENV = 'test'
 
@@ -26,6 +27,36 @@ test('public namespace aliases existing public routes', async () => {
 
   assert.equal(response.body.success, true)
   assert.equal(response.body.data.database, 'disconnected')
+})
+
+test('public namespace exposes exact public API aliases', () => {
+  const aliases = publicRoutes.publicAliases.map(
+    ({ method, path }) => `${method.toUpperCase()} ${path}`,
+  )
+
+  assert.deepEqual(
+    [
+      'GET /achievements',
+      'GET /activities',
+      'GET /blogs',
+      'GET /committee',
+      'GET /donations',
+      'POST /donations',
+      'GET /donations/verified',
+      'GET /gallery',
+      'GET /health',
+      'GET /meetings',
+      'GET /members/verify/:id',
+      'GET /notices',
+      'GET /partners',
+      'POST /registrations',
+      'GET /rules',
+      'GET /settings',
+      'GET /testimonials',
+      'GET /tours',
+    ].sort(),
+    aliases.sort(),
+  )
 })
 
 test('admin and member namespace aliases keep auth protection', async () => {
