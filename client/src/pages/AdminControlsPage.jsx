@@ -2708,6 +2708,10 @@ function SecurityTab({
     return matchesAction && matchesActor
   })
   const failedLogins = recentActivity.filter((log) => log.action === 'auth.login.failed')
+  const activeSessionUsers = [...users]
+    .filter((user) => user.lastLoginAt || user.lastLoginIp)
+    .sort((left, right) => new Date(right.lastLoginAt || 0) - new Date(left.lastLoginAt || 0))
+    .slice(0, 12)
 
   const submitPasswordChange = async (values) => {
     await onPasswordChange({
@@ -2800,12 +2804,15 @@ function SecurityTab({
         <Panel>
           <SectionTitle icon={Lock} title="Active sessions / last login" />
           <div className="mt-5 grid gap-3">
-            {users.slice(0, 12).map((user) => (
+            {activeSessionUsers.map((user) => (
               <div className="flex items-center justify-between rounded-xl border border-gray-200 p-4" key={user._id}>
                 <div>
                   <p className="font-semibold text-gray-900">{user.name}</p>
                   <p className="text-sm text-gray-500">
                     IP {user.lastLoginIp || 'N/A'} | {toDate(user.lastLoginAt)}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold uppercase text-gray-400">
+                    Role {user.role} | Session v{Number(user.sessionVersion || 0)}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -2821,6 +2828,11 @@ function SecurityTab({
                 </div>
               </div>
             ))}
+            {!activeSessionUsers.length ? (
+              <p className="rounded-xl bg-gray-50 p-4 text-sm font-semibold text-gray-500">
+                No recent login sessions found.
+              </p>
+            ) : null}
           </div>
         </Panel>
         <Panel>
