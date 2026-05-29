@@ -8,6 +8,30 @@ const { createNotification } = require('./notificationService')
 const { getSettings } = require('./settingsService')
 const { sendTextMessage } = require('./smsService')
 
+const toPlainText = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const buildApprovalMessages = (settings = {}) => {
+  const orgName = toPlainText(settings.siteSettings?.orgName) || 'Dargah Para Oikko Porishod'
+  const welcomeMessage = toPlainText(settings.siteSettings?.welcomeMessage)
+
+  if (welcomeMessage) {
+    return {
+      notificationMessage: `${welcomeMessage} You can now access member features.`,
+      smsBody: `${orgName}: ${welcomeMessage}`,
+    }
+  }
+
+  return {
+    notificationMessage:
+      'Your registration has been approved. You can now access member features.',
+    smsBody: `Welcome to ${orgName}. Your registration has been approved.`,
+  }
+}
+
 const readModerationUserIds = (userIds) => {
   if (userIds === undefined) {
     return null
@@ -51,6 +75,7 @@ const findPendingRegistrations = async (userIds) => {
 const approvePendingRegistrations = async ({ actor, userIds }) => {
   const [users, settings] = await Promise.all([findPendingRegistrations(userIds), getSettings()])
   const approvedAt = new Date()
+  const approvalMessages = buildApprovalMessages(settings)
   const smsResults = []
 
   for (const user of users) {
@@ -68,7 +93,7 @@ const approvePendingRegistrations = async ({ actor, userIds }) => {
       await createNotification({
         createdBy: actor,
         link: '/member',
-        message: 'Your registration has been approved. You can now access member features.',
+        message: approvalMessages.notificationMessage,
         title: 'Registration approved',
         type: 'registration',
         user,
@@ -77,7 +102,7 @@ const approvePendingRegistrations = async ({ actor, userIds }) => {
 
     smsResults.push(
       await sendTextMessage({
-        body: 'Welcome to Dargah Para Oikko Porishod. Your registration has been approved.',
+        body: approvalMessages.smsBody,
         phone: user.phone,
       }),
     )
@@ -152,5 +177,6 @@ const rejectPendingRegistrations = async ({ actor, reason, userIds }) => {
 
 module.exports = {
   approvePendingRegistrations,
+  buildApprovalMessages,
   rejectPendingRegistrations,
 }

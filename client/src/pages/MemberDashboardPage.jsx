@@ -142,6 +142,11 @@ const formatDate = (value) => {
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleString('bn-BD')}`
+const plainText = (value = '') =>
+  String(value)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 const monthLabel = ({ label, month, year }) =>
   label || `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
 
@@ -1028,6 +1033,7 @@ export default function MemberDashboardPage() {
 function Overview({ data, monthlyFee, onPay, stats, user }) {
   const currentMonth = new Date().toISOString().slice(0, 7)
   const currentPayment = data.payments.find((payment) => payment.month === currentMonth)
+  const welcomeMessage = plainText(data.settings?.siteSettings?.welcomeMessage)
   const upcomingEvents = [...data.meetings, ...data.tours]
     .map((item) => ({
       ...item,
@@ -1054,6 +1060,11 @@ function Overview({ data, monthlyFee, onPay, stats, user }) {
           </div>
           <Badge value={user?.status || 'approved'}>{user?.status || 'approved'}</Badge>
         </div>
+        {welcomeMessage ? (
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-gray-600">
+            {welcomeMessage}
+          </p>
+        ) : null}
       </Panel>
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-4">
