@@ -105,6 +105,15 @@ const initialGalleryForm = {
   title: '',
 }
 
+const gallerySchema = z.object({
+  album: z.string().trim().min(1, 'Album is required.'),
+  audience: z.enum(['public', 'members']),
+  caption: z.string().trim().max(160, 'Caption cannot exceed 160 characters.').optional(),
+  description: z.string().trim().max(500, 'Description cannot exceed 500 characters.').optional(),
+  imageUrl: z.string().trim().min(1, 'Image URL is required.'),
+  title: z.string().trim().min(1, 'Title is required.'),
+})
+
 const formatDate = (value) => {
   if (!value) {
     return 'N/A'
@@ -164,13 +173,22 @@ export default function MemberDashboardPage() {
   const [message, setMessage] = useState('')
   const [editingBlogId, setEditingBlogId] = useState('')
   const [lastBlogAutoSaveAt, setLastBlogAutoSaveAt] = useState(null)
-  const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
   const [commentForms, setCommentForms] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
   const [meetingCheckInForms, setMeetingCheckInForms] = useState({})
   const [tourFeedbackForms, setTourFeedbackForms] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
+  const {
+    formState: { errors: galleryErrors, isSubmitting: isSubmittingGallery },
+    handleSubmit: handleGallerySubmit,
+    register: registerGallery,
+    reset: resetGallery,
+    setValue: setGalleryValue,
+  } = useForm({
+    defaultValues: initialGalleryForm,
+    resolver: zodResolver(gallerySchema),
+  })
   const {
     control: blogControl,
     formState: { errors: blogErrors, isSubmitting: isSubmittingBlog },
@@ -411,7 +429,10 @@ export default function MemberDashboardPage() {
           shouldValidate: true,
         })
       } else {
-        setGalleryForm((current) => ({ ...current, imageUrl }))
+        setGalleryValue('imageUrl', imageUrl, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
       }
 
       setMessage('Image uploaded successfully.')
@@ -481,19 +502,20 @@ export default function MemberDashboardPage() {
     setLastBlogAutoSaveAt(null)
   }
 
-  const submitGalleryItem = async (event) => {
-    event.preventDefault()
+  const submitGalleryItem = async (values) => {
     setMessage('')
 
     try {
-      await api.post('/gallery', galleryForm)
-      setGalleryForm(initialGalleryForm)
+      await api.post('/gallery', values)
+      resetGallery(initialGalleryForm)
       setMessage('Gallery photo submitted for admin approval.')
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
     }
   }
+
+  const submitGalleryUpload = (event) => handleGallerySubmit(submitGalleryItem)(event)
 
   const deleteBlog = async (id) => {
     try {
@@ -855,14 +877,13 @@ export default function MemberDashboardPage() {
       ) : null}
       {!loading && activeTab === 'gallery' ? (
         <Gallery
-          form={galleryForm}
+          formErrors={galleryErrors}
           gallery={data.gallery}
-          onChange={(field, value) =>
-            setGalleryForm((current) => ({ ...current, [field]: value }))
-          }
+          isSubmitting={isSubmittingGallery}
           onDelete={deleteGalleryItem}
-          onSubmit={submitGalleryItem}
+          onSubmit={submitGalleryUpload}
           onUpload={uploadCommunityImage}
+          registerGallery={registerGallery}
           uploading={uploadingCommunityImage === 'gallery'}
           user={user}
         />
@@ -1262,7 +1283,17 @@ function Blogs({
   )
 }
 
-function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, uploading, user }) {
+function Gallery({
+  formErrors,
+  gallery,
+  isSubmitting,
+  onDelete,
+  onSubmit,
+  onUpload,
+  registerGallery,
+  uploading,
+  user,
+}) {
   const [activeAlbum, setActiveAlbum] = useState('all')
   const [lightboxIndex, setLightboxIndex] = useState(-1)
   const canManage = (item) =>
@@ -1288,47 +1319,39 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
         <SectionTitle icon={Image} title="Add Gallery Photo" />
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
           <Field
+            error={formErrors.title?.message}
             label="Title"
-            name="title"
-            onChange={(event) => onChange('title', event.target.value)}
-            required
-            value={form.title}
+            {...registerGallery('title')}
           />
           <Field
+            error={formErrors.album?.message}
             label="Album"
-            name="album"
-            onChange={(event) => onChange('album', event.target.value)}
-            value={form.album}
+            {...registerGallery('album')}
           />
           <SelectField
+            error={formErrors.audience?.message}
             label="Audience"
-            name="audience"
-            onChange={(event) => onChange('audience', event.target.value)}
-            value={form.audience}
+            {...registerGallery('audience')}
           >
             <option value="public">Public</option>
             <option value="members">Members</option>
           </SelectField>
           <Field
+            error={formErrors.caption?.message}
             label="Caption"
-            name="caption"
-            onChange={(event) => onChange('caption', event.target.value)}
-            value={form.caption}
+            {...registerGallery('caption')}
           />
           <Field
             className="md:col-span-2"
+            error={formErrors.description?.message}
             label="Description"
-            name="description"
-            onChange={(event) => onChange('description', event.target.value)}
             textarea
-            value={form.description}
+            {...registerGallery('description')}
           />
           <Field
+            error={formErrors.imageUrl?.message}
             label="Image URL"
-            name="imageUrl"
-            onChange={(event) => onChange('imageUrl', event.target.value)}
-            required
-            value={form.imageUrl}
+            {...registerGallery('imageUrl')}
           />
           <div className="flex items-end">
             <CommunityImageUpload
@@ -1337,7 +1360,7 @@ function Gallery({ form, gallery, onChange, onDelete, onSubmit, onUpload, upload
               uploading={uploading}
             />
           </div>
-          <Button className="md:col-span-2" icon={Image} type="submit">
+          <Button className="md:col-span-2" icon={Image} loading={isSubmitting} type="submit">
             Submit Photo
           </Button>
         </form>
