@@ -18,6 +18,7 @@ const AuthenticatedLayout = lazy(() => import('./layouts/AuthenticatedLayout'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const MemberDashboardPage = lazy(() => import('./pages/MemberDashboardPage'))
 const MemberFeeHistoryPage = lazy(() => import('./pages/MemberFeeHistoryPage'))
+const MemberVerifyPage = lazy(() => import('./pages/MemberVerifyPage'))
 const MemberLayout = lazy(() => import('./layouts/MemberLayout'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
@@ -56,6 +57,7 @@ function App() {
           <Route element={<PublicLayout />}>
             <Route index element={page(<PublicHomePage />)} />
             <Route path="notices/:noticeId" element={page(<PublicHomePage />)} />
+            <Route path="member/verify/:memberId" element={page(<MemberVerifyPage />)} />
             <Route path="login" element={page(<LoginPage />)} />
             <Route path="register" element={page(<RegisterPage />)} />
             <Route path="*" element={page(<NotFoundPage />)} />

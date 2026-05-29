@@ -36,6 +36,7 @@ export default function AccountPage() {
   const [profileForm, setProfileForm] = useState({
     address: '',
     birthCertificateUrl: '',
+    email: '',
     emergencyContact: { name: '', phone: '', relation: '' },
     name: '',
     nidImageUrl: '',
@@ -60,6 +61,7 @@ export default function AccountPage() {
         setProfileForm({
           address: user.address || '',
           birthCertificateUrl: user.birthCertificateUrl || '',
+          email: user.email || '',
           emergencyContact: {
             name: user.emergencyContact?.name || '',
             phone: user.emergencyContact?.phone || '',
@@ -273,6 +275,20 @@ export default function AccountPage() {
     }
   }
 
+  const completionItems = [
+    profileForm.name,
+    profileForm.phone,
+    profileForm.email,
+    profileForm.address,
+    profileForm.emergencyContact.phone,
+    profileForm.profilePhotoUrl,
+    profileForm.nidImageUrl || profileForm.passportImageUrl || profileForm.birthCertificateUrl,
+  ]
+  const profileCompletion = Math.round(
+    (completionItems.filter(Boolean).length / completionItems.length) * 100,
+  )
+  const verificationUrl = user?._id ? `${window.location.origin}/member/verify/${user._id}` : ''
+
   const downloadIdCard = () => {
     const canvas = canvasRef.current
     const context = canvas.getContext('2d')
@@ -307,10 +323,11 @@ export default function AccountPage() {
     context.fillStyle = cssVar('--text-secondary')
     context.font = '16px Arial'
     context.fillText(`Member ID: ${user?._id || ''}`, 40, 472)
-    drawQrLikePattern(context, user?._id || user?.phone || 'member', 670, 180, 150)
+    drawQrLikePattern(context, verificationUrl || user?._id || user?.phone || 'member', 670, 180, 150)
     context.fillStyle = cssVar('--text-secondary')
     context.font = '14px Arial'
-    context.fillText('Scan/verify with organization records', 610, 360)
+    context.fillText('Verify:', 610, 360)
+    context.fillText(verificationUrl, 610, 382)
 
     const link = document.createElement('a')
     link.download = `member-id-${user?.phone || 'card'}.png`
@@ -358,7 +375,26 @@ export default function AccountPage() {
             </div>
             <Badge value={user?.status || 'approved'}>{user?.status || 'approved'}</Badge>
           </div>
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-sm font-semibold text-gray-700">
+              <span>Profile completion</span>
+              <span>{profileCompletion}%</span>
+            </div>
+            <div className="mt-2 h-3 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${profileCompletion}%` }}
+              />
+            </div>
+          </div>
           <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={saveProfile}>
+            <Field
+              label="Email"
+              name="email"
+              onChange={updateProfileField}
+              type="email"
+              value={profileForm.email}
+            />
             <Field label="নাম" name="name" onChange={updateProfileField} required value={profileForm.name} />
             <Field
               label="ফোন"

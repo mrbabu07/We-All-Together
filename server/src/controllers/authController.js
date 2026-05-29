@@ -110,6 +110,7 @@ const updateMe = asyncHandler(async (req, res) => {
 
   user.name = payload.name
   user.phone = payload.phone
+  user.email = payload.email
   user.address = payload.address
   user.profilePhotoUrl = payload.profilePhotoUrl
   user.nidImageUrl = payload.nidImageUrl

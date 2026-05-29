@@ -11,6 +11,7 @@ test('validateProfileUpdate accepts name phone and optional address', () => {
   const payload = validateProfileUpdate({
     birthCertificateUrl: ' https://example.com/birth.jpg ',
     address: 'Dargah Para',
+    email: ' Member@Example.com ',
     name: 'Admin User',
     nidImageUrl: ' https://example.com/nid.jpg ',
     phone: '01700000000',
@@ -19,6 +20,7 @@ test('validateProfileUpdate accepts name phone and optional address', () => {
 
   assert.equal(payload.name, 'Admin User')
   assert.equal(payload.phone, '01700000000')
+  assert.equal(payload.email, 'member@example.com')
   assert.equal(payload.address, 'Dargah Para')
   assert.equal(payload.birthCertificateUrl, 'https://example.com/birth.jpg')
   assert.equal(payload.nidImageUrl, 'https://example.com/nid.jpg')

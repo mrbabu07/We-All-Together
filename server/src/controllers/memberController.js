@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const User = require('../models/User')
 const Blog = require('../models/Blog')
@@ -35,6 +36,38 @@ const getAllUsers = asyncHandler(async (req, res) => {
     message: 'Users loaded successfully.',
     data: {
       users,
+    },
+  })
+})
+
+const verifyMemberPublic = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new AppError('Verified member not found.', 404)
+  }
+
+  const user = await User.findOne({
+    _id: req.params.id,
+    softDeletedAt: null,
+    status: USER_STATUSES.APPROVED,
+  }).select('approvedAt name phone profilePhotoUrl role status')
+
+  if (!user) {
+    throw new AppError('Verified member not found.', 404)
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Member verification loaded successfully.',
+    data: {
+      member: {
+        approvedAt: user.approvedAt,
+        memberId: user._id,
+        name: user.name,
+        phoneLast4: user.phone ? user.phone.slice(-4) : '',
+        profilePhotoUrl: user.profilePhotoUrl,
+        role: user.role,
+        status: user.status,
+      },
     },
   })
 })
@@ -302,5 +335,6 @@ module.exports = {
   requestAccountDeletion,
   resetUserPassword,
   updateUserAccess,
+  verifyMemberPublic,
   updateMemberProfile,
 }

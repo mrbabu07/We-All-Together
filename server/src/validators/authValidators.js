@@ -93,6 +93,8 @@ const validateProfileUpdate = (body) => ({
   address: typeof body.address === 'string' ? body.address.trim() : '',
   birthCertificateUrl:
     typeof body.birthCertificateUrl === 'string' ? body.birthCertificateUrl.trim() : '',
+  email:
+    typeof body.email === 'string' && body.email.trim() !== '' ? optionalEmail(body) : '',
   emergencyContact: {
     name:
       typeof body.emergencyContact?.name === 'string' ? body.emergencyContact.name.trim() : '',
