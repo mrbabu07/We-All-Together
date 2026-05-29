@@ -1269,14 +1269,41 @@ const homepageManagerConfigs = [
   },
 ]
 
+const createHomepageDraft = (draft = {}) => ({
+  active: true,
+  order: 0,
+  showPhone: false,
+  ...draft,
+})
+
 const createEmptyHomepageDrafts = () =>
   homepageManagerConfigs.reduce(
     (drafts, config) => ({
       ...drafts,
-      [config.key]: { active: true, order: 0, showPhone: false },
+      [config.key]: createHomepageDraft(),
     }),
     {},
   )
+
+const createHomepageDraftSchema = (config) =>
+  z
+    .object({
+      active: z.boolean().optional(),
+      order: z.coerce.number().min(0, 'Order must be zero or more.').optional(),
+      showPhone: z.boolean().optional(),
+    })
+    .passthrough()
+    .superRefine((values, context) => {
+      config.fields.forEach((field) => {
+        if (field.required && !String(values[field.name] || '').trim()) {
+          context.addIssue({
+            code: 'custom',
+            message: `${field.label} is required.`,
+            path: [field.name],
+          })
+        }
+      })
+    })
 
 const toLines = (value) => (Array.isArray(value) ? value.join('\n') : '')
 const fromLines = (value) =>
@@ -1284,6 +1311,90 @@ const fromLines = (value) =>
     .split(/\r?\n|,/)
     .map((item) => item.trim())
     .filter(Boolean)
+
+function HomepageManagerForm({ config, draft, onCancel, onSubmit, onUploadImage }) {
+  const schema = useMemo(() => createHomepageDraftSchema(config), [config])
+  const {
+    control,
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+  } = useForm({
+    defaultValues: createHomepageDraft(draft),
+    resolver: zodResolver(schema),
+  })
+  const values = useWatch({ control }) || {}
+
+  useEffect(() => {
+    reset(createHomepageDraft(draft))
+  }, [draft, reset])
+
+  const submitForm = async (values) => {
+    await onSubmit({
+      ...draft,
+      ...values,
+      order: Number(values.order || 0),
+    })
+  }
+
+  return (
+    <form className="mt-5 grid gap-4" onSubmit={handleSubmit(submitForm)}>
+      <div className="grid gap-4 md:grid-cols-2">
+        {config.fields.map((field) => (
+          <div className={field.textarea ? 'md:col-span-2' : ''} key={field.name}>
+            <Field
+              error={errors[field.name]?.message}
+              label={field.label}
+              required={field.required}
+              textarea={field.textarea}
+              type={field.type === 'number' ? 'number' : 'text'}
+              {...register(field.name)}
+            />
+            {field.type === 'image' ? (
+              <div className="mt-2">
+                <FileUploadButton
+                  label={'\u099b\u09ac\u09bf \u0986\u09aa\u09b2\u09cb\u09a1'}
+                  onUpload={async (file) => {
+                    try {
+                      const url = await onUploadImage(file, `${config.key}-${Date.now()}`)
+                      setValue(field.name, url, { shouldDirty: true, shouldValidate: true })
+                    } catch (error) {
+                      toast.error(getErrorMessage(error))
+                    }
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+      {config.toggles?.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {config.toggles.map((toggle) => (
+            <Toggle
+              checked={Boolean(values[toggle.name])}
+              key={toggle.name}
+              label={toggle.label}
+              onChange={(value) => setValue(toggle.name, value, { shouldDirty: true, shouldValidate: true })}
+            />
+          ))}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button icon={Save} loading={isSubmitting} type="submit">
+          {draft?._id ? '\u0986\u09aa\u09a1\u09c7\u099f \u0995\u09b0\u09c1\u09a8' : '\u09af\u09cb\u0997 \u0995\u09b0\u09c1\u09a8'}
+        </Button>
+        {draft?._id ? (
+          <Button onClick={onCancel} type="button" variant="secondary">
+            Cancel edit
+          </Button>
+        ) : null}
+      </div>
+    </form>
+  )
+}
 
 function HomepageControlsTab({
   collections,
@@ -1301,28 +1412,16 @@ function HomepageControlsTab({
   const [drafts, setDrafts] = useState(createEmptyHomepageDrafts)
   const homepage = form.homepageControls || defaultSettings.homepageControls
 
-  const updateDraft = (key, field, value) => {
-    setDrafts((current) => ({
-      ...current,
-      [key]: {
-        ...current[key],
-        [field]: value,
-      },
-    }))
-  }
-
   const resetDraft = (key) => {
     setDrafts((current) => ({
       ...current,
-      [key]: { active: true, order: 0, showPhone: false },
+      [key]: createHomepageDraft(),
     }))
   }
 
-  const submitDraft = async (event, config) => {
-    event.preventDefault()
-    const draft = drafts[config.key] || {}
+  const submitDraft = async (config, draft) => {
     const payload = { ...draft, order: Number(draft.order || 0) }
-    const existing = draft._id ? draft : null
+    const existing = payload._id ? payload : null
 
     if (existing) {
       await onUpdate(config.key, existing, payload)
@@ -1394,67 +1493,13 @@ function HomepageControlsTab({
         {homepageManagerConfigs.map((config) => (
           <Panel key={config.key}>
             <SectionTitle icon={config.icon} title={config.title} />
-            <form className="mt-5 grid gap-4" onSubmit={(event) => submitDraft(event, config)}>
-              <div className="grid gap-4 md:grid-cols-2">
-                {config.fields.map((field) => (
-                  <div className={field.textarea ? 'md:col-span-2' : ''} key={field.name}>
-                    <Field
-                      label={field.label}
-                      name={field.name}
-                      onChange={(event) =>
-                        updateDraft(
-                          config.key,
-                          field.name,
-                          field.type === 'number' ? Number(event.target.value || 0) : event.target.value,
-                        )
-                      }
-                      required={field.required}
-                      textarea={field.textarea}
-                      type={field.type === 'number' ? 'number' : 'text'}
-                      value={drafts[config.key]?.[field.name] ?? ''}
-                    />
-                    {field.type === 'image' ? (
-                      <div className="mt-2">
-                        <FileUploadButton
-                          label="ছবি আপলোড"
-                          onUpload={async (file) => {
-                            try {
-                              const url = await onUploadImage(file, `${config.key}-${Date.now()}`)
-                              updateDraft(config.key, field.name, url)
-                            } catch (error) {
-                              toast.error(getErrorMessage(error))
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-              {config.toggles?.length ? (
-                <div className="grid gap-3 md:grid-cols-2">
-                  {config.toggles.map((toggle) => (
-                    <Toggle
-                      checked={Boolean(drafts[config.key]?.[toggle.name])}
-                      key={toggle.name}
-                      label={toggle.label}
-                      onChange={(value) => updateDraft(config.key, toggle.name, value)}
-                    />
-                  ))}
-                </div>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button icon={Save} type="submit">
-                  {drafts[config.key]?._id ? 'আপডেট করুন' : 'যোগ করুন'}
-                </Button>
-                {drafts[config.key]?._id ? (
-                  <Button onClick={() => resetDraft(config.key)} type="button" variant="secondary">
-                    Cancel edit
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-
+            <HomepageManagerForm
+              config={config}
+              draft={drafts[config.key]}
+              onCancel={() => resetDraft(config.key)}
+              onSubmit={(payload) => submitDraft(config, payload)}
+              onUploadImage={onUploadImage}
+            />
             <div className="mt-6 grid gap-3">
               {(collections[config.key] || []).map((item, index, items) => (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={item._id}>
@@ -1492,7 +1537,7 @@ function HomepageControlsTab({
                       Move down
                     </Button>
                     <Button
-                      onClick={() => setDrafts((current) => ({ ...current, [config.key]: item }))}
+                      onClick={() => setDrafts((current) => ({ ...current, [config.key]: createHomepageDraft(item) }))}
                       type="button"
                       variant="secondary"
                     >
