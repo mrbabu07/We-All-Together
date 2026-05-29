@@ -247,6 +247,7 @@ export default function AdminDashboardPage() {
       range: {},
       summary: {},
     },
+    blogs: [],
     content: { activities: [], meetings: [], notices: [], rules: [], tours: [] },
     donations: [],
     expenses: [],
@@ -338,6 +339,7 @@ export default function AdminDashboardPage() {
         toursResponse,
         activitiesResponse,
         rulesResponse,
+        blogsResponse,
         auditLogsResponse,
         analyticsResponse,
         pollsResponse,
@@ -354,6 +356,7 @@ export default function AdminDashboardPage() {
         api.get('/tours/members'),
         api.get('/activities/members'),
         api.get('/rules/members'),
+        api.get('/blogs/members'),
         api.get('/audit-logs', { params: { limit: 80 } }),
         api.get('/finance/analytics'),
         api.get('/polls'),
@@ -364,6 +367,7 @@ export default function AdminDashboardPage() {
       setData({
         auditLogs: auditLogsResponse.data.data.logs,
         analytics: analyticsResponse.data.data,
+        blogs: blogsResponse.data.data.blogs,
         content: {
           activities: activitiesResponse.data.data.items,
           meetings: meetingsResponse.data.data.items,
@@ -697,6 +701,55 @@ export default function AdminDashboardPage() {
       () => api.post('/notices/archive-bulk', payload),
       'Matching notices archived successfully.',
     )
+  }
+
+  const moderateBlog = async (id, status, note = '') => {
+    const reason =
+      status === 'rejected' && !note.trim() ? window.prompt('Blog rejection reason') || '' : note
+
+    if (status === 'rejected' && !reason.trim()) {
+      setMessage('Blog rejection reason is required.')
+      return
+    }
+
+    await runAction(
+      () => api.patch(`/blogs/${id}/moderation`, { note: reason.trim(), status }),
+      'Blog moderation updated successfully.',
+    )
+  }
+
+  const bulkModerateBlogs = async (blogIds, status, note = '') => {
+    const reason =
+      status === 'rejected' && !note.trim()
+        ? window.prompt('Bulk blog rejection reason') || ''
+        : note
+
+    if (!blogIds.length) {
+      setMessage('Select at least one blog first.')
+      return
+    }
+    if (status === 'rejected' && !reason.trim()) {
+      setMessage('Blog rejection reason is required.')
+      return
+    }
+
+    await runAction(
+      () => api.post('/blogs/moderation/bulk', { blogIds, note: reason.trim(), status }),
+      'Selected blogs moderated successfully.',
+    )
+  }
+
+  const deleteBlog = async (id) => {
+    requestConfirm({
+      action: () =>
+        runAction(async () => {
+          await api.delete(`/blogs/${id}`)
+        }, 'Blog deleted successfully.'),
+      confirmLabel: 'Delete Blog',
+      message: 'This blog and its comments will be removed.',
+      title: 'Delete blog?',
+      variant: 'danger',
+    })
   }
 
   const deleteContent = async (config, id) => {
@@ -1229,6 +1282,9 @@ export default function AdminDashboardPage() {
           data={data}
           editingContent={editingContent}
           onCancelEdit={cancelContentEdit}
+          onBlogBulkModerate={bulkModerateBlogs}
+          onBlogDelete={deleteBlog}
+          onBlogModerate={moderateBlog}
           onCreate={createContent}
           onDelete={deleteContent}
           onEdit={editContent}
@@ -2881,6 +2937,9 @@ function ContentTab({
   editingContent,
   onCancelEdit,
   onArchiveNotices,
+  onBlogBulkModerate,
+  onBlogDelete,
+  onBlogModerate,
   onCreate,
   onDelete,
   onEdit,
@@ -2905,6 +2964,12 @@ function ContentTab({
 
   return (
     <div className="mt-6 grid gap-6">
+      <BlogModerationPanel
+        blogs={data.blogs}
+        onBulkModerate={onBlogBulkModerate}
+        onDelete={onBlogDelete}
+        onModerate={onBlogModerate}
+      />
       {contentConfigs.map((config) => (
         <Panel key={config.key}>
           <SectionTitle
@@ -3010,6 +3075,166 @@ function ContentTab({
         </Panel>
       ))}
     </div>
+  )
+}
+
+function BlogModerationPanel({ blogs, onBulkModerate, onDelete, onModerate }) {
+  const [selectedIds, setSelectedIds] = useState([])
+  const [statusFilter, setStatusFilter] = useState('pending')
+  const [expandedId, setExpandedId] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
+  const visibleBlogs =
+    statusFilter === 'all'
+      ? blogs
+      : blogs.filter((blog) => (blog.moderationStatus || 'approved') === statusFilter)
+
+  const toggleSelected = (id) => {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  const runBulk = async (status) => {
+    await onBulkModerate(selectedIds, status, rejectionReason)
+    setSelectedIds([])
+    setRejectionReason('')
+  }
+
+  return (
+    <Panel>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <SectionTitle icon={FileText} title="Blog Moderation" />
+        <div className="flex flex-wrap gap-2">
+          {['pending', 'rejected', 'approved', 'draft', 'all'].map((status) => (
+            <Button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              size="sm"
+              variant={statusFilter === status ? 'primary' : 'secondary'}
+            >
+              {status}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto_auto]">
+        <Field
+          label="Reject Reason"
+          name="blogBulkRejectReason"
+          onChange={(event) => setRejectionReason(event.target.value)}
+          placeholder="Required for rejection"
+          value={rejectionReason}
+        />
+        <div className="flex items-end">
+          <Button
+            disabled={!selectedIds.length}
+            icon={CheckCircle2}
+            onClick={() => runBulk('approved')}
+            variant="success"
+          >
+            Bulk Approve
+          </Button>
+        </div>
+        <div className="flex items-end">
+          <Button
+            disabled={!selectedIds.length}
+            icon={XCircle}
+            onClick={() => runBulk('rejected')}
+            variant="danger"
+          >
+            Bulk Reject
+          </Button>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {visibleBlogs.length === 0 ? <Empty text="No blogs match this status." /> : null}
+        {visibleBlogs.map((blog) => {
+          const selected = selectedIds.includes(blog._id)
+          const expanded = expandedId === blog._id
+
+          return (
+            <article className="rounded-md border border-gray-200 bg-white p-4" key={blog._id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <label className="flex min-h-11 items-start gap-3">
+                  <input
+                    checked={selected}
+                    className="mt-1 h-4 w-4 accent-indigo-700"
+                    onChange={() => toggleSelected(blog._id)}
+                    type="checkbox"
+                  />
+                  <span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-gray-950">{blog.title}</span>
+                      <Badge value={blog.moderationStatus || 'approved'}>
+                        {blog.moderationStatus || 'approved'}
+                      </Badge>
+                      <Badge value={blog.audience}>{blog.audience}</Badge>
+                    </span>
+                    <span className="mt-1 block text-xs font-semibold uppercase text-gray-500">
+                      {blog.createdBy?.name || 'Member'} | {toReadableDate(blog.createdAt)}
+                    </span>
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    icon={Eye}
+                    onClick={() => setExpandedId(expanded ? '' : blog._id)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    Preview
+                  </Button>
+                  <Button
+                    icon={CheckCircle2}
+                    onClick={() => onModerate(blog._id, 'approved')}
+                    size="sm"
+                    variant="success"
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    icon={XCircle}
+                    onClick={() => onModerate(blog._id, 'rejected', rejectionReason)}
+                    size="sm"
+                    variant="danger"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    icon={Trash2}
+                    onClick={() => onDelete(blog._id)}
+                    size="sm"
+                    variant="danger"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+              {blog.imageUrl ? (
+                <img
+                  alt=""
+                  className="mt-3 h-40 w-full max-w-md rounded-md object-cover"
+                  src={blog.imageUrl}
+                />
+              ) : null}
+              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">
+                {expanded ? blog.body : `${blog.body?.slice(0, 220) || ''}${blog.body?.length > 220 ? '...' : ''}`}
+              </p>
+              {blog.moderationNote ? (
+                <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  Reason: {blog.moderationNote}
+                </p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold uppercase text-gray-500">
+                <span>Likes: {blog.likes?.length || 0}</span>
+                <span>Comments: {blog.comments?.length || 0}</span>
+                {blog.moderatedBy ? <span>Moderated by: {blog.moderatedBy.name}</span> : null}
+              </div>
+            </article>
+          )
+        })}
+      </div>
+    </Panel>
   )
 }
 

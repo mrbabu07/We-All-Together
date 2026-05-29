@@ -16,6 +16,7 @@ import {
   Image,
   MessageCircle,
   RefreshCw,
+  Save,
   Send,
   Trash2,
   Upload,
@@ -49,6 +50,7 @@ const initialBlogForm = {
   audience: 'public',
   body: '',
   imageUrl: '',
+  moderationStatus: 'pending',
   title: '',
 }
 
@@ -106,6 +108,7 @@ export default function MemberDashboardPage() {
   const [message, setMessage] = useState('')
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
   const [blogForm, setBlogForm] = useState(initialBlogForm)
+  const [editingBlogId, setEditingBlogId] = useState('')
   const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
   const [commentForms, setCommentForms] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
@@ -293,18 +296,48 @@ export default function MemberDashboardPage() {
     }
   }
 
-  const submitBlog = async (event) => {
+  const submitBlog = async (event, moderationStatus = 'pending') => {
     event.preventDefault()
     setMessage('')
 
     try {
-      await api.post('/blogs', blogForm)
+      const payload = {
+        ...blogForm,
+        moderationStatus,
+      }
+
+      if (editingBlogId) {
+        await api.patch(`/blogs/${editingBlogId}`, payload)
+      } else {
+        await api.post('/blogs', payload)
+      }
       setBlogForm(initialBlogForm)
-      setMessage('Blog published successfully.')
+      setEditingBlogId('')
+      setMessage(
+        moderationStatus === 'draft'
+          ? 'Blog draft saved successfully.'
+          : 'Blog submitted for approval.',
+      )
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
     }
+  }
+
+  const editBlog = (blog) => {
+    setEditingBlogId(blog._id)
+    setBlogForm({
+      audience: blog.audience || 'public',
+      body: blog.body || '',
+      imageUrl: blog.imageUrl || '',
+      moderationStatus: blog.moderationStatus || 'pending',
+      title: blog.title || '',
+    })
+  }
+
+  const cancelBlogEdit = () => {
+    setEditingBlogId('')
+    setBlogForm(initialBlogForm)
   }
 
   const submitGalleryItem = async (event) => {
@@ -657,14 +690,17 @@ export default function MemberDashboardPage() {
       {!loading && activeTab === 'blogs' ? (
         <Blogs
           commentForms={commentForms}
+          editingBlogId={editingBlogId}
           form={blogForm}
           onChange={(field, value) => setBlogForm((current) => ({ ...current, [field]: value }))}
+          onCancelEdit={cancelBlogEdit}
           onCommentChange={(id, value) =>
             setCommentForms((current) => ({ ...current, [id]: value }))
           }
           onCommentDelete={deleteBlogComment}
           onCommentSubmit={addBlogComment}
           onDelete={deleteBlog}
+          onEdit={editBlog}
           onLike={toggleBlogLike}
           onSubmit={submitBlog}
           onUpload={uploadCommunityImage}
@@ -874,12 +910,15 @@ function OverdueAlertBanner({ feeStatus, onPay }) {
 function Blogs({
   blogs,
   commentForms,
+  editingBlogId,
   form,
   onChange,
+  onCancelEdit,
   onCommentChange,
   onCommentDelete,
   onCommentSubmit,
   onDelete,
+  onEdit,
   onLike,
   onSubmit,
   onUpload,
@@ -890,12 +929,14 @@ function Blogs({
     user?.role === 'admin' || blog.createdBy?._id === user?._id || blog.createdBy === user?._id
   const hasLiked = (blog) =>
     blog.likes?.some((like) => (like.user?._id || like.user) === user?._id)
+  const approvedBlogs = blogs.filter((blog) => (blog.moderationStatus || 'approved') === 'approved')
+  const myBlogs = blogs.filter((blog) => canManage(blog))
 
   return (
     <div className="mt-6 grid gap-6">
       <Panel>
-        <SectionTitle icon={BookOpen} title="Write Blog" />
-        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+        <SectionTitle icon={BookOpen} title={editingBlogId ? 'Edit Blog' : 'Write Blog'} />
+        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={(event) => onSubmit(event, 'pending')}>
           <Field
             label="Title"
             name="title"
@@ -934,15 +975,66 @@ function Blogs({
               uploading={uploading}
             />
           </div>
-          <Button className="md:col-span-2" icon={Send} type="submit">
-            Publish Blog
-          </Button>
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <Button icon={Save} onClick={(event) => onSubmit(event, 'draft')} variant="secondary">
+              Save Draft
+            </Button>
+            <Button icon={Send} type="submit">
+              Submit for Approval
+            </Button>
+            {editingBlogId ? (
+              <Button onClick={onCancelEdit} variant="secondary">
+                Cancel Edit
+              </Button>
+            ) : null}
+          </div>
         </form>
       </Panel>
 
+      <Panel>
+        <SectionTitle icon={FileText} title="My Blogs" />
+        <div className="mt-4 grid gap-3">
+          {myBlogs.length === 0 ? <Empty text="No blogs submitted yet." /> : null}
+          {myBlogs.map((blog) => (
+            <div className="rounded-md border border-gray-200 bg-white p-4" key={blog._id}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold text-gray-950">{blog.title}</h3>
+                    <Badge value={blog.moderationStatus || 'approved'}>
+                      {blog.moderationStatus || 'approved'}
+                    </Badge>
+                    <Badge value={blog.audience}>{blog.audience}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
+                    {formatDate(blog.createdAt)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => onEdit(blog)} size="sm" variant="secondary">
+                    Edit
+                  </Button>
+                  <Button icon={Trash2} onClick={() => onDelete(blog._id)} size="sm" variant="danger">
+                    Delete
+                  </Button>
+                </div>
+              </div>
+              <p className="mt-3 line-clamp-3 whitespace-pre-line text-sm leading-6 text-gray-600">
+                {blog.body}
+              </p>
+              {blog.moderationNote ? (
+                <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                  Reason: {blog.moderationNote}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </Panel>
+
       <div className="grid gap-4 xl:grid-cols-2">
-        {blogs.length === 0 ? <Empty text="No blogs yet." /> : null}
-        {blogs.map((blog) => (
+        {approvedBlogs.length === 0 ? <Empty text="No approved blogs yet." /> : null}
+        {approvedBlogs.map((blog) => (
           <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm" key={blog._id}>
             {blog.imageUrl ? (
               <img alt="" className="mb-4 h-48 w-full rounded-md object-cover" src={blog.imageUrl} />
@@ -952,15 +1044,23 @@ function Blogs({
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-bold text-gray-950">{blog.title}</h3>
                   <Badge value={blog.audience}>{blog.audience}</Badge>
+                  <Badge value={blog.moderationStatus || 'approved'}>
+                    {blog.moderationStatus || 'approved'}
+                  </Badge>
                 </div>
                 <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
                   By {blog.createdBy?.name || 'Member'} | {formatDate(blog.createdAt)}
                 </p>
               </div>
               {canManage(blog) ? (
-                <Button icon={Trash2} onClick={() => onDelete(blog._id)} variant="danger">
-                  Delete
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => onEdit(blog)} variant="secondary">
+                    Edit
+                  </Button>
+                  <Button icon={Trash2} onClick={() => onDelete(blog._id)} variant="danger">
+                    Delete
+                  </Button>
+                </div>
               ) : null}
             </div>
             <p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600">{blog.body}</p>

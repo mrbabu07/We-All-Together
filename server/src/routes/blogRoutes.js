@@ -2,6 +2,7 @@ const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
   addBlogComment,
+  bulkModerateBlogs,
   createBlog,
   deleteBlog,
   deleteBlogComment,
@@ -29,7 +30,18 @@ router.post(
   authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   createBlog,
 )
-router.patch('/:id/moderation', protect, authorize(USER_ROLES.ADMIN), moderateBlog)
+router.post(
+  '/moderation/bulk',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MODERATOR),
+  bulkModerateBlogs,
+)
+router.patch(
+  '/:id/moderation',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MODERATOR),
+  moderateBlog,
+)
 router.patch(
   '/:id',
   protect,

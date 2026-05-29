@@ -4,19 +4,52 @@ const Blog = require('../models/Blog')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
-const { validateBlog, validateBlogComment } = require('../validators/communityValidators')
+const { createNotification } = require('../services/notificationService')
+const {
+  validateBlog,
+  validateBlogComment,
+  validateBlogModeration,
+  validateBulkBlogModeration,
+} = require('../validators/communityValidators')
 
 const populateBlog = (query) =>
   query
     .populate('createdBy', 'name phone role profilePhotoUrl')
+    .populate('moderatedBy', 'name phone role profilePhotoUrl')
     .populate('likes.user', 'name phone role profilePhotoUrl')
     .populate('comments.user', 'name phone role profilePhotoUrl')
 
 const canManageBlog = (user, blog) =>
   user.role === USER_ROLES.ADMIN || blog.createdBy.toString() === user._id.toString()
 
+const canModerateBlog = (user) =>
+  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role)
+
+const getWritableStatus = (user, requestedStatus, currentStatus = '') => {
+  if (canModerateBlog(user)) {
+    return requestedStatus || currentStatus || 'approved'
+  }
+
+  return requestedStatus === 'draft' ? 'draft' : 'pending'
+}
+
+const notifyBlogAuthor = async ({ actor, blog, message, title }) =>
+  createNotification({
+    createdBy: actor,
+    link: '/member?tab=blogs',
+    message,
+    title,
+    type: 'blog',
+    user: blog.createdBy,
+  })
+
 const getPublicBlogs = asyncHandler(async (req, res) => {
-  const blogs = await populateBlog(Blog.find({ audience: AUDIENCES.PUBLIC }).sort({ createdAt: -1 }))
+  const blogs = await populateBlog(
+    Blog.find({
+      audience: AUDIENCES.PUBLIC,
+      moderationStatus: 'approved',
+    }).sort({ createdAt: -1 }),
+  )
 
   res.status(200).json({
     success: true,
@@ -28,7 +61,15 @@ const getPublicBlogs = asyncHandler(async (req, res) => {
 })
 
 const getMemberBlogs = asyncHandler(async (req, res) => {
-  const blogs = await populateBlog(Blog.find().sort({ createdAt: -1 }))
+  const filter = canModerateBlog(req.user)
+    ? {}
+    : {
+        $or: [
+          { moderationStatus: 'approved' },
+          { createdBy: req.user._id },
+        ],
+      }
+  const blogs = await populateBlog(Blog.find(filter).sort({ createdAt: -1 }))
 
   res.status(200).json({
     success: true,
@@ -41,8 +82,13 @@ const getMemberBlogs = asyncHandler(async (req, res) => {
 
 const createBlog = asyncHandler(async (req, res) => {
   const payload = validateBlog(req.body)
+  const moderationStatus = getWritableStatus(req.user, payload.moderationStatus)
   const blog = await Blog.create({
     ...payload,
+    moderatedAt: moderationStatus === 'approved' ? new Date() : null,
+    moderatedBy: moderationStatus === 'approved' ? req.user._id : null,
+    moderationNote: '',
+    moderationStatus,
     createdBy: req.user._id,
   })
   await recordAuditLog({
@@ -52,6 +98,7 @@ const createBlog = asyncHandler(async (req, res) => {
     entityType: 'Blog',
     metadata: {
       audience: blog.audience,
+      status: blog.moderationStatus,
       title: blog.title,
     },
   })
@@ -79,7 +126,14 @@ const updateBlog = asyncHandler(async (req, res) => {
     throw new AppError('You can only update your own blogs.', 403)
   }
 
+  const moderationStatus = getWritableStatus(req.user, payload.moderationStatus, blog.moderationStatus)
   Object.assign(blog, payload)
+  blog.moderationStatus = moderationStatus
+  if (!canModerateBlog(req.user) && moderationStatus === 'pending') {
+    blog.moderationNote = ''
+    blog.moderatedAt = null
+    blog.moderatedBy = null
+  }
   await blog.save()
   await recordAuditLog({
     action: 'blog.update',
@@ -88,6 +142,7 @@ const updateBlog = asyncHandler(async (req, res) => {
     entityType: 'Blog',
     metadata: {
       audience: blog.audience,
+      status: blog.moderationStatus,
       title: blog.title,
     },
   })
@@ -141,6 +196,9 @@ const toggleBlogLike = asyncHandler(async (req, res) => {
   if (!blog) {
     throw new AppError('Blog not found.', 404)
   }
+  if (blog.moderationStatus !== 'approved') {
+    throw new AppError('Only approved blogs can be liked.', 400)
+  }
 
   const existingLike = blog.likes.find(
     (like) => like.user.toString() === req.user._id.toString(),
@@ -172,6 +230,9 @@ const addBlogComment = asyncHandler(async (req, res) => {
 
   if (!blog) {
     throw new AppError('Blog not found.', 404)
+  }
+  if (blog.moderationStatus !== 'approved') {
+    throw new AppError('Only approved blogs can receive comments.', 400)
   }
 
   blog.comments.push({
@@ -228,20 +289,15 @@ const deleteBlogComment = asyncHandler(async (req, res) => {
 })
 
 const moderateBlog = asyncHandler(async (req, res) => {
-  const status = ['approved', 'rejected', 'pending'].includes(req.body.status)
-    ? req.body.status
-    : ''
+  const payload = validateBlogModeration(req.body)
   const blog = await Blog.findById(req.params.id)
 
   if (!blog) {
     throw new AppError('Blog not found.', 404)
   }
-  if (!status) {
-    throw new AppError('Moderation status is invalid.', 400)
-  }
 
-  blog.moderationStatus = status
-  blog.moderationNote = typeof req.body.note === 'string' ? req.body.note.trim() : ''
+  blog.moderationStatus = payload.status
+  blog.moderationNote = payload.note
   blog.moderatedAt = new Date()
   blog.moderatedBy = req.user._id
   await blog.save()
@@ -252,10 +308,26 @@ const moderateBlog = asyncHandler(async (req, res) => {
     entityId: blog._id,
     entityType: 'Blog',
     metadata: {
-      status,
+      status: payload.status,
       title: blog.title,
     },
   })
+  if (payload.status === 'approved') {
+    await notifyBlogAuthor({
+      actor: req.user,
+      blog,
+      message: `Your blog "${blog.title}" has been approved and published.`,
+      title: 'Blog approved',
+    })
+  }
+  if (payload.status === 'rejected') {
+    await notifyBlogAuthor({
+      actor: req.user,
+      blog,
+      message: `Your blog "${blog.title}" was rejected. Reason: ${payload.note}`,
+      title: 'Blog rejected',
+    })
+  }
 
   const populatedBlog = await populateBlog(Blog.findById(blog._id))
 
@@ -268,8 +340,67 @@ const moderateBlog = asyncHandler(async (req, res) => {
   })
 })
 
+const bulkModerateBlogs = asyncHandler(async (req, res) => {
+  const payload = validateBulkBlogModeration(req.body)
+  const blogs = await Blog.find({ _id: { $in: payload.blogIds } })
+
+  if (!blogs.length) {
+    throw new AppError('No matching blogs found.', 404)
+  }
+
+  await Promise.all(
+    blogs.map(async (blog) => {
+      blog.moderationStatus = payload.status
+      blog.moderationNote = payload.note
+      blog.moderatedAt = new Date()
+      blog.moderatedBy = req.user._id
+      await blog.save()
+
+      if (payload.status === 'approved') {
+        await notifyBlogAuthor({
+          actor: req.user,
+          blog,
+          message: `Your blog "${blog.title}" has been approved and published.`,
+          title: 'Blog approved',
+        })
+      }
+      if (payload.status === 'rejected') {
+        await notifyBlogAuthor({
+          actor: req.user,
+          blog,
+          message: `Your blog "${blog.title}" was rejected. Reason: ${payload.note}`,
+          title: 'Blog rejected',
+        })
+      }
+    }),
+  )
+  await recordAuditLog({
+    action: 'blog.moderate.bulk',
+    actor: req.user,
+    entityType: 'Blog',
+    metadata: {
+      count: blogs.length,
+      status: payload.status,
+    },
+  })
+
+  const moderatedBlogs = await populateBlog(
+    Blog.find({ _id: { $in: blogs.map((blog) => blog._id) } }).sort({ createdAt: -1 }),
+  )
+
+  res.status(200).json({
+    success: true,
+    message: 'Blog moderation updated successfully.',
+    data: {
+      blogs: moderatedBlogs,
+      count: blogs.length,
+    },
+  })
+})
+
 module.exports = {
   addBlogComment,
+  bulkModerateBlogs,
   createBlog,
   deleteBlog,
   deleteBlogComment,
