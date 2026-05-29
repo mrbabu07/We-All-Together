@@ -175,6 +175,21 @@ const feeAdjustmentSchema = z.object({
   reason: z.string().trim().min(1, 'Adjustment reason is required.'),
 })
 
+const noticeArchiveSchema = z
+  .object({
+    from: z.string().trim().min(1, 'Archive start date is required.'),
+    to: z.string().trim().min(1, 'Archive end date is required.'),
+  })
+  .superRefine((values, context) => {
+    if (values.from && values.to && new Date(values.to) < new Date(values.from)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'End date must be after start date.',
+        path: ['to'],
+      })
+    }
+  })
+
 const bnMonths = [
   'জানুয়ারি',
   'ফেব্রুয়ারি',
@@ -3963,16 +3978,30 @@ function GalleryManagementPanel({
 
 function NoticeArchiveControls({ onArchive }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [form, setForm] = useState({ from: '', to: '' })
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm({
+    defaultValues: { from: '', to: '' },
+    resolver: zodResolver(noticeArchiveSchema),
+  })
+  const [pendingArchive, setPendingArchive] = useState(null)
 
-  const submitArchive = (event) => {
-    event.preventDefault()
+  const submitArchive = (values) => {
+    setPendingArchive(values)
     setConfirmOpen(true)
   }
 
   const confirmArchive = async () => {
-    await onArchive(form)
-    setForm({ from: '', to: '' })
+    if (!pendingArchive) {
+      return
+    }
+
+    await onArchive(pendingArchive)
+    reset({ from: '', to: '' })
+    setPendingArchive(null)
     setConfirmOpen(false)
   }
 
@@ -3980,24 +4009,22 @@ function NoticeArchiveControls({ onArchive }) {
     <>
       <form
         className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_1fr_auto]"
-        onSubmit={submitArchive}
+        onSubmit={handleSubmit(submitArchive)}
       >
         <Field
+          error={errors.from?.message}
           label="Archive From"
-          name="archiveNoticeFrom"
-          onChange={(event) => setForm((current) => ({ ...current, from: event.target.value }))}
           type="date"
-          value={form.from}
+          {...register('from')}
         />
         <Field
+          error={errors.to?.message}
           label="Archive To"
-          name="archiveNoticeTo"
-          onChange={(event) => setForm((current) => ({ ...current, to: event.target.value }))}
           type="date"
-          value={form.to}
+          {...register('to')}
         />
         <div className="flex items-end">
-          <Button className="w-full" icon={DatabaseBackup} type="submit" variant="secondary">
+          <Button className="w-full" icon={DatabaseBackup} loading={isSubmitting} type="submit" variant="secondary">
             Archive
           </Button>
         </div>
@@ -4005,7 +4032,10 @@ function NoticeArchiveControls({ onArchive }) {
       <ConfirmDialog
         confirmLabel="Archive"
         message="Archive notices in the selected date range?"
-        onCancel={() => setConfirmOpen(false)}
+        onCancel={() => {
+          setPendingArchive(null)
+          setConfirmOpen(false)
+        }}
         onConfirm={confirmArchive}
         open={confirmOpen}
         title="Archive notices?"
