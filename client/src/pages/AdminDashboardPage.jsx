@@ -1498,77 +1498,25 @@ export default function AdminDashboardPage() {
     }, 'Backup downloaded successfully.')
   }
 
-  const printReceipt = async (endpoint) => {
+  const downloadReceiptPdf = async (endpoint, fallbackName) => {
     try {
       setMessage('')
-      const response = await api.get(endpoint)
-      const receipt = response.data.data.receipt
-      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+      const response = await api.get(endpoint, { responseType: 'blob' })
+      const disposition = response.headers['content-disposition'] || ''
+      const filename =
+        disposition.match(/filename="?([^"]+)"?/i)?.[1] ||
+        `${fallbackName}-${new Date().toISOString().slice(0, 10)}.pdf`
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
 
-      if (!printWindow) {
-        setMessage('Allow popups to print the receipt.')
-        return
-      }
-
-      const personName =
-        receipt.payment?.user?.name || receipt.user?.name || receipt.donation?.donorName || 'N/A'
-      const transactionId =
-        receipt.payment?.transactionId ||
-        receipt.registrationPayment?.transactionId ||
-        receipt.donation?.transactionId ||
-        'N/A'
-      const amount =
-        receipt.payment?.amount || receipt.registrationPayment?.amount || receipt.donation?.amount || 0
-      const status =
-        receipt.payment?.status || receipt.registrationPayment?.status || receipt.donation?.status || 'N/A'
-      const method =
-        receipt.payment?.method || receipt.registrationPayment?.method || receipt.donation?.method || 'N/A'
-      const qrHtml = receipt.payment?.qrCodeDataUrl
-        ? `<div class="qr"><span class="label">Verification QR</span><img src="${receipt.payment.qrCodeDataUrl}" alt="" /><p>${escapeHtml(receipt.payment.verificationUrl || '')}</p></div>`
-        : ''
-
-      printWindow.document.write(`
-        <!doctype html>
-        <html>
-          <head>
-            <title>${escapeHtml(receipt.receiptNo)}</title>
-            <style>
-              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
-              .receipt { border: 1px solid ${cssVar('--gray-200')}; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
-              h1 { margin: 0; font-size: 24px; }
-              .muted { color: ${cssVar('--text-secondary')}; }
-              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
-              .item { border-bottom: 1px solid ${cssVar('--gray-200')}; padding-bottom: 8px; }
-              .label { display: block; color: ${cssVar('--text-secondary')}; font-size: 12px; text-transform: uppercase; }
-              .value { display: block; font-weight: 700; margin-top: 4px; }
-              .qr { margin-top: 24px; }
-              .qr img { display: block; height: 120px; margin-top: 8px; width: 120px; }
-              .qr p { color: ${cssVar('--text-secondary')}; font-size: 11px; overflow-wrap: anywhere; }
-              @media print { button { display: none; } body { padding: 0; } }
-            </style>
-          </head>
-          <body>
-            <div class="receipt">
-              <h1>${escapeHtml(receipt.organization.name)}</h1>
-              <p class="muted">Receipt No: ${escapeHtml(receipt.receiptNo)} | Issued: ${escapeHtml(toReadableDate(receipt.issuedAt))}</p>
-              <div class="grid">
-                <div class="item"><span class="label">Name</span><span class="value">${escapeHtml(personName || 'N/A')}</span></div>
-                <div class="item"><span class="label">Type</span><span class="value">${escapeHtml(receipt.type)}</span></div>
-                <div class="item"><span class="label">Amount</span><span class="value">${escapeHtml(money(amount))}</span></div>
-                <div class="item"><span class="label">Method</span><span class="value">${escapeHtml(method)}</span></div>
-                <div class="item"><span class="label">Transaction ID</span><span class="value">${escapeHtml(transactionId)}</span></div>
-                <div class="item"><span class="label">Status</span><span class="value">${escapeHtml(status)}</span></div>
-              </div>
-              ${qrHtml}
-              <p class="muted">This receipt was generated from the organization management system.</p>
-              <button onclick="window.print()">Print</button>
-            </div>
-          </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.focus()
-      printWindow.print()
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      setMessage('Receipt PDF downloaded.')
     } catch (error) {
       setMessage(getErrorMessage(error))
     }
@@ -1681,7 +1629,9 @@ export default function AdminDashboardPage() {
               variant: 'danger',
             })
           }
-          onRegistrationReceipt={(id) => printReceipt(`/admin/receipts/registrations/${id}`)}
+          onRegistrationReceipt={(id) =>
+            downloadReceiptPdf(`/admin/receipts/registrations/${id}/pdf`, `registration-receipt-${id}`)
+          }
           onTabChange={changeTab}
           stats={stats}
         />
@@ -1742,7 +1692,9 @@ export default function AdminDashboardPage() {
               `${paymentIds.length} payments verified.`,
             )
           }
-          onPaymentReceipt={(id) => printReceipt(`/admin/receipts/payments/${id}`)}
+          onPaymentReceipt={(id) =>
+            downloadReceiptPdf(`/admin/receipts/payments/${id}/pdf`, `payment-receipt-${id}`)
+          }
           onPaymentVerify={(id) =>
             runAction(() => api.patch(`/admin/payments/${id}/verify`), 'Payment verified.')
           }
@@ -1779,7 +1731,9 @@ export default function AdminDashboardPage() {
               'Donation rejected.',
             )
           }}
-          onDonationReceipt={(id) => printReceipt(`/admin/receipts/donations/${id}`)}
+          onDonationReceipt={(id) =>
+            downloadReceiptPdf(`/admin/receipts/donations/${id}/pdf`, `donation-receipt-${id}`)
+          }
           onDonationVerify={(id) =>
             runAction(() => api.patch(`/admin/donations/${id}/verify`), 'Donation verified.')
           }

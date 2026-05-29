@@ -115,6 +115,40 @@ const getRegistrationReceipt = asyncHandler(async (req, res) => {
   })
 })
 
+const downloadRegistrationReceiptPdf = asyncHandler(async (req, res) => {
+  const [user, settings] = await Promise.all([
+    User.findById(req.params.id).populate('registrationPayment.verifiedBy', 'name phone role'),
+    getSettings(),
+  ])
+
+  if (!user) {
+    throw new AppError('Registration not found.', 404)
+  }
+
+  if (!canReadUserReceipt(req, user._id)) {
+    throw new AppError('You do not have permission to download this receipt.', 403)
+  }
+
+  const payment = user.registrationPayment || {}
+  const receiptNo = `REG-${user._id}`
+  const buffer = await createReceiptPdf({
+    adminName: payment.verifiedBy?.name || '',
+    amount: payment.amount || 0,
+    date: payment.paidAt || user.createdAt,
+    method: payment.method || 'Registration',
+    organization: buildReceiptOrganization(settings),
+    payerAddress: user.address,
+    payerName: user.name,
+    payerPhone: user.phone,
+    receiptNo,
+    status: payment.status || user.status,
+    transactionId: payment.transactionId || '',
+    type: 'Registration fee',
+  })
+
+  sendPdf(res, `${receiptNo}.pdf`, buffer)
+})
+
 const getDonationReceipt = asyncHandler(async (req, res) => {
   const [donation, settings] = await Promise.all([
     Donation.findById(req.params.id)
@@ -213,6 +247,7 @@ const downloadReceiptPdf = asyncHandler(async (req, res) => {
 })
 
 module.exports = {
+  downloadRegistrationReceiptPdf,
   downloadReceiptPdf,
   getDonationReceipt,
   getPaymentReceipt,

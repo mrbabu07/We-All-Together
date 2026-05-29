@@ -1,6 +1,7 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const {
+  downloadRegistrationReceiptPdf,
   downloadReceiptPdf,
   getDonationReceipt,
   getPaymentReceipt,
@@ -11,6 +12,19 @@ const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
 
+router.get(
+  '/payments/:id/pdf',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  downloadReceiptPdf,
+)
+router.get('/donations/:id/pdf', protect, authorize(USER_ROLES.ADMIN), downloadReceiptPdf)
+router.get(
+  '/registrations/:id/pdf',
+  protect,
+  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  downloadRegistrationReceiptPdf,
+)
 router.get(
   '/payments/:id',
   protect,
