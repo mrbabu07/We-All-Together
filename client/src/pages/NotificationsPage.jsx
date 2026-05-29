@@ -9,14 +9,34 @@ import Skeleton from '../components/ui/Skeleton'
 
 const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
 const typeGroups = {
-  events: ['event', 'meeting', 'tour'],
-  fee: ['fee', 'fee_approved', 'fee_rejected', 'payment'],
-  general: ['account', 'announcement', 'general', 'message', 'registration'],
+  blogs: ['blog', 'blog_approved', 'blog_rejected'],
+  donations: ['donation', 'donation_approved', 'donation_rejected'],
+  events: ['event', 'meeting', 'meeting_reminder', 'tour', 'tour_registration'],
+  fee: [
+    'fee',
+    'fee_approved',
+    'fee_rejected',
+    'fee_reminder',
+    'fee_waived',
+    'payment',
+    'payment_approved',
+    'payment_rejected',
+  ],
+  general: ['account', 'admin', 'announcement', 'general', 'message', 'notice', 'registration'],
 }
+const filterOptions = ['all', 'unread', 'fee', 'events', 'blogs', 'donations', 'general']
 
 const getTypeGroup = (type = 'general') => {
   const normalized = String(type || 'general')
-  return Object.entries(typeGroups).find(([, values]) => values.includes(normalized))?.[0] || 'general'
+  const exactGroup = Object.entries(typeGroups).find(([, values]) => values.includes(normalized))?.[0]
+
+  if (exactGroup) return exactGroup
+  if (normalized.includes('payment') || normalized.includes('fee')) return 'fee'
+  if (normalized.includes('meeting') || normalized.includes('tour') || normalized.includes('event')) return 'events'
+  if (normalized.includes('blog')) return 'blogs'
+  if (normalized.includes('donation')) return 'donations'
+
+  return 'general'
 }
 
 const sanitizeNotificationHtml = (html = '') => {
@@ -111,7 +131,7 @@ export default function NotificationsPage() {
           <p className="mt-1 text-sm text-gray-600">{unreadCount} unread message(s)</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {['all', 'unread', 'fee', 'events', 'general'].map((item) => (
+          {filterOptions.map((item) => (
             <Button
               key={item}
               onClick={() => setFilter(item)}
@@ -155,6 +175,7 @@ export default function NotificationsPage() {
                   <Badge value={item.readAt ? 'approved' : 'pending'}>
                     {item.readAt ? 'read' : 'unread'}
                   </Badge>
+                  <Badge value={getTypeGroup(item.type)}>{getTypeGroup(item.type)}</Badge>
                 </div>
                 <div
                   className="mt-2 text-sm text-gray-600 [&_a]:font-semibold [&_a]:text-indigo-700 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
@@ -166,7 +187,17 @@ export default function NotificationsPage() {
               </div>
               <div className="flex flex-wrap items-start gap-2">
                 {item.link ? (
-                  <Button as={Link} icon={ExternalLink} to={item.link} variant="secondary">
+                  <Button
+                    as={Link}
+                    icon={ExternalLink}
+                    onClick={() => {
+                      if (!item.readAt) {
+                        markRead(item._id)
+                      }
+                    }}
+                    to={item.link}
+                    variant="secondary"
+                  >
                     Open
                   </Button>
                 ) : null}

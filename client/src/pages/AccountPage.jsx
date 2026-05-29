@@ -426,7 +426,7 @@ export default function AccountPage() {
       context.fillRect(0, 188, canvas.width, 14)
       context.fillStyle = cssVar('--text-inverted')
       context.font = 'bold 34px Arial'
-      context.fillText('Dargah Para OIkko Porishod', 40, 62)
+      context.fillText('Dargah Para Oikko Porishod', 40, 62)
       context.font = '18px Arial'
       context.fillText('Digital Member ID Card', 40, 94)
       context.fillStyle = cssVar('--text-inverted')
@@ -703,7 +703,8 @@ export default function AccountPage() {
         <Panel>
           <h2 className="text-lg font-semibold tracking-tight text-gray-900">Delete account request</h2>
           <p className="mt-2 text-sm text-gray-500">
-            অ্যাডমিন approve না করা পর্যন্ত অ্যাকাউন্ট delete হবে না।
+            অ্যাডমিন approve না করা পর্যন্ত অ্যাকাউন্ট delete হবে না। Request approve হলে
+            এই action আর undo করা যাবে না।
           </p>
           <form className="mt-4 grid gap-4" onSubmit={handleDeleteSubmit(requestDelete)}>
             <Field
@@ -733,7 +734,7 @@ function DigitalIdPreview({ qrUrl, user, verificationUrl }) {
       </div>
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
         <div className="bg-gray-900 px-4 py-4 text-white">
-          <p className="text-sm font-bold">Dargah Para OIkko Porishod</p>
+          <p className="text-sm font-bold">Dargah Para Oikko Porishod</p>
           <p className="text-xs text-gray-200">Digital Member ID Card</p>
         </div>
         <div className="h-9 bg-gray-700" />

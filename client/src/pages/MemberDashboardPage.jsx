@@ -1239,14 +1239,14 @@ function Overview({ data, monthlyFee, onMeetingRsvp, onPay, onTourRsvp, stats, u
       <Panel>
         <SectionTitle icon={Bell} title="সাম্প্রতিক নোটিশ" />
         <div className="mt-4 grid gap-3">
-          {data.notices.slice(0, 4).map((notice) => (
+          {data.notices.slice(0, 3).map((notice) => (
             <article className="rounded-xl border border-gray-200 bg-gray-50 p-4" key={notice._id}>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold text-gray-900">{notice.title}</h3>
                 <Badge value={notice.audience}>{notice.audience}</Badge>
               </div>
               <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-500">
-                {notice.body}
+                {plainText(notice.richBody || notice.body)}
               </p>
             </article>
           ))}
