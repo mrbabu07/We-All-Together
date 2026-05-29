@@ -40,6 +40,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Field from '../components/ui/Field'
+import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import RichTextEditor from '../components/ui/RichTextEditor'
 import SelectField from '../components/ui/SelectField'
@@ -123,6 +124,10 @@ const noticeArchiveSchema = z
       })
     }
   })
+
+const donationRejectSchema = z.object({
+  reason: z.string().trim().min(1, 'Reject reason is required.'),
+})
 
 const defaultSettings = {
   appearance: {
@@ -848,8 +853,11 @@ export default function AdminControlsPage() {
           form={settingsForm}
           members={approvedMembers}
           onChange={updateSettingsField}
-          onDonationStatus={(donation, action) =>
-            runAction(() => api.patch(`/donations/${donation._id}/${action}`), 'Donation updated')
+          onDonationStatus={(donation, action, payload = {}) =>
+            runAction(
+              () => api.patch(`/donations/${donation._id}/${action}`, payload),
+              'Donation updated',
+            )
           }
           onExportFinance={() => runAction(exportFinancePdf, 'Finance PDF downloaded')}
           onManualFee={(values) => {
@@ -1816,6 +1824,30 @@ function FinanceControlsTab({
   })
   const manualFeeMemberId = useWatch({ control: manualFeeControl, name: 'userId' })
   const waiveMemberId = useWatch({ control: waiveControl, name: 'userId' })
+  const [rejectingDonation, setRejectingDonation] = useState(null)
+  const {
+    formState: { errors: donationRejectErrors, isSubmitting: isRejectingDonation },
+    handleSubmit: handleDonationRejectSubmit,
+    register: registerDonationReject,
+    reset: resetDonationReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(donationRejectSchema),
+  })
+
+  const closeDonationRejectModal = () => {
+    setRejectingDonation(null)
+    resetDonationReject({ reason: '' })
+  }
+
+  const submitDonationReject = async ({ reason }) => {
+    if (!rejectingDonation?._id) {
+      return
+    }
+
+    await onDonationStatus(rejectingDonation, 'reject', { reason })
+    closeDonationRejectModal()
+  }
 
   return (
     <div className="mt-6 grid gap-6">
@@ -1960,8 +1992,17 @@ function FinanceControlsTab({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge value={donation.status}>{donation.status}</Badge>
-                <Button onClick={() => onDonationStatus(donation, 'verify')}>Verify</Button>
-                <Button onClick={() => onDonationStatus(donation, 'reject')} variant="danger">
+                <Button
+                  disabled={donation.status !== 'pending'}
+                  onClick={() => onDonationStatus(donation, 'verify')}
+                >
+                  Verify
+                </Button>
+                <Button
+                  disabled={donation.status !== 'pending'}
+                  onClick={() => setRejectingDonation(donation)}
+                  variant="danger"
+                >
                   Reject
                 </Button>
               </div>
@@ -1969,6 +2010,34 @@ function FinanceControlsTab({
           ))}
         </div>
       </Panel>
+      <Modal
+        onClose={closeDonationRejectModal}
+        open={Boolean(rejectingDonation)}
+        title="Reject donation"
+      >
+        {rejectingDonation ? (
+          <form className="grid gap-4" onSubmit={handleDonationRejectSubmit(submitDonationReject)}>
+            <p className="text-sm text-gray-600">
+              Add a reason for rejecting {rejectingDonation.donorName || 'this donation'}.
+            </p>
+            <Field
+              error={donationRejectErrors.reason?.message}
+              label="Reason"
+              required
+              textarea
+              {...registerDonationReject('reason')}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={closeDonationRejectModal} type="button" variant="secondary">
+                Cancel
+              </Button>
+              <Button icon={XCircle} loading={isRejectingDonation} type="submit" variant="danger">
+                Reject
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </Modal>
     </div>
   )
 }
