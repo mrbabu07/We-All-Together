@@ -8,7 +8,11 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
-import { getAccountStatusPath, getDashboardPath, isSafeReturnUrl } from '../utils/authState'
+import {
+  canUseReturnUrlForUser,
+  getAccountStatusPath,
+  getDashboardPath,
+} from '../utils/authState'
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, 'ইমেইল বা ফোন নম্বর দিন।'),
@@ -43,8 +47,7 @@ export default function LoginPage() {
       ? `${location.state.from.pathname}${location.state.from.search || ''}`
       : ''
     const returnUrl = params.get('returnUrl') || stateReturnUrl
-    const canUseReturnUrl =
-      isSafeReturnUrl(returnUrl) && (!returnUrl.startsWith('/admin') || result.user.role === 'admin')
+    const canUseReturnUrl = canUseReturnUrlForUser(returnUrl, result.user)
     const target = getAccountStatusPath(result.user) || (canUseReturnUrl ? returnUrl : getDashboardPath(result.user))
     toast.success('লগইন সফল হয়েছে')
     navigate(target, { replace: true })

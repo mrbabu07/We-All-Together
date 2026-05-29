@@ -1,4 +1,5 @@
 export const ACCOUNT_STATUS_PATHS = ['/pending', '/rejected', '/suspended']
+export const MODERATOR_ADMIN_PATHS = ['/admin/blogs', '/admin/gallery']
 
 export const getAccountStatusPath = (user) => {
   if (!user) {
@@ -20,7 +21,17 @@ export const getAccountStatusPath = (user) => {
   return null
 }
 
-export const getDashboardPath = (user) => (user?.role === 'admin' ? '/admin' : '/member')
+export const getDashboardPath = (user) => {
+  if (user?.role === 'admin') {
+    return '/admin'
+  }
+
+  if (user?.role === 'moderator') {
+    return '/admin/blogs'
+  }
+
+  return '/member'
+}
 
 export const getReturnUrl = (location) => {
   const path = `${location.pathname}${location.search || ''}`
@@ -29,6 +40,25 @@ export const getReturnUrl = (location) => {
 
 export const isSafeReturnUrl = (url) =>
   typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') && !url.startsWith('/login')
+
+export const canUseReturnUrlForUser = (url, user) => {
+  if (!isSafeReturnUrl(url)) {
+    return false
+  }
+
+  if (!url.startsWith('/admin')) {
+    return true
+  }
+
+  if (user?.role === 'admin') {
+    return true
+  }
+
+  return (
+    user?.role === 'moderator' &&
+    MODERATOR_ADMIN_PATHS.some((path) => url === path || url.startsWith(`${path}/`))
+  )
+}
 
 export const getJwtExpiry = (token) => {
   try {
