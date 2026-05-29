@@ -268,7 +268,9 @@ export default function AdminDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const defaultTab = pathTabs[location.pathname] || 'overview'
-  const activeTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
+  const requestedActiveTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
+  const activeTab = user?.role === 'moderator' ? 'content' : requestedActiveTab
+  const visibleTabLabels = user?.role === 'moderator' ? [['content', 'Moderation']] : tabLabels
   const initialFinanceTab = financePathTabs[location.pathname] || 'payments'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -363,6 +365,20 @@ export default function AdminDashboardPage() {
     setMessage('')
 
     try {
+      if (user?.role === 'moderator') {
+        const [blogsResponse, galleryResponse] = await Promise.all([
+          api.get('/blogs/members'),
+          api.get('/gallery/members'),
+        ])
+
+        setData((current) => ({
+          ...current,
+          blogs: blogsResponse.data.data.blogs,
+          gallery: galleryResponse.data.data.items,
+        }))
+        return
+      }
+
       const [
         pendingResponse,
         settingsResponse,
@@ -447,7 +463,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [setData, setLoading, setMessage, setSettingsForm, user])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1256,7 +1272,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        {tabLabels.map(([key, label]) => (
+        {visibleTabLabels.map(([key, label]) => (
           <button
             className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition ${
               activeTab === key
@@ -1479,6 +1495,7 @@ export default function AdminDashboardPage() {
           onSaveTourParticipants={saveTourParticipants}
           pollForm={pollForm}
           uploadingContentKey={uploadingContentKey}
+          userRole={user?.role}
         />
       ) : null}
 
@@ -3141,7 +3158,9 @@ function ContentTab({
   onSaveTourParticipants,
   pollForm,
   uploadingContentKey,
+  userRole,
 }) {
+  const isAdmin = userRole === 'admin'
   const approvedMembers = data.users.filter(
     (item) => item.role === 'member' && item.status === 'approved',
   )
@@ -3150,11 +3169,13 @@ function ContentTab({
     <div className="mt-6 grid gap-6">
       <BlogModerationPanel
         blogs={data.blogs}
+        canDelete={isAdmin}
         onBulkModerate={onBlogBulkModerate}
         onDelete={onBlogDelete}
         onModerate={onBlogModerate}
       />
       <GalleryManagementPanel
+        canManageGallery={isAdmin}
         gallery={data.gallery}
         onAlbumVisibility={onGalleryAlbumVisibility}
         onBulkModerate={onGalleryBulkModerate}
@@ -3163,7 +3184,7 @@ function ContentTab({
         onMove={onGalleryMove}
         onReorder={onGalleryReorder}
       />
-      {contentConfigs.map((config) => (
+      {isAdmin ? contentConfigs.map((config) => (
         <Panel key={config.key}>
           <SectionTitle
             icon={FilePlus2}
@@ -3271,12 +3292,12 @@ function ContentTab({
             />
           ) : null}
         </Panel>
-      ))}
+      )) : null}
     </div>
   )
 }
 
-function BlogModerationPanel({ blogs, onBulkModerate, onDelete, onModerate }) {
+function BlogModerationPanel({ blogs, canDelete = true, onBulkModerate, onDelete, onModerate }) {
   const [selectedIds, setSelectedIds] = useState([])
   const [statusFilter, setStatusFilter] = useState('pending')
   const [expandedId, setExpandedId] = useState('')
@@ -3398,14 +3419,16 @@ function BlogModerationPanel({ blogs, onBulkModerate, onDelete, onModerate }) {
                   >
                     Reject
                   </Button>
-                  <Button
-                    icon={Trash2}
-                    onClick={() => onDelete(blog._id)}
-                    size="sm"
-                    variant="danger"
-                  >
-                    Delete
-                  </Button>
+                  {canDelete ? (
+                    <Button
+                      icon={Trash2}
+                      onClick={() => onDelete(blog._id)}
+                      size="sm"
+                      variant="danger"
+                    >
+                      Delete
+                    </Button>
+                  ) : null}
                 </div>
               </div>
               {blog.imageUrl ? (
@@ -3437,6 +3460,7 @@ function BlogModerationPanel({ blogs, onBulkModerate, onDelete, onModerate }) {
 }
 
 function GalleryManagementPanel({
+  canManageGallery = true,
   gallery,
   onAlbumVisibility,
   onBulkModerate,
@@ -3513,8 +3537,9 @@ function GalleryManagementPanel({
           ))}
         </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        {albumRows.map((album) => (
+      {canManageGallery ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {albumRows.map((album) => (
           <div className="rounded-md border border-gray-200 bg-gray-50 p-3" key={album.album}>
             {album.cover ? (
               <img alt="" className="mb-3 h-24 w-full rounded-md object-cover" src={album.cover} />
@@ -3541,8 +3566,9 @@ function GalleryManagementPanel({
               {album.visible ? 'Hide Album' : 'Show Album'}
             </Button>
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto_auto]">
         <Field
           label="Reject Reason"
@@ -3623,32 +3649,38 @@ function GalleryManagementPanel({
                   Reason: {item.moderationNote}
                 </p>
               ) : null}
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                <Field
-                  label="Move to album"
-                  name={`gallery-move-${item._id}`}
-                  onChange={(event) =>
-                    setMoveTargets((current) => ({ ...current, [item._id]: event.target.value }))
-                  }
-                  value={moveTargets[item._id] || item.album || 'General'}
-                />
-                <div className="flex items-end">
-                  <Button
-                    onClick={() => onMove(item, moveTargets[item._id] || item.album || 'General')}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    Move
-                  </Button>
+              {canManageGallery ? (
+                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                  <Field
+                    label="Move to album"
+                    name={`gallery-move-${item._id}`}
+                    onChange={(event) =>
+                      setMoveTargets((current) => ({ ...current, [item._id]: event.target.value }))
+                    }
+                    value={moveTargets[item._id] || item.album || 'General'}
+                  />
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => onMove(item, moveTargets[item._id] || item.album || 'General')}
+                      size="sm"
+                      variant="secondary"
+                    >
+                      Move
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              ) : null}
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => reorderItem(item, -1)} size="sm" variant="secondary">
-                  Up
-                </Button>
-                <Button onClick={() => reorderItem(item, 1)} size="sm" variant="secondary">
-                  Down
-                </Button>
+                {canManageGallery ? (
+                  <>
+                    <Button onClick={() => reorderItem(item, -1)} size="sm" variant="secondary">
+                      Up
+                    </Button>
+                    <Button onClick={() => reorderItem(item, 1)} size="sm" variant="secondary">
+                      Down
+                    </Button>
+                  </>
+                ) : null}
                 <Button
                   icon={CheckCircle2}
                   onClick={() => onModerate(item._id, 'approved')}
@@ -3665,9 +3697,11 @@ function GalleryManagementPanel({
                 >
                   Reject
                 </Button>
-                <Button icon={Trash2} onClick={() => onDelete(item._id)} size="sm" variant="danger">
-                  Delete
-                </Button>
+                {canManageGallery ? (
+                  <Button icon={Trash2} onClick={() => onDelete(item._id)} size="sm" variant="danger">
+                    Delete
+                  </Button>
+                ) : null}
               </div>
             </div>
           </article>
