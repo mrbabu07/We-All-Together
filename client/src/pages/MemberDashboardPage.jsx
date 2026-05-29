@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Lightbox from 'yet-another-react-lightbox'
 import DownloadPlugin from 'yet-another-react-lightbox/plugins/download'
@@ -111,6 +111,7 @@ export default function MemberDashboardPage() {
   const [paymentForm, setPaymentForm] = useState(initialPaymentForm)
   const [blogForm, setBlogForm] = useState(initialBlogForm)
   const [editingBlogId, setEditingBlogId] = useState('')
+  const [lastBlogAutoSaveAt, setLastBlogAutoSaveAt] = useState(null)
   const [galleryForm, setGalleryForm] = useState(initialGalleryForm)
   const [commentForms, setCommentForms] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
@@ -132,6 +133,7 @@ export default function MemberDashboardPage() {
     settings: {},
     tours: [],
   })
+  const lastBlogAutoSaveKey = useRef('')
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -194,6 +196,50 @@ export default function MemberDashboardPage() {
 
     return () => window.clearTimeout(timer)
   }, [loadDashboard])
+
+  useEffect(() => {
+    if (activeTab !== 'blogs') {
+      return undefined
+    }
+
+    const title = blogForm.title.trim()
+    const body = blogForm.body.trim()
+    if (!title || !body) {
+      return undefined
+    }
+
+    const draftKey = JSON.stringify({
+      audience: blogForm.audience,
+      body,
+      imageUrl: blogForm.imageUrl,
+      title,
+    })
+    if (lastBlogAutoSaveKey.current === draftKey) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const payload = {
+          ...blogForm,
+          moderationStatus: 'draft',
+        }
+        if (editingBlogId) {
+          await api.patch(`/blogs/${editingBlogId}`, payload)
+        } else {
+          const response = await api.post('/blogs', payload)
+          setEditingBlogId(response.data.data.blog._id)
+        }
+        lastBlogAutoSaveKey.current = draftKey
+        setLastBlogAutoSaveAt(new Date())
+        await loadDashboard()
+      } catch {
+        lastBlogAutoSaveKey.current = ''
+      }
+    }, 30000)
+
+    return () => window.clearTimeout(timer)
+  }, [activeTab, blogForm, editingBlogId, loadDashboard])
 
   const changeTab = (tab) => {
     setSearchParams(tab === 'overview' ? {} : { tab })
@@ -315,6 +361,8 @@ export default function MemberDashboardPage() {
       }
       setBlogForm(initialBlogForm)
       setEditingBlogId('')
+      lastBlogAutoSaveKey.current = ''
+      setLastBlogAutoSaveAt(null)
       setMessage(
         moderationStatus === 'draft'
           ? 'Blog draft saved successfully.'
@@ -328,6 +376,12 @@ export default function MemberDashboardPage() {
 
   const editBlog = (blog) => {
     setEditingBlogId(blog._id)
+    lastBlogAutoSaveKey.current = JSON.stringify({
+      audience: blog.audience || 'public',
+      body: blog.body || '',
+      imageUrl: blog.imageUrl || '',
+      title: blog.title || '',
+    })
     setBlogForm({
       audience: blog.audience || 'public',
       body: blog.body || '',
@@ -340,6 +394,8 @@ export default function MemberDashboardPage() {
   const cancelBlogEdit = () => {
     setEditingBlogId('')
     setBlogForm(initialBlogForm)
+    lastBlogAutoSaveKey.current = ''
+    setLastBlogAutoSaveAt(null)
   }
 
   const submitGalleryItem = async (event) => {
@@ -706,6 +762,7 @@ export default function MemberDashboardPage() {
           onLike={toggleBlogLike}
           onSubmit={submitBlog}
           onUpload={uploadCommunityImage}
+          lastAutoSaveAt={lastBlogAutoSaveAt}
           uploading={uploadingCommunityImage === 'blog'}
           user={user}
           blogs={data.blogs}
@@ -914,6 +971,7 @@ function Blogs({
   commentForms,
   editingBlogId,
   form,
+  lastAutoSaveAt,
   onChange,
   onCancelEdit,
   onCommentChange,
@@ -977,6 +1035,11 @@ function Blogs({
               uploading={uploading}
             />
           </div>
+          <p className="md:col-span-2 text-sm font-semibold text-gray-500">
+            {lastAutoSaveAt
+              ? `Draft auto-saved ${formatDate(lastAutoSaveAt.toISOString())}`
+              : 'Draft auto-saves after 30 seconds when title and body are filled.'}
+          </p>
           <div className="flex flex-wrap gap-2 md:col-span-2">
             <Button icon={Save} onClick={(event) => onSubmit(event, 'draft')} variant="secondary">
               Save Draft
