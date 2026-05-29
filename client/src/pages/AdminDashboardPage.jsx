@@ -108,6 +108,15 @@ const defaultPollForm = {
   question: '',
 }
 
+const defaultNotificationForm = {
+  channel: 'sms',
+  link: '',
+  message: '',
+  role: '',
+  title: '',
+  type: 'general',
+}
+
 const pollSchema = z
   .object({
     deadline: z.string().trim().min(1, 'Deadline is required.'),
@@ -137,6 +146,19 @@ const pollSchema = z
       })
     }
   })
+
+const notificationSchema = z.object({
+  channel: z.enum(['sms', 'whatsapp', 'both'], {
+    message: 'Choose a notification channel.',
+  }),
+  link: z.string().trim().max(200, 'Link cannot exceed 200 characters.').optional(),
+  message: z.string().trim().min(1, 'Message is required.'),
+  role: z.enum(['', 'member', 'admin'], {
+    message: 'Choose a valid recipient group.',
+  }),
+  title: z.string().trim().min(1, 'Title is required.'),
+  type: z.string().trim().min(1, 'Type is required.'),
+})
 
 const bnMonths = [
   'জানুয়ারি',
@@ -431,6 +453,15 @@ export default function AdminDashboardPage() {
     resolver: zodResolver(expenseSchema),
   })
   const expenseForm = useWatch({ control: expenseControl }) || defaultExpenseForm
+  const {
+    formState: { errors: notificationErrors, isSubmitting: isSendingNotification },
+    handleSubmit: handleNotificationSubmit,
+    register: registerNotification,
+    reset: resetNotification,
+  } = useForm({
+    defaultValues: defaultNotificationForm,
+    resolver: zodResolver(notificationSchema),
+  })
   const [monthlyStatusMonth, setMonthlyStatusMonth] = useState(
     new Date().toISOString().slice(0, 7),
   )
@@ -441,14 +472,6 @@ export default function AdminDashboardPage() {
   const [uploadingContentKey, setUploadingContentKey] = useState('')
   const [uploadingExpenseReceipt, setUploadingExpenseReceipt] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
-  const [notificationForm, setNotificationForm] = useState({
-    link: '',
-    message: '',
-    role: '',
-    channel: 'sms',
-    title: '',
-    type: 'general',
-  })
 
   const loadDashboard = useCallback(async () => {
     setLoading(true)
@@ -1305,18 +1328,10 @@ export default function AdminDashboardPage() {
     }
   }
 
-  const sendBroadcastNotification = async (event) => {
-    event.preventDefault()
+  const sendBroadcastNotification = async (values) => {
     await runAction(async () => {
-      await api.post('/notifications/send', notificationForm)
-      setNotificationForm({
-        channel: 'sms',
-        link: '',
-        message: '',
-        role: '',
-        title: '',
-        type: 'general',
-      })
+      await api.post('/notifications/send', values)
+      resetNotification(defaultNotificationForm)
     }, 'Notification sent successfully.')
   }
 
@@ -1581,11 +1596,10 @@ export default function AdminDashboardPage() {
       {!loading && activeTab === 'logs' ? (
         <LogsTab
           auditLogs={data.auditLogs}
-          notificationForm={notificationForm}
-          onNotificationChange={(field, value) =>
-            setNotificationForm((current) => ({ ...current, [field]: value }))
-          }
-          onSendNotification={sendBroadcastNotification}
+          notificationErrors={notificationErrors}
+          notificationSubmitting={isSendingNotification}
+          onSendNotification={handleNotificationSubmit(sendBroadcastNotification)}
+          registerNotification={registerNotification}
         />
       ) : null}
 
@@ -6080,7 +6094,13 @@ function VerificationList({
   )
 }
 
-function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNotification }) {
+function LogsTab({
+  auditLogs,
+  notificationErrors,
+  notificationSubmitting,
+  onSendNotification,
+  registerNotification,
+}) {
   const [query, setQuery] = useState('')
   const normalizedQuery = query.trim().toLowerCase()
   const visibleLogs = normalizedQuery
@@ -6103,55 +6123,49 @@ function LogsTab({ auditLogs, notificationForm, onNotificationChange, onSendNoti
         <SectionTitle icon={Bell} title="Send Notification" />
         <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onSendNotification}>
           <Field
+            error={notificationErrors.title?.message}
             label="Title"
-            name="title"
-            onChange={(event) => onNotificationChange('title', event.target.value)}
             required
-            value={notificationForm.title}
+            {...registerNotification('title')}
           />
           <Field
+            error={notificationErrors.type?.message}
             label="Type"
-            name="type"
-            onChange={(event) => onNotificationChange('type', event.target.value)}
-            value={notificationForm.type}
+            {...registerNotification('type')}
           />
           <SelectField
+            error={notificationErrors.channel?.message}
             label="Channel"
-            name="channel"
-            onChange={(event) => onNotificationChange('channel', event.target.value)}
-            value={notificationForm.channel}
+            {...registerNotification('channel')}
           >
             <option value="sms">SMS</option>
             <option value="whatsapp">WhatsApp</option>
             <option value="both">SMS + WhatsApp</option>
           </SelectField>
           <SelectField
+            error={notificationErrors.role?.message}
             label="Send To"
-            name="role"
-            onChange={(event) => onNotificationChange('role', event.target.value)}
-            value={notificationForm.role}
+            {...registerNotification('role')}
           >
             <option value="">All approved users</option>
             <option value="member">Members only</option>
             <option value="admin">Admins only</option>
           </SelectField>
           <Field
+            error={notificationErrors.link?.message}
             label="Link"
-            name="link"
-            onChange={(event) => onNotificationChange('link', event.target.value)}
             placeholder="/member"
-            value={notificationForm.link}
+            {...registerNotification('link')}
           />
           <Field
             className="md:col-span-2"
+            error={notificationErrors.message?.message}
             label="Message"
-            name="message"
-            onChange={(event) => onNotificationChange('message', event.target.value)}
             required
             textarea
-            value={notificationForm.message}
+            {...registerNotification('message')}
           />
-          <Button className="md:col-span-2" icon={Bell} type="submit">
+          <Button className="md:col-span-2" icon={Bell} loading={notificationSubmitting} type="submit">
             Send Notification
           </Button>
         </form>
