@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { HexColorPicker } from 'react-colorful'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { useLocation } from 'react-router-dom'
+import { z } from 'zod'
 import {
   ArrowDown,
   ArrowUp,
@@ -41,6 +44,30 @@ import Panel from '../components/ui/Panel'
 import RichTextEditor from '../components/ui/RichTextEditor'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
+
+const adminPasswordSchema = z
+  .object({
+    confirmPassword: z.string().min(1, 'Confirm the new password.'),
+    currentPassword: z.string().min(1, 'Current password is required.'),
+    newPassword: z.string().min(6, 'New password must be at least 6 characters.'),
+  })
+  .superRefine((values, context) => {
+    if (values.currentPassword === values.newPassword) {
+      context.addIssue({
+        code: 'custom',
+        message: 'New password must be different from current password.',
+        path: ['newPassword'],
+      })
+    }
+
+    if (values.newPassword !== values.confirmPassword) {
+      context.addIssue({
+        code: 'custom',
+        message: 'New passwords do not match.',
+        path: ['confirmPassword'],
+      })
+    }
+  })
 
 const defaultSettings = {
   appearance: {
@@ -2351,10 +2378,18 @@ function SecurityTab({
   users,
 }) {
   const [auditFilter, setAuditFilter] = useState({ action: '', actor: '' })
-  const [passwordForm, setPasswordForm] = useState({
-    confirmPassword: '',
-    currentPassword: '',
-    newPassword: '',
+  const {
+    formState: { errors: passwordErrors, isSubmitting: isChangingPassword },
+    handleSubmit: handlePasswordSubmit,
+    register: registerPassword,
+    reset: resetPassword,
+  } = useForm({
+    defaultValues: {
+      confirmPassword: '',
+      currentPassword: '',
+      newPassword: '',
+    },
+    resolver: zodResolver(adminPasswordSchema),
   })
   const filteredActivity = recentActivity.filter((log) => {
     const matchesAction = auditFilter.action
@@ -2369,18 +2404,12 @@ function SecurityTab({
   })
   const failedLogins = recentActivity.filter((log) => log.action === 'auth.login.failed')
 
-  const submitPasswordChange = async (event) => {
-    event.preventDefault()
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('New passwords do not match.')
-      return
-    }
-
+  const submitPasswordChange = async (values) => {
     await onPasswordChange({
-      currentPassword: passwordForm.currentPassword,
-      newPassword: passwordForm.newPassword,
+      currentPassword: values.currentPassword,
+      newPassword: values.newPassword,
     })
-    setPasswordForm({ confirmPassword: '', currentPassword: '', newPassword: '' })
+    resetPassword({ confirmPassword: '', currentPassword: '', newPassword: '' })
   }
 
   return (
@@ -2438,38 +2467,26 @@ function SecurityTab({
       </Panel>
       <Panel>
         <SectionTitle icon={Lock} title="Admin password change" />
-        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={submitPasswordChange}>
+        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={handlePasswordSubmit(submitPasswordChange)}>
           <Field
+            error={passwordErrors.currentPassword?.message}
             label="Current password"
-            name="currentPassword"
-            onChange={(event) =>
-              setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))
-            }
-            required
             type="password"
-            value={passwordForm.currentPassword}
+            {...registerPassword('currentPassword')}
           />
           <Field
+            error={passwordErrors.newPassword?.message}
             label="New password"
-            name="newPassword"
-            onChange={(event) =>
-              setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))
-            }
-            required
             type="password"
-            value={passwordForm.newPassword}
+            {...registerPassword('newPassword')}
           />
           <Field
+            error={passwordErrors.confirmPassword?.message}
             label="Confirm password"
-            name="confirmPassword"
-            onChange={(event) =>
-              setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))
-            }
-            required
             type="password"
-            value={passwordForm.confirmPassword}
+            {...registerPassword('confirmPassword')}
           />
-          <Button className="md:col-span-3" icon={Lock} type="submit">
+          <Button className="md:col-span-3" icon={Lock} loading={isChangingPassword} type="submit">
             Change password
           </Button>
         </form>
