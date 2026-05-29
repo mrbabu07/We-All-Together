@@ -20,6 +20,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Upload,
   Users,
   X,
 } from 'lucide-react'
@@ -51,6 +52,7 @@ import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useTypewriter from '../hooks/useTypewriter'
 import useAppStore from '../store/appStore'
+import { readFileAsDataUrl } from '../utils/fileUtils'
 
 const initialDonationForm = {
   amount: '1000',
@@ -58,6 +60,7 @@ const initialDonationForm = {
   method: 'bKash',
   note: '',
   phone: '',
+  proofImageUrl: '',
   transactionId: '',
 }
 
@@ -89,6 +92,7 @@ const publicDonationSchema = z.object({
   method: z.string().trim().min(1, 'Payment method is required.'),
   note: z.string().trim().max(300, 'Message cannot exceed 300 characters.').optional(),
   phone: bangladeshPhoneSchema('Phone'),
+  proofImageUrl: z.string().trim().min(1, 'Payment screenshot is required.'),
   transactionId: z.string().trim().min(1, 'Transaction ID is required.'),
 })
 
@@ -163,6 +167,7 @@ export default function PublicHomePage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [uploadingDonationProof, setUploadingDonationProof] = useState(false)
   const {
     control: donationControl,
     formState: { errors: donationErrors, isSubmitting: submittingDonation },
@@ -339,6 +344,31 @@ export default function PublicHomePage() {
     upsertMeta('og:image', '/pwa-icon.svg', 'property')
   }, [orgName, tagline])
 
+  const uploadDonationProof = async (file) => {
+    if (!file) {
+      return
+    }
+
+    try {
+      setMessage('')
+      setUploadingDonationProof(true)
+      const image = await readFileAsDataUrl(file)
+      const response = await api.post('/public/uploads/payment-proof', {
+        image,
+        name: `public-donation-${Date.now()}`,
+      })
+
+      setDonationValue('proofImageUrl', response.data.data.image.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    } catch (error) {
+      setMessage(getErrorMessage(error))
+    } finally {
+      setUploadingDonationProof(false)
+    }
+  }
+
   const submitDonation = async (values) => {
     setSuccessMessage('')
     setMessage('')
@@ -450,11 +480,13 @@ export default function PublicHomePage() {
             shouldValidate: true,
           })
         }
+        onProofUpload={uploadDonationProof}
         onSubmit={handleDonationSubmit(submitDonation)}
         registerDonation={registerDonation}
         settings={data.settings}
         submitting={submittingDonation}
         successMessage={successMessage}
+        uploadingProof={uploadingDonationProof}
       />
 
       <GalleryPreviewSection
@@ -963,11 +995,13 @@ function DonationSection({
   form,
   message,
   onAmount,
+  onProofUpload,
   onSubmit,
   registerDonation,
   settings,
   submitting,
   successMessage,
+  uploadingProof,
 }) {
   return (
     <section className="relative bg-indigo-50 px-4 py-24 sm:px-6" id="donate">
@@ -1072,6 +1106,36 @@ function DonationSection({
                   {...registerDonation('transactionId')}
                 />
               </div>
+              <input type="hidden" {...registerDonation('proofImageUrl')} />
+              <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+                <span>পেমেন্ট স্ক্রিনশট</span>
+                <span className="flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-indigo-300">
+                  <Upload aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+                  {uploadingProof ? 'আপলোড হচ্ছে...' : 'স্ক্রিনশট আপলোড করুন'}
+                </span>
+                <input
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={uploadingProof}
+                  onChange={(event) => onProofUpload(event.target.files?.[0])}
+                  type="file"
+                />
+              </label>
+              {errors.proofImageUrl?.message ? (
+                <p className="text-sm font-semibold text-red-600">
+                  {errors.proofImageUrl.message}
+                </p>
+              ) : null}
+              {form.proofImageUrl ? (
+                <a
+                  className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
+                  href={form.proofImageUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  স্ক্রিনশট আপলোড হয়েছে
+                </a>
+              ) : null}
               <Field error={errors.note?.message} label="বার্তা" rows={3} textarea {...registerDonation('note')} />
               {message ? <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{message}</p> : null}
               {successMessage ? (
@@ -1079,7 +1143,12 @@ function DonationSection({
                   {successMessage}
                 </p>
               ) : null}
-              <Button className="min-h-14 w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-base" icon={Send} loading={submitting} type="submit">
+              <Button
+                className="min-h-14 w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-base"
+                icon={Send}
+                loading={submitting || uploadingProof}
+                type="submit"
+              >
                 দান করুন
               </Button>
               <p className="text-center text-xs leading-6 text-gray-500">
