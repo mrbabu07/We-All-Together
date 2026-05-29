@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import toast from 'react-hot-toast'
 import {
+  ArrowDown,
+  ArrowUp,
   Archive,
   Bell,
   CheckCircle2,
@@ -596,6 +598,12 @@ export default function AdminControlsPage() {
               variant: 'danger',
             })
           }
+          onReorder={(collection, orderedIds) =>
+            runAction(
+              () => api.patch(`/${collection}/reorder`, { orderedIds }),
+              'Homepage order updated',
+            )
+          }
           onSave={saveSettings}
           onUpdate={(collection, item, payload) =>
             runAction(() => api.patch(`/${collection}/${item._id}`, payload), 'Homepage item updated')
@@ -1084,6 +1092,7 @@ function HomepageControlsTab({
   onChange,
   onCreate,
   onDelete,
+  onReorder,
   onSave,
   onUpdate,
   onUploadImage,
@@ -1122,6 +1131,21 @@ function HomepageControlsTab({
       await onCreate(config.key, payload)
     }
     resetDraft(config.key)
+  }
+
+  const moveItem = (config, item, direction) => {
+    const items = collections[config.key] || []
+    const currentIndex = items.findIndex((entry) => entry._id === item._id)
+    const nextIndex = currentIndex + direction
+
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= items.length) {
+      return
+    }
+
+    const orderedItems = [...items]
+    const [selectedItem] = orderedItems.splice(currentIndex, 1)
+    orderedItems.splice(nextIndex, 0, selectedItem)
+    onReorder(config.key, orderedItems.map((entry) => entry._id))
   }
 
   return (
@@ -1233,16 +1257,46 @@ function HomepageControlsTab({
             </form>
 
             <div className="mt-6 grid gap-3">
-              {(collections[config.key] || []).map((item) => (
+              {(collections[config.key] || []).map((item, index, items) => (
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={item._id}>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">{item.name || item.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-semibold text-gray-900">{item.name || item.title}</p>
+                      <Badge value={item.active === false ? 'default' : 'approved'}>
+                        {item.active === false ? 'Inactive' : 'Active'}
+                      </Badge>
+                    </div>
                     <p className="truncate text-sm text-gray-500">
+                      #{index + 1} |{' '}
                       {item.position || item.year || item.joinYear || item.websiteUrl || 'Homepage item'}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button onClick={() => setDrafts((current) => ({ ...current, [config.key]: item }))} type="button" variant="secondary">
+                    <Button
+                      disabled={index === 0}
+                      icon={ArrowUp}
+                      iconOnly
+                      onClick={() => moveItem(config, item, -1)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Move up
+                    </Button>
+                    <Button
+                      disabled={index === items.length - 1}
+                      icon={ArrowDown}
+                      iconOnly
+                      onClick={() => moveItem(config, item, 1)}
+                      type="button"
+                      variant="secondary"
+                    >
+                      Move down
+                    </Button>
+                    <Button
+                      onClick={() => setDrafts((current) => ({ ...current, [config.key]: item }))}
+                      type="button"
+                      variant="secondary"
+                    >
                       Edit
                     </Button>
                     <Button icon={Trash2} onClick={() => onDelete(config.key, item)} type="button" variant="danger">

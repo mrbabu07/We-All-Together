@@ -9,6 +9,7 @@ const createSimpleCrudRoutes = (controller) => {
   router.get('/', controller.getPublicItems)
   router.get('/admin', protect, authorize(USER_ROLES.ADMIN), controller.getAdminItems)
   router.post('/', protect, authorize(USER_ROLES.ADMIN), controller.createItem)
+  router.patch('/reorder', protect, authorize(USER_ROLES.ADMIN), controller.reorderItems)
   router.put('/:id', protect, authorize(USER_ROLES.ADMIN), controller.updateItem)
   router.patch('/:id', protect, authorize(USER_ROLES.ADMIN), controller.updateItem)
   router.delete('/:id', protect, authorize(USER_ROLES.ADMIN), controller.deleteItem)

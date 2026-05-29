@@ -32,6 +32,18 @@ const sanitizePayload = (body, fields) =>
     return payload
   }, {})
 
+const getOrderedIds = (body) => {
+  if (Array.isArray(body.orderedIds)) {
+    return body.orderedIds
+  }
+
+  if (Array.isArray(body.ids)) {
+    return body.ids
+  }
+
+  return []
+}
+
 const createSimpleCrudController = ({ auditName, fields, model, publicFilter = { active: true } }) => {
   const getPublicItems = asyncHandler(async (req, res) => {
     const items = await model.find(publicFilter).sort({ order: 1, createdAt: -1 })
@@ -118,11 +130,54 @@ const createSimpleCrudController = ({ auditName, fields, model, publicFilter = {
     })
   })
 
+  const reorderItems = asyncHandler(async (req, res) => {
+    const orderedIds = [
+      ...new Set(
+        getOrderedIds(req.body)
+          .map((id) => String(id || '').trim())
+          .filter(Boolean),
+      ),
+    ]
+
+    if (!orderedIds.length) {
+      throw new AppError('Ordered item IDs are required.', 400)
+    }
+
+    const existingCount = await model.countDocuments({ _id: { $in: orderedIds } })
+    if (existingCount !== orderedIds.length) {
+      throw new AppError(`Some ${auditName} items were not found.`, 404)
+    }
+
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        model.findByIdAndUpdate(id, {
+          order: index,
+        }),
+      ),
+    )
+
+    await recordAuditLog({
+      action: `${auditName.toLowerCase()}.reorder`,
+      actor: req.user,
+      entityType: auditName,
+      metadata: { orderedIds },
+    })
+
+    const items = await model.find().sort({ order: 1, createdAt: -1 })
+
+    res.status(200).json({
+      success: true,
+      message: `${auditName} reordered successfully.`,
+      data: { items },
+    })
+  })
+
   return {
     createItem,
     deleteItem,
     getAdminItems,
     getPublicItems,
+    reorderItems,
     updateItem,
   }
 }
