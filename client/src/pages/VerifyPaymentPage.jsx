@@ -39,7 +39,7 @@ export default function VerifyPaymentPage() {
     setMessage('')
 
     try {
-      const response = await api.get(`/payments/${paymentId}`)
+      const response = await api.get(`/admin/payments/${paymentId}`)
       setPayment(response.data.data.payment)
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -78,7 +78,7 @@ export default function VerifyPaymentPage() {
     }
 
     await runAction(async () => {
-      await api.patch(`/payments/${payment._id}/reject`, { reason })
+      await api.patch(`/admin/payments/${payment._id}/reject`, { reason })
       closeRejectModal()
     }, 'Payment rejected successfully.')
   }
@@ -156,7 +156,7 @@ export default function VerifyPaymentPage() {
                 icon={CheckCircle2}
                 onClick={() =>
                   runAction(
-                    () => api.patch(`/payments/${payment._id}/verify`),
+                    () => api.patch(`/admin/payments/${payment._id}/verify`),
                     'Payment verified successfully.',
                   )
                 }
