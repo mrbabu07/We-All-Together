@@ -114,6 +114,21 @@ const gallerySchema = z.object({
   title: z.string().trim().min(1, 'Title is required.'),
 })
 
+const inlineCommentSchema = z.object({
+  body: z.string().trim().min(1, 'Comment is required.').max(500, 'Comment cannot exceed 500 characters.'),
+})
+
+const meetingCheckInSchema = z.object({
+  code: z.string().trim().min(1, 'Attendance code is required.'),
+})
+
+const tourFeedbackSchema = z.object({
+  comment: z.string().trim().max(500, 'Comment cannot exceed 500 characters.').optional(),
+  rating: z.enum(['1', '2', '3', '4', '5'], {
+    message: 'Rating must be between 1 and 5.',
+  }),
+})
+
 const formatDate = (value) => {
   if (!value) {
     return 'N/A'
@@ -174,9 +189,13 @@ export default function MemberDashboardPage() {
   const [editingBlogId, setEditingBlogId] = useState('')
   const [lastBlogAutoSaveAt, setLastBlogAutoSaveAt] = useState(null)
   const [commentForms, setCommentForms] = useState({})
+  const [commentErrors, setCommentErrors] = useState({})
   const [noticeCommentForms, setNoticeCommentForms] = useState({})
+  const [noticeCommentErrors, setNoticeCommentErrors] = useState({})
   const [meetingCheckInForms, setMeetingCheckInForms] = useState({})
+  const [meetingCheckInErrors, setMeetingCheckInErrors] = useState({})
   const [tourFeedbackForms, setTourFeedbackForms] = useState({})
+  const [tourFeedbackErrors, setTourFeedbackErrors] = useState({})
   const [uploadingProof, setUploadingProof] = useState(false)
   const [uploadingCommunityImage, setUploadingCommunityImage] = useState('')
   const {
@@ -547,15 +566,20 @@ export default function MemberDashboardPage() {
   }
 
   const addBlogComment = async (id) => {
-    const body = commentForms[id]
+    const result = inlineCommentSchema.safeParse({ body: commentForms[id] || '' })
 
-    if (!body?.trim()) {
+    if (!result.success) {
+      setCommentErrors((current) => ({
+        ...current,
+        [id]: result.error.flatten().fieldErrors.body?.[0] || 'Comment is required.',
+      }))
       return
     }
 
     try {
-      await api.post(`/blogs/${id}/comments`, { body })
+      await api.post(`/blogs/${id}/comments`, { body: result.data.body })
       setCommentForms((current) => ({ ...current, [id]: '' }))
+      setCommentErrors((current) => ({ ...current, [id]: '' }))
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -592,16 +616,21 @@ export default function MemberDashboardPage() {
   }
 
   const addNoticeComment = async (id) => {
-    const body = noticeCommentForms[id]
+    const result = inlineCommentSchema.safeParse({ body: noticeCommentForms[id] || '' })
 
-    if (!body?.trim()) {
+    if (!result.success) {
+      setNoticeCommentErrors((current) => ({
+        ...current,
+        [id]: result.error.flatten().fieldErrors.body?.[0] || 'Comment is required.',
+      }))
       return
     }
 
     try {
       setMessage('')
-      await api.post(`/notices/${id}/comments`, { body })
+      await api.post(`/notices/${id}/comments`, { body: result.data.body })
       setNoticeCommentForms((current) => ({ ...current, [id]: '' }))
+      setNoticeCommentErrors((current) => ({ ...current, [id]: '' }))
       await loadDashboard()
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -717,15 +746,38 @@ export default function MemberDashboardPage() {
       ...current,
       [id]: value,
     }))
+    setMeetingCheckInErrors((current) => ({
+      ...current,
+      [id]: '',
+    }))
   }
 
   const checkInMeeting = async (id) => {
+    const meeting = data.meetings.find((item) => item._id === id)
+    const attendanceMode = meeting?.attendanceMode?.method || 'manual'
+    const needsCode = ['otp', 'qr'].includes(attendanceMode)
+    const result = meetingCheckInSchema.safeParse({
+      code: needsCode ? meetingCheckInForms[id] || '' : 'manual',
+    })
+
+    if (!result.success) {
+      setMeetingCheckInErrors((current) => ({
+        ...current,
+        [id]: result.error.flatten().fieldErrors.code?.[0] || 'Attendance code is required.',
+      }))
+      return
+    }
+
     try {
       setMessage('')
       await api.post(`/meetings/${id}/check-in`, {
-        code: meetingCheckInForms[id] || '',
+        code: needsCode ? result.data.code : '',
       })
       setMeetingCheckInForms((current) => ({
+        ...current,
+        [id]: '',
+      }))
+      setMeetingCheckInErrors((current) => ({
         ...current,
         [id]: '',
       }))
@@ -761,14 +813,41 @@ export default function MemberDashboardPage() {
         [field]: value,
       },
     }))
+    setTourFeedbackErrors((current) => ({
+      ...current,
+      [id]: {
+        ...(current[id] || {}),
+        [field]: '',
+      },
+    }))
   }
 
   const submitTourFeedback = async (id) => {
+    const result = tourFeedbackSchema.safeParse(
+      tourFeedbackForms[id] || { rating: '5', comment: '' },
+    )
+
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors
+
+      setTourFeedbackErrors((current) => ({
+        ...current,
+        [id]: {
+          comment: fieldErrors.comment?.[0] || '',
+          rating: fieldErrors.rating?.[0] || '',
+        },
+      }))
+      return
+    }
+
     try {
       setMessage('')
-      const form = tourFeedbackForms[id] || { rating: '5', comment: '' }
 
-      await api.post(`/tours/${id}/feedback`, form)
+      await api.post(`/tours/${id}/feedback`, result.data)
+      setTourFeedbackErrors((current) => ({
+        ...current,
+        [id]: {},
+      }))
       setMessage('Tour feedback submitted successfully.')
       await loadDashboard()
     } catch (error) {
@@ -853,14 +932,16 @@ export default function MemberDashboardPage() {
       {!loading && activeTab === 'blogs' ? (
         <Blogs
           blogs={data.blogs}
+          commentErrors={commentErrors}
           commentForms={commentForms}
           editingBlogId={editingBlogId}
           formErrors={blogErrors}
           isSubmitting={isSubmittingBlog}
           onCancelEdit={cancelBlogEdit}
-          onCommentChange={(id, value) =>
+          onCommentChange={(id, value) => {
             setCommentForms((current) => ({ ...current, [id]: value }))
-          }
+            setCommentErrors((current) => ({ ...current, [id]: '' }))
+          }}
           onCommentDelete={deleteBlogComment}
           onCommentSubmit={addBlogComment}
           onDelete={deleteBlog}
@@ -891,13 +972,15 @@ export default function MemberDashboardPage() {
       {!loading && activeTab === 'updates' ? (
         <Updates
           data={data}
+          meetingCheckInErrors={meetingCheckInErrors}
           meetingCheckInForms={meetingCheckInForms}
           onMeetingCheckIn={checkInMeeting}
           onMeetingCheckInChange={updateMeetingCheckInCode}
           onMeetingRsvp={(id, status) => submitRsvp('meetings', id, status)}
-          onNoticeCommentChange={(id, value) =>
+          onNoticeCommentChange={(id, value) => {
             setNoticeCommentForms((current) => ({ ...current, [id]: value }))
-          }
+            setNoticeCommentErrors((current) => ({ ...current, [id]: '' }))
+          }}
           onNoticeCommentSubmit={addNoticeComment}
           onNoticeRead={markNoticeRead}
           onNoticeReact={reactToNotice}
@@ -905,7 +988,9 @@ export default function MemberDashboardPage() {
           onTourFeedbackSubmit={submitTourFeedback}
           onTourRegister={registerForTour}
           onTourRsvp={(id, status) => submitRsvp('tours', id, status)}
+          noticeCommentErrors={noticeCommentErrors}
           noticeCommentForms={noticeCommentForms}
+          tourFeedbackErrors={tourFeedbackErrors}
           tourFeedbackForms={tourFeedbackForms}
           user={user}
         />
@@ -1074,6 +1159,7 @@ function OverdueAlertBanner({ feeStatus, onPay }) {
 
 function Blogs({
   blogs,
+  commentErrors,
   commentForms,
   editingBlogId,
   formErrors,
@@ -1265,6 +1351,7 @@ function Blogs({
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
               <Field
+                error={commentErrors[blog._id]}
                 label="Comment"
                 name={`comment-${blog._id}`}
                 onChange={(event) => onCommentChange(blog._id, event.target.value)}
@@ -1674,7 +1761,9 @@ function PaymentTargetInfo({ label, value }) {
 
 function Updates({
   data,
+  meetingCheckInErrors,
   meetingCheckInForms,
+  noticeCommentErrors,
   noticeCommentForms,
   onMeetingCheckIn,
   onMeetingCheckInChange,
@@ -1687,12 +1776,14 @@ function Updates({
   onTourFeedbackSubmit,
   onTourRegister,
   onTourRsvp,
+  tourFeedbackErrors,
   tourFeedbackForms,
   user,
 }) {
   return (
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
       <UpdateList
+        commentErrors={noticeCommentErrors}
         commentForms={noticeCommentForms}
         items={data.notices}
         noticeActions
@@ -1705,6 +1796,7 @@ function Updates({
         user={user}
       />
       <UpdateList
+        checkInErrors={meetingCheckInErrors}
         checkInForms={meetingCheckInForms}
         items={data.meetings}
         meetingActions
@@ -1726,6 +1818,7 @@ function Updates({
         textKey="details"
         title="Tours"
         tourActions
+        tourFeedbackErrors={tourFeedbackErrors}
         tourFeedbackForms={tourFeedbackForms}
         user={user}
       />
@@ -1875,7 +1968,9 @@ function MemberDirectory({ members }) {
 }
 
 function UpdateList({
+  checkInErrors = {},
   checkInForms = {},
+  commentErrors = {},
   commentForms = {},
   items,
   meetingActions = false,
@@ -1894,6 +1989,7 @@ function UpdateList({
   textKey,
   title,
   tourActions = false,
+  tourFeedbackErrors = {},
   tourFeedbackForms = {},
   user,
 }) {
@@ -1938,6 +2034,7 @@ function UpdateList({
             ) : null}
             {tourActions ? (
               <TourActions
+                feedbackErrors={tourFeedbackErrors[item._id] || {}}
                 feedbackForm={tourFeedbackForms[item._id] || { rating: '5', comment: '' }}
                 item={item}
                 onFeedbackChange={onTourFeedbackChange}
@@ -1948,6 +2045,7 @@ function UpdateList({
             ) : null}
             {meetingActions ? (
               <MeetingActions
+                checkInError={checkInErrors[item._id]}
                 checkInValue={checkInForms[item._id] || ''}
                 item={item}
                 onCheckInChange={onCheckInChange}
@@ -1957,6 +2055,7 @@ function UpdateList({
             ) : null}
             {noticeActions ? (
               <NoticeActions
+                commentError={commentErrors[item._id]}
                 commentValue={commentForms[item._id] || ''}
                 item={item}
                 onCommentChange={onCommentChange}
@@ -1974,6 +2073,7 @@ function UpdateList({
 }
 
 function TourActions({
+  feedbackErrors = {},
   feedbackForm,
   item,
   onFeedbackChange,
@@ -2033,6 +2133,7 @@ function TourActions({
           </p>
           <div className="grid gap-3 md:grid-cols-[140px_1fr_auto]">
             <SelectField
+              error={feedbackErrors.rating}
               label="Rating"
               name={`tour-rating-${item._id}`}
               onChange={(event) => onFeedbackChange(item._id, 'rating', event.target.value)}
@@ -2045,6 +2146,7 @@ function TourActions({
               <option value="1">1</option>
             </SelectField>
             <Field
+              error={feedbackErrors.comment}
               label="Comment"
               name={`tour-comment-${item._id}`}
               onChange={(event) => onFeedbackChange(item._id, 'comment', event.target.value)}
@@ -2062,7 +2164,7 @@ function TourActions({
   )
 }
 
-function MeetingActions({ checkInValue, item, onCheckInChange, onCheckInSubmit, user }) {
+function MeetingActions({ checkInError, checkInValue, item, onCheckInChange, onCheckInSubmit, user }) {
   const myId = String(user?._id || '')
   const attendanceOpen = Boolean(item.attendanceMode?.active)
   const attendanceMode = item.attendanceMode?.method || 'manual'
@@ -2119,6 +2221,7 @@ function MeetingActions({ checkInValue, item, onCheckInChange, onCheckInSubmit, 
             {needsCode ? (
               <Field
                 className="min-w-48 flex-1"
+                error={checkInError}
                 label="Attendance Code"
                 name={`attendance-code-${item._id}`}
                 onChange={(event) => onCheckInChange(item._id, event.target.value)}
@@ -2136,6 +2239,7 @@ function MeetingActions({ checkInValue, item, onCheckInChange, onCheckInSubmit, 
 }
 
 function NoticeActions({
+  commentError,
   commentValue,
   item,
   onCommentChange,
@@ -2189,12 +2293,17 @@ function NoticeActions({
           </div>
         ))}
         <div className="flex flex-wrap gap-2">
-          <input
-            className="min-h-10 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            onChange={(event) => onCommentChange(item._id, event.target.value)}
-            placeholder="Ask a question"
-            value={commentValue}
-          />
+          <div className="min-w-64 flex-1">
+            <input
+              className="min-h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              onChange={(event) => onCommentChange(item._id, event.target.value)}
+              placeholder="Ask a question"
+              value={commentValue}
+            />
+            {commentError ? (
+              <p className="mt-1 text-xs font-medium text-[var(--danger)]">{commentError}</p>
+            ) : null}
+          </div>
           <Button onClick={() => onCommentSubmit(item._id)} size="sm">
             Comment
           </Button>
