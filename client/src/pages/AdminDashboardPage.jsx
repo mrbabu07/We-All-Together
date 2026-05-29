@@ -6011,6 +6011,15 @@ function VerificationList({
   const [page, setPage] = useState(1)
   const [rejectModal, setRejectModal] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
+  const {
+    formState: { errors: rejectErrors, isSubmitting: isRejecting },
+    handleSubmit: handleRejectSubmit,
+    register: registerReject,
+    reset: resetReject,
+  } = useForm({
+    defaultValues: { reason: '' },
+    resolver: zodResolver(rejectReasonSchema),
+  })
   const normalizedQuery = query.trim().toLowerCase()
   const pageSize = 6
   const visibleItems = items.filter((item) => {
@@ -6071,11 +6080,13 @@ function VerificationList({
   }
 
   const openRejectModal = (ids) => {
-    setRejectModal({
-      error: '',
-      ids,
-      reason: '',
-    })
+    resetReject({ reason: '' })
+    setRejectModal({ ids })
+  }
+
+  const closeRejectModal = () => {
+    resetReject({ reason: '' })
+    setRejectModal(null)
   }
 
   const confirmBulkApprove = async () => {
@@ -6084,23 +6095,21 @@ function VerificationList({
     setBulkApproveConfirmOpen(false)
   }
 
-  const submitReject = async (event) => {
-    event.preventDefault()
-    const reason = rejectModal?.reason?.trim()
-
-    if (!reason) {
-      setRejectModal((current) => ({ ...current, error: 'Reason is required.' }))
+  const submitReject = async ({ reason }) => {
+    if (!rejectModal) {
       return
     }
 
+    const trimmedReason = reason.trim()
+
     if (rejectModal.ids.length === 1) {
-      await onReject(rejectModal.ids[0], reason)
+      await onReject(rejectModal.ids[0], trimmedReason)
     } else {
-      await onBulkReject(rejectModal.ids, reason)
+      await onBulkReject(rejectModal.ids, trimmedReason)
     }
 
     setSelectedIds((current) => current.filter((id) => !rejectModal.ids.includes(id)))
-    setRejectModal(null)
+    closeRejectModal()
   }
 
   return (
@@ -6169,36 +6178,28 @@ function VerificationList({
       </div>
 
       <Modal
-        onClose={() => setRejectModal(null)}
+        onClose={closeRejectModal}
         open={Boolean(rejectModal)}
         title={`Reject ${recordLabel}`}
       >
         {rejectModal ? (
-          <form className="grid gap-4" onSubmit={submitReject}>
+          <form className="grid gap-4" onSubmit={handleRejectSubmit(submitReject)}>
             <p className="text-sm text-gray-600">
               Add a reason for rejecting {rejectModal.ids.length} selected {recordLabel}
               {rejectModal.ids.length > 1 ? 's' : ''}. The reason will stay with this record.
             </p>
             <Field
-              error={rejectModal.error}
+              error={rejectErrors.reason?.message}
               label="Reason"
-              name="paymentRejectionReason"
-              onChange={(event) =>
-                setRejectModal((current) => ({
-                  ...current,
-                  error: '',
-                  reason: event.target.value,
-                }))
-              }
               required
               textarea
-              value={rejectModal.reason}
+              {...registerReject('reason')}
             />
             <div className="flex justify-end gap-2">
-              <Button onClick={() => setRejectModal(null)} variant="secondary">
+              <Button onClick={closeRejectModal} type="button" variant="secondary">
                 Cancel
               </Button>
-              <Button icon={XCircle} type="submit" variant="danger">
+              <Button icon={XCircle} loading={isRejecting} type="submit" variant="danger">
                 Reject
               </Button>
             </div>
