@@ -23,7 +23,8 @@ const Testimonial = require('../src/models/Testimonial')
 const Tour = require('../src/models/Tour')
 const User = require('../src/models/User')
 
-const demoPassword = process.env.SEED_USER_PASSWORD || 'Member@123'
+const demoMemberEmail = process.env.SEED_USER_EMAIL || 'user@gmail.com'
+const demoPassword = process.env.SEED_USER_PASSWORD || '123456'
 const demoAdminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@gmail.com'
 const demoAdminPassword = process.env.SEED_ADMIN_PASSWORD || '123456'
 const adminPhone = process.env.SEED_ADMIN_PHONE || '01700000000'
@@ -118,7 +119,9 @@ const contentTitles = {
 }
 
 const removePreviousSeedData = async () => {
-  const sampleUsers = await User.find({ phone: { $in: samplePhones } }).select('_id')
+  const sampleUsers = await User.find({
+    $or: [{ phone: { $in: samplePhones } }, { email: demoMemberEmail }],
+  }).select('_id')
   const sampleUserIds = sampleUsers.map((user) => user._id)
 
   await Promise.all([
@@ -143,7 +146,7 @@ const removePreviousSeedData = async () => {
     Tour.deleteMany({ title: { $in: contentTitles.tours } }),
   ])
 
-  await User.deleteMany({ phone: { $in: samplePhones } })
+  await User.deleteMany({ $or: [{ phone: { $in: samplePhones } }, { email: demoMemberEmail }] })
 }
 
 const findOrCreateAdmin = async () => {
@@ -249,6 +252,7 @@ const seedUsers = async (admin) => {
       approvedAt: dateFromNow(-120),
       approvedBy: admin._id,
       birthCertificateUrl: image('birth-rahim'),
+      email: demoMemberEmail,
       name: 'Rahim Uddin',
       nidImageUrl: image('nid-rahim'),
       password: demoPassword,
@@ -1112,6 +1116,7 @@ const run = async () => {
     console.log(`Admin email: ${admin.email}`)
     console.log(`Admin phone: ${admin.phone}`)
     console.log(`Admin password: ${demoAdminPassword}`)
+    console.log(`Demo member email: ${demoMemberEmail}`)
     console.log(`Demo member password: ${demoPassword}`)
     console.log('Demo member phones: 01710000001 to 01710000006')
   } catch (error) {
