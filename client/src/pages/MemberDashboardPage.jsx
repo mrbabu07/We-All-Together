@@ -195,6 +195,18 @@ const paymentCoversMonth = (payment, monthKeyValue) => {
   )
 }
 
+const getSettledData = (result, fallback, picker) => {
+  if (result.status !== 'fulfilled') {
+    return fallback
+  }
+
+  try {
+    return picker(result.value) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 const escapeHtml = (value = '') =>
   String(value)
     .replaceAll('&', '&amp;')
@@ -328,6 +340,20 @@ export default function MemberDashboardPage() {
     setMessage('')
 
     try {
+      const requests = [
+        api.get('/public/settings'),
+        api.get('/member/payments/my'),
+        api.get('/member/notices/members'),
+        api.get('/member/meetings/members'),
+        api.get('/member/tours/members'),
+        api.get('/member/activities/members'),
+        api.get('/member/rules/members'),
+        api.get('/member/members'),
+        api.get('/member/blogs/members'),
+        api.get('/member/gallery/members'),
+        api.get('/member/polls'),
+        api.get('/member/fees/my-status'),
+      ]
       const [
         settingsResponse,
         paymentsResponse,
@@ -341,41 +367,32 @@ export default function MemberDashboardPage() {
         galleryResponse,
         pollsResponse,
         feeStatusResponse,
-      ] = await Promise.all([
-        api.get('/public/settings'),
-        api.get('/member/payments/my'),
-        api.get('/member/notices/members'),
-        api.get('/member/meetings/members'),
-        api.get('/member/tours/members'),
-        api.get('/member/activities/members'),
-        api.get('/member/rules/members'),
-        api.get('/member/members'),
-        api.get('/member/blogs/members'),
-        api.get('/member/gallery/members'),
-        api.get('/member/polls'),
-        api.get('/member/fees/my-status'),
-      ])
+      ] = await Promise.allSettled(requests)
 
       setData({
-        activities: activitiesResponse.data.data.items,
-        blogs: blogsResponse.data.data.blogs,
-        feeStatus: feeStatusResponse.data.data,
-        gallery: galleryResponse.data.data.items,
-        meetings: meetingsResponse.data.data.items,
-        members: membersResponse.data.data.members,
-        notices: noticesResponse.data.data.items,
-        payments: paymentsResponse.data.data.payments,
-        polls: pollsResponse.data.data.polls,
-        rules: rulesResponse.data.data.items,
-        settings: settingsResponse.data.data.settings,
-        tours: toursResponse.data.data.items,
+        activities: getSettledData(activitiesResponse, [], (response) => response.data.data.items),
+        blogs: getSettledData(blogsResponse, [], (response) => response.data.data.blogs),
+        feeStatus: getSettledData(feeStatusResponse, null, (response) => response.data.data),
+        gallery: getSettledData(galleryResponse, [], (response) => response.data.data.items),
+        meetings: getSettledData(meetingsResponse, [], (response) => response.data.data.items),
+        members: getSettledData(membersResponse, [], (response) => response.data.data.members),
+        notices: getSettledData(noticesResponse, [], (response) => response.data.data.items),
+        payments: getSettledData(paymentsResponse, [], (response) => response.data.data.payments),
+        polls: getSettledData(pollsResponse, [], (response) => response.data.data.polls),
+        rules: getSettledData(rulesResponse, [], (response) => response.data.data.items),
+        settings: getSettledData(settingsResponse, {}, (response) => response.data.data.settings),
+        tours: getSettledData(toursResponse, [], (response) => response.data.data.items),
       })
+
+      if (pollsResponse.status === 'rejected' && activeTab === 'polls') {
+        setMessage(getErrorMessage(pollsResponse.reason))
+      }
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [activeTab])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

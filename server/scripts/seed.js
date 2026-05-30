@@ -696,7 +696,7 @@ const seedContent = async (admin, members) => {
       options: [
         {
           text: 'Approve full budget',
-          votes: members.slice(0, 3).map((member) => member._id),
+          votes: members.slice(1, 3).map((member) => member._id),
         },
         {
           text: 'Reduce by Tk 5,000',
@@ -716,7 +716,7 @@ const seedContent = async (admin, members) => {
       options: [
         {
           text: 'Friday after Jumuah',
-          votes: members.slice(0, 2).map((member) => member._id),
+          votes: members.slice(1, 2).map((member) => member._id),
         },
         {
           text: 'Saturday evening',

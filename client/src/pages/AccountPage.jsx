@@ -369,6 +369,14 @@ export default function AccountPage() {
 
   const emergencyContact = profileForm.emergencyContact || defaultProfileForm.emergencyContact
   const notificationPreferences = profileForm.notificationPreferences || defaultPreferences
+  const previewUser = {
+    ...(user || {}),
+    address: profileForm.address || user?.address || '',
+    email: profileForm.email || user?.email || '',
+    name: profileForm.name || user?.name || '',
+    phone: profileForm.phone || user?.phone || '',
+    profilePhotoUrl: profileForm.profilePhotoUrl || user?.profilePhotoUrl || '',
+  }
   const completionItems = [
     profileForm.name,
     profileForm.phone,
@@ -410,7 +418,7 @@ export default function AccountPage() {
           width: 240,
         }))
       const [profileImage, qrImage] = await Promise.all([
-        loadCanvasImage(user?.profilePhotoUrl),
+        loadCanvasImage(previewUser.profilePhotoUrl),
         loadCanvasImage(qrDataUrl),
       ])
       const context = canvas.getContext('2d')
@@ -454,17 +462,17 @@ export default function AccountPage() {
         context.fillStyle = cssVar('--brand-600')
         context.font = 'bold 58px Arial'
         context.textAlign = 'center'
-        context.fillText(user?.name?.slice(0, 1) || 'M', 128, 350)
+        context.fillText(previewUser.name?.slice(0, 1) || 'M', 128, 350)
       }
 
       context.textAlign = 'left'
       context.fillStyle = cssVar('--text-primary')
       context.font = 'bold 30px Arial'
-      context.fillText(user?.name || 'Member', 236, 300)
+      context.fillText(previewUser.name || 'Member', 236, 300)
       context.font = '20px Arial'
-      context.fillText(`Phone: ${user?.phone || ''}`, 236, 340)
-      context.fillText(`Role: ${user?.role || 'member'}`, 236, 380)
-      context.fillText(`Member ID: ${user?._id || ''}`, 236, 420)
+      context.fillText(`Phone: ${previewUser.phone || ''}`, 236, 340)
+      context.fillText(`Role: ${previewUser.role || 'member'}`, 236, 380)
+      context.fillText(`Member ID: ${previewUser._id || ''}`, 236, 420)
 
       if (qrImage) {
         context.fillStyle = cssVar('--surface-0')
@@ -524,10 +532,10 @@ export default function AccountPage() {
         <Panel>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <Avatar name={user?.name} size="lg" src={user?.profilePhotoUrl} />
+              <Avatar name={previewUser.name} size="lg" src={previewUser.profilePhotoUrl} />
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-gray-900">{user?.name}</h2>
-                <p className="text-sm text-gray-500">{user?.phone}</p>
+                <h2 className="text-xl font-semibold tracking-tight text-gray-900">{previewUser.name}</h2>
+                <p className="text-sm text-gray-500">{previewUser.phone}</p>
               </div>
             </div>
             <Badge value={user?.status || 'approved'}>{user?.status || 'approved'}</Badge>
@@ -626,7 +634,7 @@ export default function AccountPage() {
           <Panel>
             <DigitalIdPreview
               qrUrl={idCardQrUrl}
-              user={user}
+              user={previewUser}
               verificationUrl={verificationUrl}
             />
             <Button
@@ -812,14 +820,21 @@ function DocumentUpload({ error, field, label, onUpload, registration, uploading
         />
       </label>
       {value ? (
-        <a
-          className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
-          href={value}
-          rel="noreferrer"
-          target="_blank"
-        >
-          View uploaded file
-        </a>
+        <div className="grid gap-2">
+          <img
+            alt={`${label} preview`}
+            className="h-28 w-full rounded-lg border border-gray-200 object-cover"
+            src={value}
+          />
+          <a
+            className="text-sm font-semibold text-indigo-700 hover:text-indigo-800"
+            href={value}
+            rel="noreferrer"
+            target="_blank"
+          >
+            View uploaded file
+          </a>
+        </div>
       ) : null}
     </div>
   )

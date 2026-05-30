@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const sizes = {
   '2xl': 'h-20 w-20 text-2xl',
   lg: 'h-12 w-12 text-base',
@@ -46,17 +48,20 @@ export default function Avatar({
   src,
   status = '',
 }) {
+  const [failedSrc, setFailedSrc] = useState('')
   const selectedSize = sizes[size] || sizes.md
   const gradient = gradients[hashName(name) % gradients.length]
+  const showImage = Boolean(src) && failedSrc !== src
 
   return (
     <span className={`relative inline-flex shrink-0 ${className}`}>
-      {src ? (
+      {showImage ? (
         <img
           alt={name}
           className={`${selectedSize} rounded-[var(--radius-full)] border-2 border-[var(--surface-0)] object-cover ${
             ring ? 'ring-2 ring-[var(--brand-500)]' : ''
           }`}
+          onError={() => setFailedSrc(src)}
           src={src}
         />
       ) : (
