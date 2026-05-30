@@ -1,6 +1,7 @@
 const mongoose = require('mongoose')
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const User = require('../models/User')
+const Role = require('../models/Role')
 const Blog = require('../models/Blog')
 const Donation = require('../models/Donation')
 const Meeting = require('../models/Meeting')
@@ -172,12 +173,20 @@ const updateUserAccess = asyncHandler(async (req, res) => {
     throw new AppError('User not found.', 404)
   }
 
+  const previousRole = user.role
+
   if (req.body.role !== undefined) {
-    if (!Object.values(USER_ROLES).includes(req.body.role)) {
+    const roleName = String(req.body.role || '').trim()
+    const roleExists = roleName ? await Role.exists({ name: roleName }) : false
+
+    if (!roleExists) {
       throw new AppError('Role is invalid.', 400)
     }
 
-    user.role = req.body.role
+    user.role = roleName
+    if (previousRole !== roleName) {
+      user.sessionVersion = Number(user.sessionVersion || 0) + 1
+    }
   }
 
   if (req.body.status !== undefined) {
@@ -209,6 +218,7 @@ const updateUserAccess = asyncHandler(async (req, res) => {
     entityType: 'User',
     metadata: {
       phone: user.phone,
+      previousRole,
       role: user.role,
       status: user.status,
     },

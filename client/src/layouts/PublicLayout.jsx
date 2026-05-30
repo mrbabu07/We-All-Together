@@ -6,6 +6,7 @@ import ThemeToggle from '../components/ui/ThemeToggle'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import useTheme from '../hooks/useTheme'
+import { isStaffUser } from '../utils/permissionUtils'
 
 export default function PublicLayout() {
   const { user } = useAuth()
@@ -14,6 +15,8 @@ export default function PublicLayout() {
   const location = useLocation()
   const showDarkToggle = homepageControls.darkModeToggleEnabled !== false
   const showFontControls = homepageControls.fontSizeControlsEnabled !== false
+  const dashboardPath = isStaffUser(user) ? '/admin' : '/member'
+  const dashboardLabel = isStaffUser(user) ? t.admin : t.member
 
   if (location.pathname === '/') {
     return <Outlet />
@@ -36,8 +39,8 @@ export default function PublicLayout() {
             {showDarkToggle ? <ThemeToggle /> : null}
             {showFontControls ? <FontSizeControl className="hidden sm:inline-flex" /> : null}
             {user ? (
-              <Button as={Link} to={user.role === 'admin' ? '/admin' : '/member'}>
-                {user.role === 'admin' ? t.admin : t.member}
+              <Button as={Link} to={dashboardPath}>
+                {dashboardLabel}
               </Button>
             ) : (
               <>

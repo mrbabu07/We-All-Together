@@ -655,6 +655,7 @@ export default function AdminDashboardPage() {
     payments: [],
     pendingRegistrations: [],
     polls: [],
+    roles: [],
     settings: {},
     users: [],
   })
@@ -785,6 +786,7 @@ export default function AdminDashboardPage() {
         analyticsResponse,
         pollsResponse,
         feeOverdueResponse,
+        rolesResponse,
       ] = await Promise.all([
         loadIfAllowed(can('member.view'), () => api.get('/admin/registrations/pending'), {
           data: { data: { users: [] } },
@@ -844,6 +846,9 @@ export default function AdminDashboardPage() {
         loadIfAllowed(can('finance.view'), () => api.get('/admin/fees/overdue-members'), {
           data: { data: { members: [], totalAmount: 0, totalOverdue: 0 } },
         }),
+        loadIfAllowed(can('settings.roles'), () => api.get('/admin/roles'), {
+          data: { data: { roles: [] } },
+        }),
       ])
 
       const settings = settingsResponse.data.data.settings
@@ -865,6 +870,7 @@ export default function AdminDashboardPage() {
         payments: paymentsResponse.data.data.payments,
         pendingRegistrations: pendingResponse.data.data.users,
         polls: pollsResponse.data.data.polls,
+        roles: rolesResponse.data.data.roles,
         settings,
         users: usersResponse.data.data.users,
       })
@@ -1868,6 +1874,7 @@ export default function AdminDashboardPage() {
           onUpdateAccess={updateUserAccess}
           onUpdateProfile={updateMemberProfile}
           payments={data.payments}
+          roles={data.roles}
           users={data.users}
         />
       ) : null}
@@ -5565,6 +5572,7 @@ function MembersTab({
   onUpdateAccess,
   onUpdateProfile,
   payments,
+  roles = [],
   users,
 }) {
   const [editingUserId, setEditingUserId] = useState(null)
@@ -5680,6 +5688,36 @@ function MembersTab({
 
   const normalizedQuery = query.trim().toLowerCase()
   const currentMonth = new Date().toISOString().slice(0, 7)
+  const roleOptions = useMemo(() => {
+    const byName = new Map()
+    roles.forEach((role) => {
+      byName.set(role.name, role)
+    })
+    users.forEach((user) => {
+      if (user.role && !byName.has(user.role)) {
+        byName.set(user.role, {
+          color: '#00ADB5',
+          name: user.role,
+          nameEnglish: user.role,
+        })
+      }
+    })
+    ;['member', 'moderator', 'admin'].forEach((roleName) => {
+      if (!byName.has(roleName)) {
+        byName.set(roleName, {
+          color: roleName === 'admin' ? '#111827' : roleName === 'moderator' ? '#8B5CF6' : '#00ADB5',
+          name: roleName,
+          nameEnglish: roleName,
+        })
+      }
+    })
+
+    return Array.from(byName.values()).sort((left, right) => left.name.localeCompare(right.name))
+  }, [roles, users])
+  const roleMetaByName = useMemo(
+    () => new Map(roleOptions.map((role) => [role.name, role])),
+    [roleOptions],
+  )
   const paymentStats = useMemo(() => {
     const statsByUser = new Map()
 
@@ -5773,6 +5811,20 @@ function MembersTab({
   }
   const getFeeBadgeValue = (feeStatus) =>
     feeStatus === 'paid' ? 'approved' : feeStatus === 'pending' ? 'pending' : 'rejected'
+  const roleBadge = (roleName) => {
+    const role = roleMetaByName.get(roleName)
+
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700">
+        <span
+          aria-hidden="true"
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ backgroundColor: role?.color || '#00ADB5' }}
+        />
+        {role?.nameEnglish || roleName}
+      </span>
+    )
+  }
 
   return (
     <div className="mt-6 grid gap-6">
@@ -5808,9 +5860,11 @@ function MembersTab({
               label="Role"
               {...registerMember('role')}
             >
-              <option value="admin">Admin</option>
-              <option value="moderator">Moderator</option>
-              <option value="member">Member</option>
+              {roleOptions.map((role) => (
+                <option key={role.name} value={role.name}>
+                  {role.nameEnglish || role.name}
+                </option>
+              ))}
             </SelectField>
             <SelectField
               error={memberErrors.status?.message}
@@ -5944,9 +5998,11 @@ function MembersTab({
             value={roleFilter}
           >
             <option value="">All roles</option>
-            <option value="member">Member</option>
-            <option value="moderator">Moderator</option>
-            <option value="admin">Admin</option>
+            {roleOptions.map((role) => (
+              <option key={role.name} value={role.name}>
+                {role.nameEnglish || role.name}
+              </option>
+            ))}
           </SelectField>
           <SelectField
             className="min-w-48"
@@ -5993,9 +6049,7 @@ function MembersTab({
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{item.phone}</p>
                     <p className="mt-1 line-clamp-2 text-sm text-gray-500">{item.address}</p>
-                    <p className="mt-2 text-xs font-semibold uppercase text-indigo-600">
-                      {item.role}
-                    </p>
+                    <div className="mt-2">{roleBadge(item.role)}</div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                       <Badge value={getFeeBadgeValue(getMemberPaymentStats(item).feeStatus)}>
                         {getMemberPaymentStats(item).feeStatus}
@@ -6066,7 +6120,7 @@ function MembersTab({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">{item.phone}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.role}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{roleBadge(item.role)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Badge value={item.status}>{item.status}</Badge>

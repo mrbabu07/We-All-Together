@@ -3,6 +3,7 @@ import { BookOpen, CalendarDays, FileText, Search, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api, { getErrorMessage } from '../../api/http'
 import useDebounce from '../../hooks/useDebounce'
+import { hasAnyPermission, hasPermission, isStaffUser } from '../../utils/permissionUtils'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Field from '../ui/Field'
@@ -40,6 +41,7 @@ export default function GlobalSearchModal({ onClose, open, user }) {
   const [message, setMessage] = useState('')
   const [results, setResults] = useState({ blogs: [], meetings: [], notices: [], users: [] })
   const debouncedQuery = useDebounce(query, 300)
+  const staffUser = isStaffUser(user)
 
   useEffect(() => {
     if (!open || !debouncedQuery.trim()) {
@@ -62,6 +64,57 @@ export default function GlobalSearchModal({ onClose, open, user }) {
           })
           if (active) {
             setResults(response.data.data)
+          }
+          return
+        }
+
+        if (staffUser) {
+          const loadIfAllowed = async (allowed, request, fallback) => {
+            if (!allowed) {
+              return fallback
+            }
+
+            try {
+              return await request()
+            } catch {
+              return fallback
+            }
+          }
+          const [membersResponse, noticesResponse, meetingsResponse, blogsResponse] =
+            await Promise.all([
+              loadIfAllowed(hasPermission(user, 'member.view'), () => api.get('/admin/members/users'), {
+                data: { data: { users: [] } },
+              }),
+              loadIfAllowed(hasPermission(user, 'notice.view'), () => api.get('/admin/notices/members'), {
+                data: { data: { items: [] } },
+              }),
+              loadIfAllowed(hasPermission(user, 'meeting.view'), () => api.get('/admin/meetings/members'), {
+                data: { data: { items: [] } },
+              }),
+              loadIfAllowed(hasAnyPermission(user, ['blog.view', 'blog.approve', 'blog.reject']), () => api.get('/admin/blogs/members'), {
+                data: { data: { blogs: [] } },
+              }),
+            ])
+
+          if (active) {
+            setResults({
+              blogs: filterRows(blogsResponse.data.data.blogs, debouncedQuery, ['title', 'body']),
+              meetings: filterRows(meetingsResponse.data.data.items, debouncedQuery, [
+                'title',
+                'agenda',
+                'location',
+              ]),
+              notices: filterRows(noticesResponse.data.data.items, debouncedQuery, [
+                'title',
+                'body',
+                'category',
+              ]),
+              users: filterRows(membersResponse.data.data.users, debouncedQuery, [
+                'name',
+                'phone',
+                'address',
+              ]),
+            })
           }
           return
         }
@@ -110,7 +163,7 @@ export default function GlobalSearchModal({ onClose, open, user }) {
     return () => {
       active = false
     }
-  }, [debouncedQuery, open, user?.role])
+  }, [debouncedQuery, open, staffUser, user])
 
   const totalResults = useMemo(
     () => Object.values(results).reduce((sum, rows) => sum + rows.length, 0),
@@ -132,7 +185,7 @@ export default function GlobalSearchModal({ onClose, open, user }) {
     }
 
     onClose()
-    navigate(user?.role === 'admin' ? adminRoutes[type] : memberRoutes[type])
+    navigate(staffUser ? adminRoutes[type] : memberRoutes[type])
   }
 
   return (

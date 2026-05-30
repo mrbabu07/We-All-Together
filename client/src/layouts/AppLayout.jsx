@@ -15,6 +15,7 @@ import {
 import Button from '../components/ui/Button'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
+import { isStaffUser } from '../utils/permissionUtils'
 
 const navLinkClass = ({ isActive }) =>
   `inline-flex min-h-11 items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition ${
@@ -26,6 +27,7 @@ export default function AppLayout() {
   const { language, t, toggleLanguage } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
+  const staffUser = isStaffUser(user)
 
   const handleLogout = () => {
     logout()
@@ -63,7 +65,7 @@ export default function AppLayout() {
             <NavLink className={navLinkClass} to="/">
               {t.public}
             </NavLink>
-            {user?.role === 'admin' ? (
+            {staffUser ? (
               <NavLink className={navLinkClass} to="/admin">
                 <LayoutDashboard aria-hidden="true" className="inline h-4 w-4" /> {t.admin}
               </NavLink>

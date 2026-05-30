@@ -3,6 +3,7 @@ const createContentController = require('./contentControllerFactory')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
+const { hasAttachedPermission } = require('../services/permissionService')
 const { validateNotice } = require('../validators/contentValidators')
 
 const controllers = createContentController({
@@ -31,8 +32,12 @@ const getVisibleNoticeFilter = ({ publicOnly = false } = {}) => {
 
 const getNotices = asyncHandler(async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 100)
-  const includeArchived = req.query.archived === 'true' && req.user?.role === 'admin'
-  const includeFuture = req.query.future === 'true' && req.user?.role === 'admin'
+  const canManageNoticeTiming =
+    req.user?.role === 'admin' ||
+    hasAttachedPermission(req.user, 'notice.archive') ||
+    hasAttachedPermission(req.user, 'notice.publish')
+  const includeArchived = req.query.archived === 'true' && canManageNoticeTiming
+  const includeFuture = req.query.future === 'true' && canManageNoticeTiming
   const filter =
     includeArchived || includeFuture
       ? {
@@ -63,7 +68,9 @@ const getPublicNotices = asyncHandler(async (req, res) => {
 })
 
 const getMemberNotices = asyncHandler(async (req, res) => {
-  const includeArchived = req.query.archived === 'true' && req.user.role === 'admin'
+  const includeArchived =
+    req.query.archived === 'true' &&
+    (req.user.role === 'admin' || hasAttachedPermission(req.user, 'notice.archive'))
   const filter = includeArchived ? {} : getVisibleNoticeFilter()
   const items = await Notice.find(filter)
     .populate('comments.user', 'name phone profilePhotoUrl')
