@@ -5,11 +5,11 @@ const variants = {
   danger:
     'bg-[var(--danger)] text-[var(--text-inverted)] shadow-[var(--shadow-sm-token)] hover:bg-[var(--danger-dark)]',
   ghost:
-    'bg-transparent text-[var(--brand-600)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]',
+    'bg-transparent text-[var(--brand-700)] hover:bg-[var(--brand-50)] hover:text-[var(--brand-900)]',
   primary:
-    'bg-[var(--brand-600)] text-[var(--text-inverted)] shadow-[var(--shadow-brand)] hover:bg-[var(--brand-700)] hover:shadow-[var(--shadow-lg-token)]',
+    'bg-[linear-gradient(135deg,var(--brand-600),var(--brand-800))] text-[var(--text-inverted)] shadow-[var(--shadow-brand)] hover:brightness-105 hover:shadow-[var(--shadow-lg-token)]',
   secondary:
-    'border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[var(--surface-0)] text-[var(--text-primary)] shadow-[var(--shadow-xs)] hover:bg-[var(--surface-2)]',
+    'border border-[color-mix(in_srgb,var(--gray-200)_78%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] text-[var(--text-primary)] shadow-[var(--shadow-xs)] backdrop-blur hover:border-[color-mix(in_srgb,var(--brand-300)_50%,var(--gray-200))] hover:bg-[var(--surface-0)]',
   success:
     'bg-[var(--success)] text-[var(--text-inverted)] shadow-[var(--shadow-sm-token)] hover:bg-[var(--success-dark)]',
 }
@@ -78,7 +78,7 @@ export default function Button({
 
   return (
     <Component
-      className={`relative inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-[var(--radius-md)] font-medium transition-all duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`relative inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-[var(--radius-md)] font-semibold transition-all duration-150 ease-out hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 ${
         variants[variant] || variants.primary
       } ${selectedSize} ${iconOnly ? 'aspect-square px-0' : ''} ${className}`}
       {...props}

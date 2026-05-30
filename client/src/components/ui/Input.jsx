@@ -23,7 +23,7 @@ export default function Input({
     <label className={`grid gap-1.5 text-sm font-medium text-[var(--text-secondary)] ${className}`}>
       {label ? <span className="text-label">{label}</span> : null}
       <Control
-        className={`min-h-11 w-full rounded-[var(--radius-md)] border bg-[var(--surface-0)] px-4 py-2.5 text-sm text-[var(--text-primary)] outline-none transition-all placeholder:text-[var(--text-muted)] focus:ring-[3px] disabled:cursor-not-allowed disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)] ${
+        className={`min-h-11 w-full rounded-[var(--radius-md)] border bg-[color-mix(in_srgb,var(--surface-0)_94%,transparent)] px-4 py-2.5 text-sm text-[var(--text-primary)] shadow-[var(--shadow-xs)] outline-none transition-all placeholder:text-[var(--text-muted)] hover:border-[color-mix(in_srgb,var(--brand-300)_45%,var(--gray-200))] focus:bg-[var(--surface-0)] focus:ring-[3px] disabled:cursor-not-allowed disabled:bg-[var(--surface-2)] disabled:text-[var(--text-muted)] ${
           states[visualState] || states.default
         }`}
         name={name}

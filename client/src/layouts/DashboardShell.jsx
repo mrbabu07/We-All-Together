@@ -53,13 +53,13 @@ function SidebarContent({ navItems, onNavigate, user }) {
   }
 
   return (
-    <div className="sidebar flex h-full flex-col bg-[var(--surface-0)]">
+    <div className="sidebar flex h-full flex-col bg-[linear-gradient(180deg,var(--surface-0)_0%,var(--surface-1)_100%)]">
       <Link className="flex h-[72px] items-center gap-3 px-4" onClick={onNavigate} to="/">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-full)] bg-gradient-to-br from-[var(--brand-500)] to-[var(--brand-800)] text-[var(--text-inverted)] shadow-[var(--shadow-brand)]">
           <Sparkles aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <span className="hidden min-w-0 lg:block">
-          <span className="block truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+          <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
             দরগাহ পাড়া
           </span>
           <span className="block truncate text-xs text-[var(--text-muted)]">পরিষদ</span>
@@ -76,9 +76,9 @@ function SidebarContent({ navItems, onNavigate, user }) {
 
           return (
             <Link
-              className={`group relative flex min-h-11 items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm transition-colors ${
+              className={`group relative flex min-h-11 items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm transition-all ${
                 active
-                  ? 'bg-[var(--brand-50)] font-medium text-[var(--brand-700)]'
+                  ? 'bg-[var(--brand-50)] font-semibold text-[var(--brand-700)] shadow-[var(--shadow-xs)]'
                   : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
               }`}
               key={item.to}
@@ -111,7 +111,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
       </nav>
 
       <div className="mt-auto border-t border-[var(--gray-200)] p-4">
-        <div className="flex items-center gap-3 rounded-[var(--radius-lg)] bg-[var(--surface-1)] p-3">
+        <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_86%,transparent)] p-3 shadow-[var(--shadow-xs)]">
           <Avatar name={user?.name} size="sm" src={user?.profilePhotoUrl} status="online" />
           <div className="hidden min-w-0 lg:block">
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{user?.name}</p>
@@ -246,8 +246,8 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-1)] pb-20 text-[var(--text-primary)] md:pb-0">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden border-r border-[color-mix(in_srgb,var(--gray-200)_60%,transparent)] bg-[var(--surface-0)] md:block md:w-[60px] lg:w-[260px]">
+    <div className="min-h-screen bg-[linear-gradient(180deg,var(--surface-1)_0%,var(--surface-2)_100%)] pb-20 text-[var(--text-primary)] md:pb-0">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden border-r border-[color-mix(in_srgb,var(--gray-200)_60%,transparent)] bg-[var(--surface-0)] shadow-[var(--shadow-sm-token)] md:block md:w-[60px] lg:w-[260px]">
         <SidebarContent navItems={navItems} user={user} />
       </aside>
 
@@ -291,7 +291,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
       </Dialog>
 
       <div className="md:pl-[60px] lg:pl-[260px]">
-        <header className="navbar sticky top-0 z-40 border-b border-[color-mix(in_srgb,var(--gray-200)_60%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_95%,transparent)] backdrop-blur-sm">
+        <header className="navbar sticky top-0 z-40 border-b border-[color-mix(in_srgb,var(--gray-200)_60%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_88%,transparent)] shadow-[var(--shadow-xs)] backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <Button
@@ -311,7 +311,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                   <span className="px-2">/</span>
                   <span className="text-[var(--text-primary)]">{title}</span>
                 </p>
-                <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+                <h1 className="truncate text-lg font-semibold text-[var(--text-primary)]">
                   {title}
                 </h1>
               </div>
@@ -380,7 +380,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
         <Outlet />
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--gray-200)] bg-[var(--surface-0)] md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_90%,transparent)] shadow-[0_-10px_30px_rgba(34,40,49,0.08)] backdrop-blur-xl md:hidden">
         <div className="grid grid-cols-5">
           {mobileItems.slice(0, 5).map((item) => {
             const Icon = item.icon

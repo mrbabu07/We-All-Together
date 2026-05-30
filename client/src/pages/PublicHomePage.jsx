@@ -28,6 +28,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import api, { getErrorMessage } from '../api/http'
+import communityHero from '../assets/community-hero.png'
 import {
   AchievementsSection,
   CommitteeSection,
@@ -53,6 +54,7 @@ import useAuth from '../hooks/useAuth'
 import useTypewriter from '../hooks/useTypewriter'
 import useAppStore from '../store/appStore'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { isStaffUser } from '../utils/permissionUtils'
 
 const initialDonationForm = {
   amount: '1000',
@@ -565,6 +567,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
   const [scrolled, setScrolled] = useState(false)
   const showDarkToggle = controls.darkModeToggleEnabled !== false
   const showFontControls = controls.fontSizeControlsEnabled !== false
+  const dashboardPath = isStaffUser(user) ? '/admin' : '/member'
   const links = [
     ['হোম', '#home'],
     ['আমাদের সম্পর্কে', '#about'],
@@ -585,17 +588,17 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
   }, [])
 
   return (
-    <header
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        scrolled ? 'border-b border-gray-200 bg-white/80 shadow-sm backdrop-blur-md' : 'bg-white/0'
-      }`}
-    >
-      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6">
+    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3">
+      <nav
+        className={`mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[var(--radius-xl)] px-4 transition-all duration-300 sm:px-5 ${
+          scrolled ? 'glass-surface' : 'border border-white/20 bg-white/10 text-white backdrop-blur-md'
+        }`}
+      >
         <a className="flex items-center gap-3" href="#home">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/20">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand-600)] to-[var(--brand-800)] text-white shadow-[var(--shadow-brand)]">
             <Sparkles aria-hidden="true" className="h-5 w-5" />
           </span>
-          <span className="max-w-48 truncate text-base font-semibold tracking-tight text-gray-950 sm:max-w-none">
+          <span className={`max-w-48 truncate text-base font-semibold sm:max-w-none ${scrolled ? 'text-gray-950' : 'text-white'}`}>
             {orgName}
           </span>
         </a>
@@ -603,7 +606,9 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         <div className="hidden items-center gap-8 lg:flex">
           {links.map(([label, href]) => (
             <a
-              className="group relative text-sm font-semibold text-gray-600 transition hover:text-indigo-700"
+              className={`group relative text-sm font-semibold transition ${
+                scrolled ? 'text-gray-600 hover:text-indigo-700' : 'text-white/80 hover:text-white'
+              }`}
               href={href}
               key={href}
             >
@@ -616,16 +621,16 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         <div className="hidden items-center gap-3 lg:flex">
           {showDarkToggle ? <ThemeToggle /> : null}
           {showFontControls ? <FontSizeControl /> : null}
-          <Link className="inline-flex min-h-11 items-center rounded-xl border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
+          <Link className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
             লগইন
           </Link>
-          <Link className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700" to={user ? (user.role === 'admin' ? '/admin' : '/member') : '/register'}>
+          <Link className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-5 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition hover:bg-[var(--brand-700)]" to={user ? dashboardPath : '/register'}>
             {user ? 'ড্যাশবোর্ড' : 'নিবন্ধন করুন'}
           </Link>
         </div>
 
         <button
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white/70 text-gray-800 lg:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-gray-200 bg-white/70 text-gray-800 lg:hidden"
           onClick={() => setMenuOpen(true)}
           type="button"
         >
@@ -654,7 +659,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
             <div className="mt-10 grid gap-3">
               {links.map(([label, href]) => (
                 <a
-                  className="rounded-2xl px-4 py-4 text-lg font-semibold text-gray-800 transition hover:bg-indigo-50 hover:text-indigo-700"
+                  className="rounded-[var(--radius-md)] px-4 py-4 text-lg font-semibold text-gray-800 transition hover:bg-indigo-50 hover:text-indigo-700"
                   href={href}
                   key={href}
                   onClick={() => setMenuOpen(false)}
@@ -674,11 +679,11 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
                 লগইন
               </Link>
               <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white"
+                className="inline-flex min-h-12 items-center justify-center rounded-[var(--radius-md)] bg-[var(--brand-600)] text-sm font-semibold text-white"
                 onClick={() => setMenuOpen(false)}
-                to="/register"
+                to={user ? dashboardPath : '/register'}
               >
-                নিবন্ধন করুন
+                {user ? 'ড্যাশবোর্ড' : 'নিবন্ধন করুন'}
               </Link>
             </div>
           </motion.div>
@@ -689,52 +694,53 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
 }
 
 function HeroSection({ orgName, phrases, stats, tagline }) {
-  const memberFaces = ['আ', 'ম', 'স', 'র', 'ন']
   const typedHeading = useTypewriter(phrases)
 
   return (
-    <section
-      className="relative min-h-screen overflow-hidden bg-white pt-28"
-      id="home"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle,var(--brand-200)_1px,transparent_1px)] [background-size:24px_24px]" />
-      <div className="absolute right-0 top-0 h-72 w-72 rounded-bl-[120px] bg-indigo-50 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-80 w-80 rounded-tr-[140px] bg-violet-50 blur-3xl" />
-      <div className="relative mx-auto grid min-h-[calc(100vh-7rem)] max-w-7xl items-center gap-12 px-4 pb-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr]">
+    <section className="relative min-h-screen overflow-hidden bg-[#222831] text-white" id="home">
+      <div
+        aria-hidden="true"
+        className="hero-image-bg absolute inset-0 opacity-70"
+        style={{ backgroundImage: `url(${communityHero})` }}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(34,40,49,0.96)_0%,rgba(34,40,49,0.78)_46%,rgba(34,40,49,0.32)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-28 bg-[linear-gradient(180deg,transparent,rgba(34,40,49,0.82))]" />
+      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-4 pb-20 pt-28 sm:px-6">
         <motion.div
           animate="show"
-          className="max-w-2xl"
+          className="max-w-3xl"
           initial="hidden"
           variants={stagger}
         >
           <motion.span
-            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-md"
             variants={fadeUp}
           >
-            ✦ দরগাহ পাড়া এলাকার গর্ব
+            <Sparkles aria-hidden="true" className="h-4 w-4 text-[var(--brand-300)]" />
+            দরগাহ পাড়া এলাকার ঐক্যের প্ল্যাটফর্ম
           </motion.span>
           <motion.h1
-            className="mt-7 text-5xl font-bold leading-tight tracking-tight text-gray-950 sm:text-6xl lg:text-[64px]"
+            className="mt-7 text-4xl font-bold leading-tight text-white sm:text-6xl lg:text-[68px]"
             variants={fadeUp}
           >
-            <span className="text-indigo-700">{typedHeading}</span>
-            <span className="typewriter-cursor text-indigo-500">|</span>
+            <span>{typedHeading}</span>
+            <span className="typewriter-cursor text-[var(--brand-300)]">|</span>
           </motion.h1>
-          <motion.p className="mt-6 max-w-xl text-lg leading-9 text-gray-600" variants={fadeUp}>
-            {orgName} — আমাদের এলাকার সকল মানুষের সেবায় নিবেদিত একটি সংগঠন। {tagline}
+          <motion.p className="mt-6 max-w-2xl text-lg leading-9 text-white/80" variants={fadeUp}>
+            {orgName} - {tagline}. সদস্যপদ, নোটিশ, অর্থ ব্যবস্থাপনা ও সামাজিক কার্যক্রমকে এক জায়গায় সহজভাবে পরিচালনার আধুনিক কমিউনিটি প্ল্যাটফর্ম।
           </motion.p>
           <motion.div className="mt-8 flex flex-wrap gap-4" variants={fadeUp}>
-            <Link className="inline-flex min-h-14 items-center gap-3 rounded-xl bg-indigo-600 px-8 py-4 text-base font-semibold text-white shadow-xl shadow-indigo-600/20 transition hover:bg-indigo-700" to="/register">
+            <Link className="inline-flex min-h-14 items-center gap-3 rounded-[var(--radius-md)] bg-[var(--brand-600)] px-8 py-4 text-base font-semibold text-white shadow-[var(--shadow-brand)] transition hover:-translate-y-0.5 hover:bg-[var(--brand-700)]" to="/register">
               সদস্য হোন
               <ArrowRight aria-hidden="true" className="h-5 w-5" />
             </Link>
-            <a className="inline-flex min-h-14 items-center gap-3 rounded-xl border border-gray-300 bg-white px-8 py-4 text-base font-semibold text-gray-800 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700" href="#about">
+            <a className="inline-flex min-h-14 items-center gap-3 rounded-[var(--radius-md)] border border-white/25 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/20" href="#about">
               <PlayCircle aria-hidden="true" className="h-5 w-5" />
               আরও জানুন
             </a>
           </motion.div>
           <motion.div
-            className="mt-8 grid gap-3 text-sm font-semibold text-gray-600 sm:flex sm:flex-wrap sm:items-center sm:gap-5"
+            className="mt-8 grid gap-3 text-sm font-semibold text-white/80 sm:flex sm:flex-wrap sm:items-center sm:gap-5"
             variants={fadeUp}
           >
             <TrustItem icon={Users} text={`${stats.totalMembers}+ সক্রিয় সদস্য`} />
@@ -744,44 +750,26 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
         </motion.div>
 
         <motion.div
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="relative"
-          initial={{ opacity: 0, scale: 0.96, y: 24 }}
-          transition={{ delay: 0.25, duration: 0.6, ease: 'easeOut' }}
+          animate="show"
+          className="mt-12 grid gap-3 sm:grid-cols-3 lg:max-w-3xl"
+          initial="hidden"
+          variants={stagger}
         >
-          <div className="absolute inset-8 rounded-[3rem] bg-gradient-to-br from-indigo-100 via-white to-violet-100 blur-2xl" />
-          <div className="relative rounded-[2rem] border border-indigo-100 bg-white p-6 shadow-2xl shadow-indigo-950/10 sm:p-8">
-            <div className="rounded-[1.5rem] bg-gradient-to-br from-indigo-600 to-violet-700 p-6 text-white">
-              <div className="flex -space-x-4">
-                {memberFaces.map((face) => (
-                  <span
-                    className="inline-flex h-14 w-14 items-center justify-center rounded-full border-4 border-indigo-600 bg-white text-lg font-bold text-indigo-700"
-                    key={face}
-                  >
-                    {face}
-                  </span>
-                ))}
-              </div>
-              <h2 className="mt-6 text-2xl font-semibold tracking-tight">আমাদের পরিবারে যোগ দিন</h2>
-              <p className="mt-2 text-indigo-100">সদস্যপদ, দায়িত্ব, স্বচ্ছতা এবং এলাকার উন্নয়নের একত্র যাত্রা।</p>
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl bg-gray-50 p-5">
-                <p className="text-sm text-gray-500">Live member count</p>
-                <p className="mt-2 text-4xl font-bold tracking-tight text-gray-950">
-                  <AnimatedCounter value={stats.totalMembers} />+
-                </p>
-              </div>
-              <div className="rounded-2xl bg-emerald-50 p-5">
-                <CheckCircle2 aria-hidden="true" className="h-6 w-6 text-emerald-600" />
-                <p className="mt-3 font-semibold text-emerald-900">নিরাপদ ও বিশ্বস্ত</p>
-                <p className="mt-1 text-sm text-emerald-700">Admin verified records</p>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -bottom-5 left-4 rounded-full border border-emerald-100 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-xl">
-            ✓ নিরাপদ ও বিশ্বস্ত
-          </div>
+          {[
+            ['সদস্য', stats.totalMembers, '+', Users],
+            ['দান', stats.yearlyDonation, '৳', HeartHandshake],
+            ['কার্যক্রম', stats.completedActivities, '+', CheckCircle2],
+          ].map(([label, value, suffix, Icon]) => (
+            <motion.div className="glass-surface rounded-[var(--radius-md)] p-4" key={label} variants={fadeUp}>
+              <Icon aria-hidden="true" className="h-5 w-5 text-[var(--brand-300)]" />
+              <p className="mt-3 text-2xl font-bold text-white">
+                {suffix === '৳' ? suffix : ''}
+                <AnimatedCounter value={value} />
+                {suffix !== '৳' ? suffix : ''}
+              </p>
+              <p className="text-sm font-semibold text-white/70">{label}</p>
+            </motion.div>
+          ))}
         </motion.div>
       </div>
     </section>
@@ -791,7 +779,7 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
 function TrustItem({ icon: Icon, text }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <Icon aria-hidden="true" className="h-4 w-4 text-indigo-600" />
+      <Icon aria-hidden="true" className="h-4 w-4 text-[var(--brand-300)]" />
       {text}
     </span>
   )
