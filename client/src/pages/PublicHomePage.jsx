@@ -453,6 +453,8 @@ export default function PublicHomePage() {
 
       <TrustBadgeSection controls={homepageControls} orgName={orgName} />
 
+      <MembershipCta />
+
       <CommitteeSection
         enabled={homepageControls.committeeEnabled !== false}
         members={data.committee}
@@ -512,8 +514,6 @@ export default function PublicHomePage() {
       />
 
       <FacebookPageSection controls={homepageControls} />
-
-      <MembershipCta />
 
       <GoogleMapSection
         controls={homepageControls}
@@ -1225,38 +1225,85 @@ function BlogSection({ blogs, loading }) {
 }
 
 function MembershipCta() {
+  const benefits = [
+    ['সদস্য তথ্য ও ডিজিটাল আইডি', Users],
+    ['মিটিং, ভ্রমণ ও RSVP সুবিধা', CalendarDays],
+    ['নোটিশ, ফি ও দানের স্বচ্ছ হিসাব', ShieldCheck],
+  ]
+
   return (
-    <section className="home-band relative overflow-hidden text-gray-950" id="membership">
-      <div className="absolute inset-x-4 top-0 mx-auto h-px max-w-7xl bg-gray-200" />
-      <motion.div
-        className="home-card relative mx-auto max-w-5xl overflow-hidden p-8 text-center sm:p-12"
-        initial="hidden"
-        variants={stagger}
-        viewport={{ once: true }}
-        whileInView="show"
-      >
-        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--brand-600)]" />
-        <motion.p className="home-kicker" variants={fadeUp}>
-          সদস্যপদ
-        </motion.p>
-        <motion.h2 className="home-title mt-4 text-4xl sm:text-5xl" variants={fadeUp}>
-          আজই আমাদের পরিবারের অংশ হোন
-        </motion.h2>
-        <motion.p className="home-copy mx-auto mt-5 max-w-2xl text-base" variants={fadeUp}>
-          সদস্যপদে পাবেন সংগঠনের আপডেট, সিদ্ধান্তে অংশগ্রহণ, স্বচ্ছ অর্থনৈতিক তথ্য এবং এলাকার উন্নয়নে সরাসরি ভূমিকা রাখার সুযোগ।
-        </motion.p>
-        <motion.div className="mt-7 flex flex-wrap justify-center gap-3 text-sm font-semibold text-gray-700" variants={fadeUp}>
-          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ ব্যক্তিগত পেমেন্ট হিস্ট্রি</span>
-          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ মিটিং ও ভ্রমণ RSVP</span>
-          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ নোটিশ ও কার্যক্রম অ্যাক্সেস</span>
+    <section className="relative isolate scroll-mt-20 overflow-hidden bg-[var(--brand-50)] px-4 py-20 text-gray-950 sm:px-6" id="membership">
+      <div className="absolute inset-x-0 top-0 h-px bg-[var(--brand-100)]" />
+      <motion.div className="mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]" initial="hidden" variants={stagger} viewport={{ once: true, amount: 0.25 }} whileInView="show">
+        <motion.div variants={stagger}>
+          <motion.p className="home-kicker" variants={fadeUp}>
+            সদস্যপদ
+          </motion.p>
+          <motion.h2 className="home-title mt-4 max-w-3xl text-4xl sm:text-5xl" variants={fadeUp}>
+            সদস্য হোন, এলাকার সিদ্ধান্ত ও উন্নয়নে সরাসরি যুক্ত থাকুন
+          </motion.h2>
+          <motion.p className="home-copy mt-5 max-w-2xl text-base" variants={fadeUp}>
+            সদস্যপদে থাকবে প্রোফাইল, ডিজিটাল আইডি, ফি হিস্ট্রি, মিটিং RSVP, নোটিশ এবং সংগঠনের গুরুত্বপূর্ণ আপডেট এক জায়গায়।
+          </motion.p>
+          <motion.div className="mt-8 grid gap-3 sm:grid-cols-3" variants={stagger}>
+            {benefits.map(([label, Icon]) => (
+              <motion.div className="home-card bg-white p-4" key={label} variants={fadeUp}>
+                <Icon aria-hidden="true" className="h-5 w-5 text-[var(--brand-600)]" />
+                <p className="mt-3 text-sm font-bold leading-6 text-gray-800">{label}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+          <motion.div className="mt-8 flex flex-wrap gap-4" variants={fadeUp}>
+            <Link className="inline-flex min-h-14 items-center gap-2 rounded-[var(--radius-md)] bg-[var(--brand-600)] px-8 text-base font-bold text-white shadow-[var(--shadow-brand)] transition hover:bg-[var(--brand-700)]" to="/register">
+              এখনই নিবন্ধন করুন
+              <ArrowRight aria-hidden="true" className="h-5 w-5" />
+            </Link>
+            <Link className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] border border-gray-300 bg-white px-8 text-base font-bold text-gray-800 transition hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]" to="/login">
+              লগইন করুন
+            </Link>
+          </motion.div>
         </motion.div>
-        <motion.div className="mt-9 flex flex-wrap justify-center gap-4" variants={fadeUp}>
-          <Link className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-8 text-base font-bold text-white shadow-[var(--shadow-brand)] transition hover:bg-[var(--brand-700)]" to="/register">
-            এখনই নিবন্ধন করুন
-          </Link>
-          <a className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] border border-gray-300 px-8 text-base font-bold text-gray-800 transition hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]" href="#about">
-            আরও জানুন
-          </a>
+
+        <motion.div className="home-card overflow-hidden p-0" variants={fadeUp}>
+          <div className="bg-[#222831] p-6 text-white">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-white/70">সদস্য কার্ড</p>
+                <h3 className="mt-2 text-2xl font-bold">দরগাহ পাড়া ঐক্য পরিষদ</h3>
+              </div>
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-white/10">
+                <ShieldCheck aria-hidden="true" className="h-6 w-6 text-[var(--brand-300)]" />
+              </span>
+            </div>
+            <div className="mt-8 grid gap-4 rounded-[var(--radius-md)] border border-white/10 bg-white/[0.08] p-4">
+              <div className="flex items-center gap-4">
+                <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-white text-2xl font-bold text-[var(--brand-700)]">স</span>
+                <div>
+                  <p className="text-lg font-bold">সদস্য নাম</p>
+                  <p className="text-sm text-white/70">সদস্য ID • DP-0001</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center text-sm font-semibold">
+                <span className="rounded-[var(--radius-sm)] bg-white/10 px-3 py-2">সক্রিয়</span>
+                <span className="rounded-[var(--radius-sm)] bg-white/10 px-3 py-2">পরিশোধিত</span>
+                <span className="rounded-[var(--radius-sm)] bg-white/10 px-3 py-2">যাচাইকৃত</span>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 p-6">
+            {[
+              'ফর্ম পূরণ করে নিবন্ধন আবেদন করুন',
+              'অ্যাডমিন অনুমোদনের পর সদস্যপদ চালু হবে',
+              'ড্যাশবোর্ড থেকে ফি, নোটিশ ও ইভেন্ট দেখুন',
+            ].map((step, index) => (
+              <div className="flex items-center gap-3 rounded-[var(--radius-md)] bg-gray-50 p-3" key={step}>
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand-600)] text-sm font-bold text-white">
+                  {index + 1}
+                </span>
+                <p className="text-sm font-semibold text-gray-700">{step}</p>
+              </div>
+            ))}
+          </div>
         </motion.div>
       </motion.div>
     </section>
