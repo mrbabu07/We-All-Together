@@ -1,7 +1,7 @@
 {
-  "name": "Dargah Para OIkko Porishod",
+  "name": "Dargah Para OIkko Porishod | দরগাহ পাড়া ঐক্য পরিষদ",
   "short_name": "OIkko Porishod",
-  "description": "Village organization management system",
+  "description": "দরগাহ পাড়া ঐক্য পরিষদ community organization management system",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EEEEEE",

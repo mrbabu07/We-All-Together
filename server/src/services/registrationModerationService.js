@@ -15,7 +15,7 @@ const toPlainText = (value = '') =>
     .trim()
 
 const buildApprovalMessages = (settings = {}) => {
-  const orgName = toPlainText(settings.siteSettings?.orgName) || 'Dargah Para Oikko Porishod'
+  const orgName = toPlainText(settings.siteSettings?.orgName) || 'Dargah Para OIkko Porishod'
   const welcomeMessage = toPlainText(settings.siteSettings?.welcomeMessage)
 
   if (welcomeMessage) {

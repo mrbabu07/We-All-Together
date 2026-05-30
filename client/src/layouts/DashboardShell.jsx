@@ -20,6 +20,7 @@ import Avatar from '../components/ui/Avatar'
 import Button from '../components/ui/Button'
 import FontSizeControl from '../components/ui/FontSizeControl'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import useTheme from '../hooks/useTheme'
@@ -60,9 +61,9 @@ function SidebarContent({ navItems, onNavigate, user }) {
         </span>
         <span className="hidden min-w-0 lg:block">
           <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
-            দরগাহ পাড়া
+            {ORG_NAME_BN}
           </span>
-          <span className="block truncate text-xs text-[var(--text-muted)]">পরিষদ</span>
+          <span className="block truncate text-xs text-[var(--text-muted)]">{ORG_NAME_EN}</span>
         </span>
       </Link>
 

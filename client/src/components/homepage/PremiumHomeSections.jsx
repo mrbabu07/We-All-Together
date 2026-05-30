@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import 'yet-another-react-lightbox/styles.css'
+import { DEVELOPER_CREDIT_TEXT, ORG_NAME_BN } from '../../constants/brand'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -1096,7 +1097,10 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
             <span className="premium-logo-box">
               <Star aria-hidden="true" className="h-5 w-5" />
             </span>
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">{orgName}</h2>
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-bold text-[var(--text-primary)]">{orgName}</h2>
+              <p className="mt-0.5 truncate text-sm font-semibold text-[var(--text-accent)]">{ORG_NAME_BN}</p>
+            </div>
           </div>
           <p className="mt-4 max-w-sm leading-8 text-[var(--text-muted)]">{tagline}</p>
           <div className="mt-5 flex gap-3">
@@ -1157,7 +1161,10 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
         </div>
       </div>
       <div className="mx-auto flex max-w-7xl flex-col gap-3 border-t border-white/[0.04] py-5 text-sm text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
-        <p>© {new Date().getFullYear()} {orgName}. সর্বস্বত্ব সংরক্ষিত।</p>
+        <div className="grid gap-1">
+          <p>© {new Date().getFullYear()} {orgName}. সর্বস্বত্ব সংরক্ষিত।</p>
+          <p className="font-semibold text-[var(--text-secondary)]">{DEVELOPER_CREDIT_TEXT}</p>
+        </div>
         <div className="flex gap-4">
           <a className="hover:text-[var(--accent-ui)]" href="#home">Privacy</a>
           <a className="hover:text-[var(--accent-ui)]" href="#home">Terms</a>

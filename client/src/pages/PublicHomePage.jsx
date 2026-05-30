@@ -29,12 +29,13 @@ import useAuth from '../hooks/useAuth'
 import useTheme from '../hooks/useTheme'
 import useTypewriter from '../hooks/useTypewriter'
 import useAppStore from '../store/appStore'
+import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { isStaffUser } from '../utils/permissionUtils'
 
 const PremiumHomeSections = lazy(() => import('../components/homepage/PremiumHomeSections'))
 
-const DEFAULT_ORG_NAME = 'Dargah Para Oikko Porishod'
+const DEFAULT_ORG_NAME = ORG_NAME_EN
 const DEFAULT_TAGLINE = 'ঐক্য, সেবা ও স্বচ্ছতার আধুনিক কমিউনিটি প্ল্যাটফর্ম'
 const DEFAULT_WELCOME =
   'দরগাহ পাড়া ঐক্য পরিষদ সদস্যপদ, নোটিশ, অর্থ ব্যবস্থাপনা এবং সামাজিক কার্যক্রমকে এক জায়গায় সহজভাবে পরিচালনা করে।'
@@ -109,6 +110,14 @@ const plainText = (value = '') =>
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+
+const resolveOrgName = (value) => {
+  const text = String(value || '').trim()
+
+  if (!text || text.toLowerCase() === 'dargah para oikko porishod') return ORG_NAME_EN
+
+  return text
+}
 
 const pickNode = (response) => response?.data?.data || {}
 
@@ -263,7 +272,7 @@ export default function PublicHomePage() {
   const appearance = previewAppearance || data.settings.appearance || {}
   const siteSettings = data.settings.siteSettings || {}
   const homepageControls = data.settings.homepageControls || {}
-  const orgName = siteSettings.orgName || DEFAULT_ORG_NAME
+  const orgName = resolveOrgName(siteSettings.orgName || DEFAULT_ORG_NAME)
   const tagline = siteSettings.tagline || DEFAULT_TAGLINE
   const aboutText = plainText(siteSettings.welcomeMessage) || DEFAULT_WELCOME
   const tickerEnabled = homepageControls.newsTickerEnabled !== false
@@ -319,9 +328,9 @@ export default function PublicHomePage() {
   }, [loading, location.hash, location.pathname])
 
   useEffect(() => {
-    document.title = `${orgName} | ${tagline}`
-    upsertMeta('description', `${orgName} - ${tagline}`)
-    upsertMeta('og:title', orgName, 'property')
+    document.title = `${ORG_NAME_EN} | ${ORG_NAME_BN}`
+    upsertMeta('description', `${orgName} - ${ORG_NAME_BN} - ${tagline}`)
+    upsertMeta('og:title', `${ORG_NAME_EN} | ${ORG_NAME_BN}`, 'property')
     upsertMeta('og:description', tagline, 'property')
     upsertMeta('og:image', '/pwa-icon.svg', 'property')
   }, [orgName, tagline])
@@ -415,7 +424,7 @@ export default function PublicHomePage() {
         '--color-primary': appearance.primaryColor || 'var(--primary-600)',
       }}
     >
-      <PremiumNavbar controls={homepageControls} orgName={orgName} user={user} />
+      <PremiumNavbar controls={homepageControls} user={user} />
 
       <NoticeTicker
         enabled={tickerEnabled}
@@ -487,7 +496,7 @@ function upsertMeta(name, content, attr = 'name') {
   tag.setAttribute('content', content)
 }
 
-function PremiumNavbar({ controls = {}, orgName, user }) {
+function PremiumNavbar({ controls = {}, user }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [active, setActive] = useState('home')
@@ -544,8 +553,13 @@ function PremiumNavbar({ controls = {}, orgName, user }) {
           <span className="premium-logo-box">
             <Sparkles aria-hidden="true" className="h-5 w-5" />
           </span>
-          <span className="truncate text-base font-semibold text-[var(--text-primary)]">
-            {orgName}
+          <span className="grid min-w-0">
+            <span className="truncate text-base font-semibold leading-tight text-[var(--text-primary)]">
+              {ORG_NAME_EN}
+            </span>
+            <span className="truncate text-xs font-semibold leading-tight text-[var(--text-accent)]">
+              {ORG_NAME_BN}
+            </span>
           </span>
         </a>
 
@@ -596,7 +610,10 @@ function PremiumNavbar({ controls = {}, orgName, user }) {
                 <span className="premium-logo-box">
                   <Sparkles aria-hidden="true" className="h-5 w-5" />
                 </span>
-                <span className="truncate font-semibold text-[var(--text-primary)]">{orgName}</span>
+                <span className="grid min-w-0">
+                  <span className="truncate font-semibold leading-tight text-[var(--text-primary)]">{ORG_NAME_EN}</span>
+                  <span className="truncate text-xs font-semibold leading-tight text-[var(--text-accent)]">{ORG_NAME_BN}</span>
+                </span>
               </a>
               <button
                 aria-label="মেনু বন্ধ করুন"

@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import Button from '../components/ui/Button'
 import FontSizeControl from '../components/ui/FontSizeControl'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import { DEVELOPER_CREDIT_TEXT, ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import useTheme from '../hooks/useTheme'
@@ -28,9 +29,9 @@ export default function PublicLayout() {
         <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link className="grid gap-0.5" to="/">
             <span className="text-base font-semibold tracking-tight text-gray-900">
-              Dargah Para OIkko Porishod
+              {ORG_NAME_EN}
             </span>
-            <span className="text-xs font-medium text-indigo-600">{t.organization}</span>
+            <span className="text-xs font-medium text-indigo-600">{ORG_NAME_BN}</span>
           </Link>
           <nav className="flex items-center gap-2">
             <Button icon={Languages} onClick={toggleLanguage} variant="secondary">
@@ -58,8 +59,10 @@ export default function PublicLayout() {
       <Outlet />
       <footer className="border-t border-gray-200 bg-white">
         <div className="mx-auto grid max-w-7xl gap-2 px-4 py-6 text-sm text-gray-500 sm:px-6">
-          <p className="font-semibold text-gray-900">Dargah Para OIkko Porishod</p>
+          <p className="font-semibold text-gray-900">{ORG_NAME_EN}</p>
+          <p className="font-semibold text-indigo-700">{ORG_NAME_BN}</p>
           <p>ঠিকানা: Dargah Para, Bangladesh | যোগাযোগ: সংগঠন অফিস</p>
+          <p className="font-semibold text-gray-700">{DEVELOPER_CREDIT_TEXT}</p>
         </div>
       </footer>
     </div>

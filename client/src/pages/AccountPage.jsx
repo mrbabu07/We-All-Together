@@ -11,6 +11,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
+import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 
@@ -426,9 +427,11 @@ export default function AccountPage() {
       context.fillRect(0, 188, canvas.width, 14)
       context.fillStyle = cssVar('--text-inverted')
       context.font = 'bold 34px Arial'
-      context.fillText('Dargah Para Oikko Porishod', 40, 62)
+      context.fillText(ORG_NAME_EN, 40, 62)
+      context.font = '20px Arial'
+      context.fillText(ORG_NAME_BN, 40, 94)
       context.font = '18px Arial'
-      context.fillText('Digital Member ID Card', 40, 94)
+      context.fillText('Digital Member ID Card', 40, 122)
       context.fillStyle = cssVar('--text-inverted')
       context.font = 'bold 22px Arial'
       context.fillText(user?.status || 'approved', 704, 76)
@@ -734,7 +737,8 @@ function DigitalIdPreview({ qrUrl, user, verificationUrl }) {
       </div>
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm">
         <div className="bg-gray-900 px-4 py-4 text-white">
-          <p className="text-sm font-bold">Dargah Para Oikko Porishod</p>
+          <p className="text-sm font-bold">{ORG_NAME_EN}</p>
+          <p className="text-xs font-semibold text-teal-200">{ORG_NAME_BN}</p>
           <p className="text-xs text-gray-200">Digital Member ID Card</p>
         </div>
         <div className="h-9 bg-gray-700" />

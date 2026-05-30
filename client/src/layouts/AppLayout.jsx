@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import Button from '../components/ui/Button'
+import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { isStaffUser } from '../utils/permissionUtils'
@@ -54,10 +55,10 @@ export default function AppLayout() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link className="grid gap-0.5" to="/">
             <span className="text-base font-bold text-gray-950">
-              Dargah Para OIkko Porishod
+              {ORG_NAME_EN}
             </span>
             <span className="text-xs font-medium uppercase text-indigo-700">
-              {t.organization}
+              {ORG_NAME_BN}
             </span>
           </Link>
 
