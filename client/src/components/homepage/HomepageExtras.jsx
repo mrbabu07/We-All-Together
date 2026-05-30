@@ -112,13 +112,13 @@ function SectionHeading({ eyebrow, title, text }) {
       viewport={{ once: true, amount: 0.35 }}
       whileInView="show"
     >
-      <motion.p className="text-sm font-bold uppercase tracking-[0.18em] text-indigo-700" variants={fadeUp}>
+      <motion.p className="home-kicker" variants={fadeUp}>
         {eyebrow}
       </motion.p>
-      <motion.h2 className="mt-4 text-4xl font-semibold tracking-tight text-gray-950 sm:text-5xl" variants={fadeUp}>
+      <motion.h2 className="home-title mt-4 text-4xl sm:text-5xl" variants={fadeUp}>
         {title}
       </motion.h2>
-      <motion.p className="mt-4 text-base leading-8 text-gray-500" variants={fadeUp}>
+      <motion.p className="home-copy mt-4 text-base" variants={fadeUp}>
         {text}
       </motion.p>
     </motion.div>
@@ -131,7 +131,7 @@ function InitialsAvatar({ name, photo, className = '' }) {
   }
 
   return (
-    <span className={`inline-flex items-center justify-center rounded-full bg-indigo-100 font-bold text-indigo-700 ${className}`}>
+    <span className={`inline-flex items-center justify-center rounded-full bg-[var(--brand-50)] font-bold text-[var(--brand-700)] ${className}`}>
       {String(name || 'স').slice(0, 1)}
     </span>
   )
@@ -143,7 +143,7 @@ export function NewsTicker({ enabled, notices }) {
   if (!enabled || !items.length) return null
 
   return (
-    <div className="fixed inset-x-0 top-20 z-40 flex h-9 items-center overflow-hidden bg-indigo-600 text-sm text-white shadow-sm">
+    <div className="fixed inset-x-0 top-20 z-40 flex h-9 items-center overflow-hidden bg-[var(--brand-700)] text-sm text-white shadow-sm">
       <div className="flex h-full shrink-0 items-center gap-2 border-r border-white/30 px-4 font-bold">
         <span>📢</span>
         <span>নোটিশ:</span>
@@ -186,17 +186,17 @@ export function CountdownSection({ enabled, event }) {
   ]
 
   return (
-    <section className="bg-white px-4 py-10 sm:px-6">
+    <section className="home-band-muted py-10">
       <motion.div
-        className="mx-auto max-w-5xl rounded-3xl border border-gray-200 bg-white p-6 text-center shadow-sm sm:p-8"
+        className="home-card mx-auto max-w-5xl p-6 text-center sm:p-8"
         initial={{ opacity: 0, y: 24 }}
         viewport={{ once: true, amount: 0.25 }}
         whileInView={{ opacity: 1, y: 0 }}
       >
-        <p className="text-sm font-bold uppercase tracking-[0.16em] text-indigo-700">
+        <p className="home-kicker">
           পরবর্তী অনুষ্ঠান পর্যন্ত বাকি
         </p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-gray-950">
+        <h2 className="mt-2 text-2xl font-semibold text-gray-950">
           {event?.title || 'আসন্ন অনুষ্ঠান'}
         </h2>
         {running ? (
@@ -209,11 +209,11 @@ export function CountdownSection({ enabled, event }) {
             {boxes.map(([label, value]) => (
               <motion.div
                 animate={{ rotateX: [0, -14, 0] }}
-                className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"
+                className="rounded-[var(--radius-md)] border border-[var(--brand-100)] bg-[var(--brand-50)] p-4"
                 key={label}
                 transition={{ duration: 0.32 }}
               >
-                <p className="text-4xl font-bold tabular-nums text-indigo-700">
+                <p className="text-4xl font-bold tabular-nums text-[var(--brand-700)]">
                   {Number(value || 0).toLocaleString('bn-BD')}
                 </p>
                 <p className="mt-1 text-sm font-semibold text-gray-500">{label}</p>
@@ -247,18 +247,18 @@ export function TrustBadgeSection({ controls, orgName }) {
   if (!controls?.trustBadgesEnabled && !controls?.certificateEnabled) return null
 
   return (
-    <section className="bg-white px-4 py-16 sm:px-6">
+    <section className="home-band">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]">
         <motion.div
-          className="rounded-3xl border border-indigo-100 bg-indigo-50 p-6 shadow-sm"
+          className="home-card bg-[var(--brand-50)] p-6"
           initial={{ opacity: 0, y: 24 }}
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-indigo-700">
+          <p className="home-kicker">
             নিবন্ধন ও স্বীকৃতি
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-gray-950">
+          <h2 className="mt-3 text-3xl font-semibold text-gray-950">
             বিশ্বাসের ভিত্তিতে পরিচালিত {orgName}
           </h2>
           <div className="mt-5 flex flex-wrap gap-3">
@@ -278,13 +278,13 @@ export function TrustBadgeSection({ controls, orgName }) {
         {controls?.certificateEnabled && controls?.certificateImageUrl ? (
           <>
             <button
-              className="group overflow-hidden rounded-3xl border border-gray-200 bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              className="home-card group overflow-hidden p-3"
               onClick={() => setOpen(true)}
               type="button"
             >
               <img
                 alt="Registration certificate"
-                className="h-72 w-full rounded-2xl object-cover transition group-hover:scale-[1.02]"
+                className="h-72 w-full rounded-[var(--radius-md)] object-cover transition group-hover:scale-[1.02]"
                 src={controls.certificateImageUrl}
               />
             </button>
@@ -306,7 +306,7 @@ export function CommitteeSection({ enabled, members }) {
   if (!enabled || !items.length) return null
 
   return (
-    <section className="bg-gray-50 px-4 py-24 sm:px-6">
+    <section className="home-band-muted">
       <SectionHeading
         eyebrow="কমিটি"
         text="যারা সংগঠনকে এগিয়ে নিয়ে যাচ্ছেন"
@@ -321,15 +321,15 @@ export function CommitteeSection({ enabled, members }) {
       >
         {items.map((member, index) => (
           <motion.article
-            className={`rounded-3xl border bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:border-indigo-300 hover:shadow-md ${
+            className={`home-card p-6 text-center ${
               index === 0 ? 'md:col-span-2 lg:col-span-1 lg:scale-105' : 'border-gray-200'
             }`}
             key={member._id}
             variants={fadeUp}
           >
             <InitialsAvatar className="mx-auto h-24 w-24 text-3xl" name={member.name} photo={member.photo} />
-            <h3 className="mt-5 text-xl font-semibold tracking-tight text-gray-950">{member.name}</h3>
-            <p className="mt-1 text-sm font-bold text-indigo-700">{member.position}</p>
+            <h3 className="mt-5 text-xl font-semibold text-gray-950">{member.name}</h3>
+            <p className="mt-1 text-sm font-bold text-[var(--brand-700)]">{member.position}</p>
             {member.showPhone && member.phone ? (
               <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1.5 text-sm font-semibold text-gray-600">
                 <Phone aria-hidden="true" className="h-4 w-4" />
@@ -348,14 +348,14 @@ export function AchievementsSection({ enabled, items }) {
   if (!enabled || !achievements.length) return null
 
   return (
-    <section className="bg-white px-4 py-24 sm:px-6" id="gallery">
+    <section className="home-band" id="gallery">
       <SectionHeading
         eyebrow="মাইলফলক"
         text="সংগঠনের গুরুত্বপূর্ণ অর্জন, উদ্যোগ এবং স্মরণীয় সময়"
         title="আমাদের অর্জন ও মাইলফলক"
       />
       <div className="relative mx-auto mt-12 max-w-5xl">
-        <div className="absolute left-5 top-0 h-full w-px bg-indigo-100 md:left-1/2" />
+        <div className="absolute left-5 top-0 h-full w-px bg-[var(--brand-100)] md:left-1/2" />
         <motion.div
           className="grid gap-8"
           initial="hidden"
@@ -370,16 +370,16 @@ export function AchievementsSection({ enabled, items }) {
               variants={fadeUp}
             >
               <div className={`${index % 2 ? 'md:order-2' : ''} pl-14 md:pl-0`}>
-                <div className="rounded-3xl border border-gray-200 bg-white p-6 text-left shadow-sm">
-                  <span className="inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-indigo-600 px-3 font-bold text-white">
+                <div className="home-card p-6 text-left">
+                  <span className="inline-flex h-11 min-w-11 items-center justify-center rounded-full bg-[var(--brand-600)] px-3 font-bold text-white">
                     {item.year}
                   </span>
-                  <h3 className="mt-4 text-xl font-semibold tracking-tight text-gray-950">{item.title}</h3>
+                  <h3 className="mt-4 text-xl font-semibold text-gray-950">{item.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-gray-500">{item.description}</p>
-                  {item.photo ? <img alt={item.title} className="mt-4 h-44 w-full rounded-2xl object-cover" src={item.photo} /> : null}
+                  {item.photo ? <img alt={item.title} className="mt-4 h-44 w-full rounded-[var(--radius-md)] object-cover" src={item.photo} /> : null}
                 </div>
               </div>
-              <span className="absolute left-5 top-7 h-4 w-4 -translate-x-1/2 rounded-full border-4 border-white bg-indigo-600 md:left-1/2" />
+              <span className="absolute left-5 top-7 h-4 w-4 -translate-x-1/2 rounded-full border-4 border-white bg-[var(--brand-600)] md:left-1/2" />
             </motion.article>
           ))}
         </motion.div>
@@ -407,14 +407,14 @@ export function TestimonialsSection({ enabled, items }) {
   const current = testimonials[active] || testimonials[0]
 
   return (
-    <section className="bg-indigo-50 px-4 py-24 sm:px-6">
+    <section className="home-band-muted">
       <SectionHeading
         eyebrow="প্রশংসাপত্র"
         text="সংগঠনের সদস্যদের অভিজ্ঞতা এবং অনুভূতি"
         title="সদস্যরা কী বলছেন"
       />
       <motion.div
-        className="mx-auto mt-10 max-w-3xl rounded-3xl border border-indigo-100 bg-white p-8 text-center shadow-sm"
+        className="home-card mx-auto mt-10 max-w-3xl p-8 text-center"
         initial={{ opacity: 0, y: 24 }}
         viewport={{ once: true }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -426,7 +426,7 @@ export function TestimonialsSection({ enabled, items }) {
             initial={{ opacity: 0, y: 12 }}
             key={current._id}
           >
-            <Quote aria-hidden="true" className="mx-auto h-10 w-10 text-indigo-300" />
+            <Quote aria-hidden="true" className="mx-auto h-10 w-10 text-[var(--brand-300)]" />
             <p className="mt-5 text-xl leading-10 text-gray-700">“{current.text}”</p>
             <div className="mt-7 flex items-center justify-center gap-3">
               <InitialsAvatar className="h-14 w-14 text-xl" name={current.name} photo={current.photo} />
@@ -441,7 +441,7 @@ export function TestimonialsSection({ enabled, items }) {
           {testimonials.map((item, index) => (
             <button
               aria-label={`${index + 1} নম্বর প্রশংসাপত্র`}
-              className={`h-2.5 rounded-full transition ${active === index ? 'w-8 bg-indigo-600' : 'w-2.5 bg-indigo-200'}`}
+              className={`h-2.5 rounded-full transition ${active === index ? 'w-8 bg-[var(--brand-600)]' : 'w-2.5 bg-[var(--brand-200)]'}`}
               key={item._id}
               onClick={() => setActive(index)}
               type="button"
@@ -477,7 +477,7 @@ export function NoticePreviewSection({ initialNoticeId, loading, notices }) {
   }
 
   return (
-    <section className="bg-gray-50 px-4 py-24 sm:px-6" id="notices">
+    <section className="home-band-muted" id="notices">
       <SectionHeading
         eyebrow="নোটিশ"
         text="সংগঠনের সর্বশেষ ঘোষণা, নির্দেশনা এবং জনসাধারণের জন্য প্রকাশিত আপডেট"
@@ -486,7 +486,7 @@ export function NoticePreviewSection({ initialNoticeId, loading, notices }) {
       {loading ? (
         <div className="mx-auto mt-10 grid max-w-7xl gap-6 md:grid-cols-3">
           {[1, 2, 3].map((item) => (
-            <div className="h-60 animate-pulse rounded-3xl bg-white" key={item} />
+             <div className="h-60 animate-pulse rounded-[var(--radius-md)] bg-white" key={item} />
           ))}
         </div>
       ) : notices.length ? (
@@ -499,14 +499,14 @@ export function NoticePreviewSection({ initialNoticeId, loading, notices }) {
         >
           {notices.slice(0, 3).map((notice) => (
             <motion.article
-              className="group relative cursor-pointer rounded-3xl border border-gray-200 border-l-4 border-l-indigo-600 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl"
+              className="home-card group relative cursor-pointer border-l-4 border-l-[var(--brand-600)] p-6"
               key={notice._id}
               onClick={() => openNotice(notice)}
               variants={fadeUp}
             >
               <button
                 aria-label="নোটিশ শেয়ার করুন"
-                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-500 transition hover:bg-indigo-50 hover:text-indigo-700"
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-500 transition hover:bg-[var(--brand-50)] hover:text-[var(--brand-700)]"
                 onClick={(event) => {
                   event.stopPropagation()
                   setShareMenu((current) => (current === notice._id ? '' : notice._id))
@@ -519,18 +519,18 @@ export function NoticePreviewSection({ initialNoticeId, loading, notices }) {
                 <NoticeShareMenu notice={notice} onCopy={copyNoticeLink} />
               ) : null}
               <div className="flex items-center justify-between gap-3 pr-12">
-                <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+                <span className="rounded-full bg-[var(--brand-50)] px-3 py-1 text-xs font-bold text-[var(--brand-700)]">
                   {notice.category || 'সাধারণ'}
                 </span>
                 <span className="text-xs font-semibold text-gray-400">{formatDate(notice.createdAt)}</span>
               </div>
-              <h3 className="mt-5 line-clamp-2 text-xl font-semibold tracking-tight text-gray-950">
+              <h3 className="mt-5 line-clamp-2 text-xl font-semibold text-gray-950">
                 {notice.title}
               </h3>
               <p className="mt-3 line-clamp-3 text-sm leading-7 text-gray-500">
                 {plainText(notice.richBody || notice.body)}
               </p>
-              <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-indigo-700">
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-[var(--brand-700)]">
                 বিস্তারিত পড়ুন <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </span>
             </motion.article>
@@ -547,7 +547,7 @@ function NoticeShareMenu({ notice, onCopy }) {
 
   return (
     <div
-      className="absolute right-4 top-16 z-20 grid w-56 gap-1 rounded-2xl border border-gray-200 bg-white p-2 text-sm font-semibold text-gray-700 shadow-xl"
+      className="absolute right-4 top-16 z-20 grid w-56 gap-1 rounded-[var(--radius-md)] border border-gray-200 bg-white p-2 text-sm font-semibold text-gray-700 shadow-xl"
       onClick={(event) => event.stopPropagation()}
     >
       <button className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-left hover:bg-gray-50" onClick={() => onCopy(notice)} type="button">
@@ -582,18 +582,18 @@ function NoticeModal({ notice, onClose, onCopy }) {
       >
         <motion.article
           animate={{ opacity: 1, scale: 1 }}
-          className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+          className="max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[var(--radius-md)] bg-white p-6 shadow-2xl"
           exit={{ opacity: 0, scale: 0.94 }}
           initial={{ opacity: 0, scale: 0.94 }}
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+              <span className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-[var(--brand-50)] text-[var(--brand-600)]">
                 <Building2 aria-hidden="true" className="h-6 w-6" />
               </span>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">
+                <p className="home-kicker">
                   দরগাহ পাড়া ঐক্য পরিষদ
                 </p>
                 <p className="text-sm text-gray-500">{formatDate(notice.createdAt)}</p>
@@ -604,22 +604,22 @@ function NoticeModal({ notice, onClose, onCopy }) {
             </button>
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
+            <span className="rounded-full bg-[var(--brand-50)] px-3 py-1 text-xs font-bold text-[var(--brand-700)]">
               {notice.category || 'সাধারণ'}
             </span>
           </div>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight text-gray-950">{notice.title}</h2>
-          {notice.imageUrl ? <img alt={notice.title} className="mt-5 max-h-96 w-full rounded-2xl object-cover" src={notice.imageUrl} /> : null}
+          <h2 className="mt-4 text-3xl font-semibold text-gray-950">{notice.title}</h2>
+          {notice.imageUrl ? <img alt={notice.title} className="mt-5 max-h-96 w-full rounded-[var(--radius-md)] object-cover" src={notice.imageUrl} /> : null}
           <div
             className="home-prose mt-5 text-gray-600"
             dangerouslySetInnerHTML={{ __html: notice.richBody || notice.body }}
           />
           <div className="mt-7 flex flex-wrap justify-end gap-3">
-            <button className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-300 px-4 text-sm font-bold text-gray-700 hover:bg-gray-50" onClick={() => onCopy(notice)} type="button">
+            <button className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-md)] border border-gray-300 px-4 text-sm font-bold text-gray-700 hover:bg-gray-50" onClick={() => onCopy(notice)} type="button">
               <Copy aria-hidden="true" className="h-4 w-4" />
               শেয়ার লিংক কপি
             </button>
-            <button className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white hover:bg-indigo-700" onClick={onClose} type="button">
+            <button className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-5 text-sm font-bold text-white hover:bg-[var(--brand-700)]" onClick={onClose} type="button">
               বন্ধ করুন
             </button>
           </div>
@@ -636,14 +636,14 @@ export function GalleryPreviewSection({ downloadEnabled, gallery, loading }) {
     .map((item) => ({ description: item.description, src: item.imageUrl, title: item.title }))
 
   return (
-    <section className="bg-white px-4 py-24 sm:px-6">
+    <section className="home-band">
       <SectionHeading
         eyebrow="গ্যালারি"
         text="সামাজিক কাজ, মিটিং, শিক্ষা কার্যক্রম এবং এলাকার উদ্যোগের স্মৃতি"
         title="আমাদের কার্যক্রমের ছবি"
       />
       {loading ? (
-        <div className="mx-auto mt-10 h-80 max-w-7xl animate-pulse rounded-3xl bg-gray-100" />
+        <div className="mx-auto mt-10 h-80 max-w-7xl animate-pulse rounded-[var(--radius-md)] bg-gray-100" />
       ) : slides.length ? (
         <motion.div
           className="mx-auto mt-10 columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3"
@@ -654,7 +654,7 @@ export function GalleryPreviewSection({ downloadEnabled, gallery, loading }) {
         >
           {slides.slice(0, 6).map((item, currentIndex) => (
             <motion.button
-              className="group relative w-full break-inside-avoid overflow-hidden rounded-3xl bg-indigo-100 text-left shadow-sm"
+              className="group relative w-full break-inside-avoid overflow-hidden rounded-[var(--radius-md)] bg-[var(--brand-100)] text-left shadow-sm"
               key={item.src}
               onClick={() => setIndex(currentIndex)}
               type="button"
@@ -673,7 +673,7 @@ export function GalleryPreviewSection({ downloadEnabled, gallery, loading }) {
         </motion.div>
       ) : null}
       <div className="mt-10 text-center">
-        <Link className="inline-flex min-h-12 items-center justify-center rounded-xl bg-gray-950 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700" to="/login">
+        <Link className="inline-flex min-h-12 items-center justify-center rounded-[var(--radius-md)] bg-gray-950 px-6 text-sm font-semibold text-white transition hover:bg-[var(--brand-700)]" to="/login">
           সম্পূর্ণ গ্যালারি দেখুন <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
         </Link>
       </div>
@@ -699,14 +699,14 @@ export function YoutubeSection({ controls }) {
   if (!controls?.youtubeEnabled || !src) return null
 
   return (
-    <section className="bg-white px-4 py-24 sm:px-6">
+    <section className="home-band">
       <SectionHeading
         eyebrow="ভিডিও"
         text={controls.youtubeDescription || 'আমাদের কার্যক্রমের নির্বাচিত ভিডিও দেখুন'}
         title={controls.youtubeTitle || 'আমাদের কার্যক্রমের ভিডিও'}
       />
       <motion.div
-        className="mx-auto mt-10 max-w-4xl overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-xl"
+        className="home-card mx-auto mt-10 max-w-4xl overflow-hidden p-0"
         initial={{ opacity: 0, scale: 0.96 }}
         viewport={{ once: true, amount: 0.25 }}
         whileInView={{ opacity: 1, scale: 1 }}
@@ -728,7 +728,7 @@ export function PartnersSection({ enabled, partners }) {
   if (!enabled || !items.length) return null
 
   return (
-    <section className="bg-gray-50 px-4 py-20 sm:px-6">
+    <section className="home-band-muted py-20">
       <SectionHeading
         eyebrow="সহযোগী"
         text="যেসব প্রতিষ্ঠান আমাদের কাজকে শক্তিশালী করে"
@@ -746,11 +746,11 @@ export function PartnersSection({ enabled, partners }) {
             )
 
             return partner.websiteUrl ? (
-              <a className="rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm" href={partner.websiteUrl} key={`${partner._id}-${index}`} rel="noreferrer" target="_blank">
+              <a className="home-card px-6 py-4" href={partner.websiteUrl} key={`${partner._id}-${index}`} rel="noreferrer" target="_blank">
                 {logo}
               </a>
             ) : (
-              <div className="rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm" key={`${partner._id}-${index}`}>
+              <div className="home-card px-6 py-4" key={`${partner._id}-${index}`}>
                 {logo}
               </div>
             )
@@ -770,34 +770,34 @@ export function GoogleMapSection({ controls, orgName, siteSettings }) {
   const email = siteSettings?.email || ''
 
   return (
-    <section className="bg-white px-4 py-24 sm:px-6" id="contact">
+    <section className="home-band" id="contact">
       <SectionHeading
         eyebrow="অবস্থান"
         text="আমাদের অফিস ও যোগাযোগের ঠিকানা"
         title="আমাদের অবস্থান"
       />
-      <div className="mx-auto mt-10 grid max-w-7xl overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm lg:grid-cols-[380px_1fr]">
-        <div className="grid gap-4 bg-indigo-50 p-6 sm:p-8">
-          <Building2 aria-hidden="true" className="h-10 w-10 text-indigo-600" />
-          <h3 className="text-2xl font-semibold tracking-tight text-gray-950">{orgName}</h3>
+      <div className="home-card mx-auto mt-10 grid max-w-7xl overflow-hidden p-0 lg:grid-cols-[380px_1fr]">
+        <div className="grid gap-4 bg-[var(--brand-50)] p-6 sm:p-8">
+          <Building2 aria-hidden="true" className="h-10 w-10 text-[var(--brand-600)]" />
+          <h3 className="text-2xl font-semibold text-gray-950">{orgName}</h3>
           <p className="flex gap-3 text-sm leading-7 text-gray-600">
-            <MapPin aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-indigo-600" />
+            <MapPin aria-hidden="true" className="mt-1 h-5 w-5 shrink-0 text-[var(--brand-600)]" />
             {address}
           </p>
           {phone ? (
             <p className="flex items-center gap-3 text-sm font-semibold text-gray-600">
-              <Phone aria-hidden="true" className="h-5 w-5 text-indigo-600" />
+              <Phone aria-hidden="true" className="h-5 w-5 text-[var(--brand-600)]" />
               {phone}
             </p>
           ) : null}
           {email ? (
             <p className="flex items-center gap-3 text-sm font-semibold text-gray-600">
-              <Mail aria-hidden="true" className="h-5 w-5 text-indigo-600" />
+              <Mail aria-hidden="true" className="h-5 w-5 text-[var(--brand-600)]" />
               {email}
             </p>
           ) : null}
           <a
-            className="mt-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white hover:bg-indigo-700"
+            className="mt-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-[var(--radius-md)] bg-[var(--brand-600)] px-5 text-sm font-bold text-white hover:bg-[var(--brand-700)]"
             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
             rel="noreferrer"
             target="_blank"
@@ -816,7 +816,7 @@ export function GoogleMapSection({ controls, orgName, siteSettings }) {
         ) : (
           <div className="flex h-[400px] items-center justify-center bg-gray-50 p-8 text-center">
             <div>
-              <MapPin aria-hidden="true" className="mx-auto h-12 w-12 text-indigo-300" />
+              <MapPin aria-hidden="true" className="mx-auto h-12 w-12 text-[var(--brand-300)]" />
               <p className="mt-4 text-lg font-semibold text-gray-950">ম্যাপ URL সেট করা হয়নি</p>
               <p className="mt-2 text-sm text-gray-500">{address}</p>
             </div>
@@ -835,13 +835,13 @@ export function FacebookPageSection({ controls }) {
   )}&tabs=timeline&width=500&height=520&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true`
 
   return (
-    <section className="bg-white px-4 py-20 sm:px-6">
+    <section className="home-band py-20">
       <SectionHeading
         eyebrow="Facebook"
         text="আমাদের সর্বশেষ সামাজিক আপডেট"
         title="আমাদের Facebook পেজ"
       />
-      <div className="mx-auto mt-10 flex max-w-3xl justify-center overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="home-card mx-auto mt-10 flex max-w-3xl justify-center overflow-hidden p-4">
         <iframe
           allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
           className="h-[520px] w-full max-w-[500px]"
@@ -887,18 +887,18 @@ export function CookieConsentBanner({ enabled }) {
   return (
     <motion.div
       animate={{ opacity: 1, y: 0 }}
-      className="fixed inset-x-4 bottom-4 z-[70] mx-auto max-w-3xl rounded-3xl border border-gray-200 bg-white p-4 shadow-2xl md:flex md:items-center md:justify-between md:gap-6"
+      className="fixed inset-x-4 bottom-4 z-[70] mx-auto max-w-3xl rounded-[var(--radius-md)] border border-gray-200 bg-white p-4 shadow-2xl md:flex md:items-center md:justify-between md:gap-6"
       initial={{ opacity: 0, y: 24 }}
     >
       <p className="text-sm font-semibold text-gray-700">
         আমরা আপনার অভিজ্ঞতা উন্নত করতে কুকি ব্যবহার করি।
       </p>
       <div className="mt-3 flex gap-2 md:mt-0">
-        <a className="inline-flex min-h-11 items-center rounded-xl px-4 text-sm font-bold text-indigo-700 hover:bg-indigo-50" href="#home">
+        <a className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] px-4 text-sm font-bold text-[var(--brand-700)] hover:bg-[var(--brand-50)]" href="#home">
           আরও জানুন
         </a>
         <button
-          className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-5 text-sm font-bold text-white hover:bg-indigo-700"
+          className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-5 text-sm font-bold text-white hover:bg-[var(--brand-700)]"
           onClick={() => {
             localStorage.setItem('cookie_consent', 'true')
             setAccepted(true)
@@ -918,11 +918,11 @@ export function EventMeta({ event }) {
   return (
     <div className="mt-4 grid gap-2 text-sm text-gray-500">
       <span className="inline-flex items-center gap-2">
-        <CalendarDays aria-hidden="true" className="h-4 w-4 text-indigo-500" />
+        <CalendarDays aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
         {formatDate(date)}
       </span>
       <span className="inline-flex items-center gap-2">
-        <Clock3 aria-hidden="true" className="h-4 w-4 text-indigo-500" />
+        <Clock3 aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
         {formatTime(date)}
       </span>
     </div>
