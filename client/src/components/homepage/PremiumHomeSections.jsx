@@ -122,7 +122,7 @@ const categoryMeta = (category = '') => {
 
   return {
     bg: 'rgba(13,148,136,0.10)',
-    color: 'var(--primary-300)',
+      color: 'var(--accent-ui)',
     label: category || 'সাধারণ',
   }
 }
@@ -328,13 +328,13 @@ function AboutSection({ aboutText, orgName, tagline }) {
           <div className="mt-8 grid gap-4">
             {features.map(([title, text, Icon]) => (
               <motion.div
-                className="flex gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[rgba(17,24,39,0.58)] p-4"
+                className="flex gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--soft-row-bg)] p-4"
                 initial={{ opacity: 0, y: 16 }}
                 key={title}
                 viewport={{ once: true }}
                 whileInView={{ opacity: 1, y: 0 }}
               >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--primary-300)]">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--accent-ui)]">
                   <Icon aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <div>
@@ -427,13 +427,13 @@ function MembershipSection({ stats }) {
           whileInView={{ opacity: 1, rotateY: 0, y: 0 }}
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-[var(--primary-300)]">MEMBER CARD</span>
+            <span className="text-sm font-bold text-[var(--accent-ui)]">MEMBER CARD</span>
             <span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--success)]">
               Active
             </span>
           </div>
           <div className="mt-8 flex items-center gap-4">
-            <span className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[var(--border-accent)] bg-[rgba(13,148,136,0.14)] text-2xl font-bold text-[var(--primary-300)]">
+            <span className="flex h-20 w-20 items-center justify-center rounded-2xl border border-[var(--border-accent)] bg-[rgba(13,148,136,0.14)] text-2xl font-bold text-[var(--accent-ui)]">
               স
             </span>
             <div>
@@ -443,8 +443,8 @@ function MembershipSection({ stats }) {
           </div>
           <div className="mt-8 grid gap-3">
             {['নিবন্ধন জমা দিন', 'এডমিন অনুমোদন', 'ড্যাশবোর্ড ব্যবহার'].map((step, index) => (
-              <div className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[rgba(17,24,39,0.72)] px-4 py-3" key={step}>
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--success-bg)] text-sm font-bold text-[var(--primary-300)]">
+              <div className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--soft-row-bg)] px-4 py-3" key={step}>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--success-bg)] text-sm font-bold text-[var(--accent-ui)]">
                   {Number(index + 1).toLocaleString('bn-BD')}
                 </span>
                 <span className="font-semibold text-[var(--text-primary)]">{step}</span>
@@ -497,7 +497,7 @@ function CountdownSection({ enabled, event }) {
             <div className="rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-base)] p-4" key={label}>
               <motion.p
                 animate={{ rotateX: [0, -18, 0] }}
-                className="premium-count-flip font-[Inter] text-3xl font-bold text-[var(--primary-300)] sm:text-4xl"
+                className="premium-count-flip font-[Inter] text-3xl font-bold text-[var(--accent-ui)] sm:text-4xl"
                 key={`${label}-${value}`}
                 transition={{ duration: 0.34 }}
               >
@@ -592,7 +592,7 @@ function NoticeCard({ active, notice }) {
         </Link>
         <button
           aria-label="নোটিশ শেয়ার করুন"
-          className="text-[var(--text-muted)] transition hover:text-[var(--primary-300)]"
+          className="text-[var(--text-muted)] transition hover:text-[var(--accent-ui)]"
           onClick={() => navigator.clipboard?.writeText(shareUrl)}
           type="button"
         >
@@ -653,11 +653,11 @@ function EventCard({ event, onRsvp }) {
           <div className="min-w-0">
             <h3 className="premium-line-clamp-2 text-xl font-semibold text-[var(--text-primary)]">{event.title}</h3>
             <p className="mt-3 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <MapPin aria-hidden="true" className="h-4 w-4 text-[var(--primary-300)]" />
+              <MapPin aria-hidden="true" className="h-4 w-4 text-[var(--accent-ui)]" />
               {event.location || 'স্থান পরে জানানো হবে'}
             </p>
             <p className="mt-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <Clock3 aria-hidden="true" className="h-4 w-4 text-[var(--primary-300)]" />
+              <Clock3 aria-hidden="true" className="h-4 w-4 text-[var(--accent-ui)]" />
               {formatTime(eventDate) || 'সময় নির্ধারিত হবে'}
             </p>
           </div>
@@ -856,7 +856,7 @@ function GallerySection({ gallery, loading }) {
                 type="button"
                 variants={fadeUp}
               >
-                {imageUrl ? <img alt={item.caption || item.title || 'Gallery'} src={imageUrl} /> : <ImageIcon aria-hidden="true" className="h-10 w-10 text-[var(--primary-300)]" />}
+                {imageUrl ? <img alt={item.caption || item.title || 'Gallery'} src={imageUrl} /> : <ImageIcon aria-hidden="true" className="h-10 w-10 text-[var(--accent-ui)]" />}
                 <span>
                   <Eye aria-hidden="true" className="h-5 w-5" />
                 </span>
@@ -908,7 +908,7 @@ function CommitteeSection({ enabled, members }) {
                 <h3 className="mt-5 text-lg font-semibold text-[var(--text-primary)]">{name}</h3>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">{position}</p>
                 {president ? (
-                  <span className="mt-4 inline-flex rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--primary-300)]">
+                  <span className="mt-4 inline-flex rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--accent-ui)]">
                     সভাপতি
                   </span>
                 ) : null}
@@ -958,7 +958,7 @@ function TestimonialsSection({ enabled, items }) {
           viewport={{ once: true, amount: 0.2 }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <Quote aria-hidden="true" className="mx-auto h-12 w-12 text-[var(--primary-300)]" />
+          <Quote aria-hidden="true" className="mx-auto h-12 w-12 text-[var(--accent-ui)]" />
           <motion.p
             animate={{ opacity: 1 }}
             className="mt-6 text-center text-xl italic leading-9 text-[var(--text-secondary)]"
@@ -971,7 +971,7 @@ function TestimonialsSection({ enabled, items }) {
             {getImageUrl(current) ? (
               <img alt={getName(current)} className="h-14 w-14 rounded-full object-cover" src={getImageUrl(current)} />
             ) : (
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success-bg)] font-bold text-[var(--primary-300)]">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success-bg)] font-bold text-[var(--accent-ui)]">
                 {initials(getName(current))}
               </span>
             )}
@@ -984,7 +984,7 @@ function TestimonialsSection({ enabled, items }) {
             {testimonials.map((item, index) => (
               <button
                 aria-label={`${index + 1} নম্বর মতামত দেখুন`}
-                className={`h-2.5 w-2.5 rounded-full border border-[var(--primary-300)] ${index === active ? 'bg-[var(--primary-300)]' : 'bg-transparent'}`}
+                className={`h-2.5 w-2.5 rounded-full border border-[var(--accent-ui)] ${index === active ? 'bg-[var(--accent-ui)]' : 'bg-transparent'}`}
                 key={item._id || index}
                 onClick={() => setActive(index)}
                 type="button"
@@ -1012,7 +1012,7 @@ function MediaSection({ controls, orgName, settings }) {
         {youtubeEmbed ? (
           <div className="premium-media-card">
             <div className="mb-4 flex items-center gap-3">
-              <PlayCircle aria-hidden="true" className="h-6 w-6 text-[var(--primary-300)]" />
+              <PlayCircle aria-hidden="true" className="h-6 w-6 text-[var(--accent-ui)]" />
               <h2 className="text-2xl font-bold text-[var(--text-primary)]">{controls.youtubeTitle || `${orgName} ভিডিও`}</h2>
             </div>
             <iframe
@@ -1027,7 +1027,7 @@ function MediaSection({ controls, orgName, settings }) {
         {mapUrl ? (
           <div className="premium-media-card">
             <div className="mb-4 flex items-center gap-3">
-              <MapPin aria-hidden="true" className="h-6 w-6 text-[var(--primary-300)]" />
+              <MapPin aria-hidden="true" className="h-6 w-6 text-[var(--accent-ui)]" />
               <h2 className="text-2xl font-bold text-[var(--text-primary)]">আমাদের অবস্থান</h2>
             </div>
             <iframe
@@ -1103,7 +1103,7 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
             {socials.map(([label, href, Icon]) => (
               <a
                 aria-label={label}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:text-[var(--primary-300)]"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--bg-surface)] text-[var(--text-secondary)] transition hover:text-[var(--accent-ui)]"
                 href={href}
                 key={label}
                 rel="noreferrer"
@@ -1156,8 +1156,8 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
       <div className="mx-auto flex max-w-7xl flex-col gap-3 border-t border-white/[0.04] py-5 text-sm text-[var(--text-muted)] sm:flex-row sm:items-center sm:justify-between">
         <p>© {new Date().getFullYear()} {orgName}. সর্বস্বত্ব সংরক্ষিত।</p>
         <div className="flex gap-4">
-          <a className="hover:text-[var(--primary-300)]" href="#home">Privacy</a>
-          <a className="hover:text-[var(--primary-300)]" href="#home">Terms</a>
+          <a className="hover:text-[var(--accent-ui)]" href="#home">Privacy</a>
+          <a className="hover:text-[var(--accent-ui)]" href="#home">Terms</a>
         </div>
       </div>
     </footer>
@@ -1167,7 +1167,7 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
 function ContactLine({ icon: Icon, text }) {
   return (
     <p className="flex items-start gap-3">
-      <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--primary-300)]" />
+      <Icon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-ui)]" />
       <span>{text}</span>
     </p>
   )
@@ -1176,7 +1176,7 @@ function ContactLine({ icon: Icon, text }) {
 function EmptyState({ icon: Icon, message }) {
   return (
     <div className="mx-auto mt-12 max-w-xl rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 text-center">
-      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--primary-300)]">
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--accent-ui)]">
         <Icon aria-hidden="true" className="h-7 w-7" />
       </span>
       <p className="mt-4 font-semibold text-[var(--text-secondary)]">{message}</p>

@@ -394,7 +394,7 @@ export default function PublicHomePage() {
           className="premium-card max-w-xl p-8 text-center"
           initial={{ opacity: 0, y: 16 }}
         >
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--success-bg)] text-[var(--primary-300)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--success-bg)] text-[var(--accent-ui)]">
             <ShieldCheck aria-hidden="true" className="h-7 w-7" />
           </div>
           <h1 className="mt-5 text-3xl font-semibold text-[var(--text-primary)]">
@@ -770,7 +770,7 @@ function HeroSection({ orgName, phrases, stats, tagline, tickerEnabled }) {
 function TrustItem({ icon: Icon, text }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <Icon aria-hidden="true" className="h-5 w-5 text-[var(--primary-300)]" />
+      <Icon aria-hidden="true" className="h-5 w-5 text-[var(--accent-ui)]" />
       {text}
     </span>
   )
@@ -794,12 +794,12 @@ function HeroGeometry({ orgName, stats }) {
       <div className="premium-family-card float-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--primary-300)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--accent-ui)]">
               <Home aria-hidden="true" className="h-5 w-5" />
             </span>
             আমাদের পরিবার
           </div>
-          <span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--primary-300)]">
+          <span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--accent-ui)]">
             Active
           </span>
         </div>
@@ -814,7 +814,7 @@ function HeroGeometry({ orgName, stats }) {
             </span>
           ))}
         </div>
-        <p className="mt-6 font-[Inter] text-5xl font-bold text-[var(--primary-300)]">
+        <p className="mt-6 font-[Inter] text-5xl font-bold text-[var(--accent-ui)]">
           {Number(stats.totalMembers || 0).toLocaleString('bn-BD')}+
         </p>
         <p className="mt-1 text-sm font-semibold text-[var(--text-secondary)]">সক্রিয় সদস্য</p>
@@ -830,9 +830,9 @@ function HeroGeometry({ orgName, stats }) {
 
 function StatRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[rgba(17,24,39,0.72)] px-4 py-3">
+    <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--soft-row-bg)] px-4 py-3">
       <span className="text-sm text-[var(--text-secondary)]">{label}</span>
-      <span className="text-sm font-bold text-[var(--primary-300)]">{value}</span>
+      <span className="text-sm font-bold text-[var(--accent-ui)]">{value}</span>
     </div>
   )
 }
