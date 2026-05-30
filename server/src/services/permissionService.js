@@ -13,15 +13,44 @@ const seedDefaultRoles = async () => {
 
   if (count === 0) {
     await Role.insertMany(DEFAULT_ROLES, { ordered: true })
+    invalidateRoleCache()
     return
   }
 
   await Promise.all(
     DEFAULT_ROLES.map(async (role) => {
-      const exists = await Role.exists({ name: role.name })
-      if (!exists) {
+      const existingRole = await Role.findOne({ name: role.name })
+      if (!existingRole) {
         await Role.create(role)
+        invalidateRoleCache(role.name)
+        return
       }
+
+      if (role.name === USER_ROLES.MEMBER) {
+        return
+      }
+
+      const mergedPermissions = normalizePermissionList([
+        ...(existingRole.permissions || []),
+        ...(role.permissions || []),
+      ])
+      const changed =
+        mergedPermissions.length !== (existingRole.permissions || []).length ||
+        existingRole.isDefault !== Boolean(role.isDefault) ||
+        existingRole.isSystem !== Boolean(role.isSystem)
+
+      if (!changed) {
+        return
+      }
+
+      existingRole.permissions = mergedPermissions
+      existingRole.isDefault = Boolean(role.isDefault)
+      existingRole.isSystem = Boolean(role.isSystem)
+      if (!existingRole.nameEnglish && role.nameEnglish) existingRole.nameEnglish = role.nameEnglish
+      if (!existingRole.description && role.description) existingRole.description = role.description
+      if (!existingRole.color && role.color) existingRole.color = role.color
+      await existingRole.save()
+      invalidateRoleCache(role.name)
     }),
   )
 }

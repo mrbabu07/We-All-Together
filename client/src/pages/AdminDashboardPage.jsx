@@ -351,9 +351,46 @@ const emptyContentForms = {
 }
 
 const contentConfigs = [
-  { key: 'notices', title: 'Notices', endpoint: '/admin/notices', main: 'body' },
-  { key: 'meetings', title: 'Meetings', endpoint: '/admin/meetings', main: 'agenda' },
-  { key: 'tours', title: 'Tours', endpoint: '/admin/tours', main: 'destination' },
+  {
+    key: 'notices',
+    title: 'Notices',
+    endpoint: '/admin/notices',
+    main: 'body',
+    permissions: {
+      archive: 'notice.archive',
+      create: 'notice.create',
+      delete: 'notice.delete',
+      edit: 'notice.edit',
+      view: 'notice.view',
+    },
+  },
+  {
+    key: 'meetings',
+    title: 'Meetings',
+    endpoint: '/admin/meetings',
+    main: 'agenda',
+    permissions: {
+      attendance: 'meeting.attendance',
+      create: 'meeting.create',
+      delete: 'meeting.delete',
+      edit: 'meeting.edit',
+      minutes: 'meeting.minutes',
+      view: 'meeting.view',
+    },
+  },
+  {
+    key: 'tours',
+    title: 'Tours',
+    endpoint: '/admin/tours',
+    main: 'destination',
+    permissions: {
+      create: 'tour.create',
+      delete: 'tour.delete',
+      edit: 'tour.edit',
+      manageRegistration: 'tour.manage_registration',
+      view: 'tour.view',
+    },
+  },
   { key: 'activities', title: 'Activities', endpoint: '/admin/activities', main: 'category' },
   { key: 'rules', title: 'Rules', endpoint: '/admin/rules', main: 'description' },
 ]
@@ -1862,7 +1899,7 @@ export default function AdminDashboardPage() {
           pollSubmitting={isCreatingPoll}
           registerPoll={registerPoll}
           uploadingContentKey={uploadingContentKey}
-          userRole={user?.role}
+          user={user}
         />
       ) : null}
 
@@ -3890,48 +3927,71 @@ function ContentTab({
   pollSubmitting,
   registerPoll,
   uploadingContentKey,
-  userRole,
+  user,
 }) {
-  const isAdmin = userRole === 'admin'
+  const can = (permission) => hasPermission(user, permission)
+  const isAdmin = user?.role === 'admin'
   const approvedMembers = data.users.filter(
     (item) => item.role === 'member' && item.status === 'approved',
+  )
+  const visibleContentConfigs = contentConfigs.filter((config) =>
+    config.permissions?.view ? can(config.permissions.view) : isAdmin,
   )
 
   return (
     <div className="mt-6 grid gap-6">
-      <BlogModerationPanel
-        blogs={data.blogs}
-        canDelete={isAdmin}
-        onBulkModerate={onBlogBulkModerate}
-        onDelete={onBlogDelete}
-        onModerate={onBlogModerate}
-      />
-      <GalleryManagementPanel
-        canManageGallery={isAdmin}
-        gallery={data.gallery}
-        onAlbumVisibility={onGalleryAlbumVisibility}
-        onBulkModerate={onGalleryBulkModerate}
-        onDelete={onGalleryDelete}
-        onModerate={onGalleryModerate}
-        onMove={onGalleryMove}
-        onReorder={onGalleryReorder}
-      />
-      {isAdmin ? contentConfigs.map((config) => (
+      {can('blog.view') ? (
+        <BlogModerationPanel
+          blogs={data.blogs}
+          canDelete={can('blog.delete')}
+          onBulkModerate={onBlogBulkModerate}
+          onDelete={onBlogDelete}
+          onModerate={onBlogModerate}
+        />
+      ) : null}
+      {can('gallery.view') ? (
+        <GalleryManagementPanel
+          canManageGallery={can('gallery.manage_albums')}
+          gallery={data.gallery}
+          onAlbumVisibility={onGalleryAlbumVisibility}
+          onBulkModerate={onGalleryBulkModerate}
+          onDelete={onGalleryDelete}
+          onModerate={onGalleryModerate}
+          onMove={onGalleryMove}
+          onReorder={onGalleryReorder}
+        />
+      ) : null}
+      {visibleContentConfigs.map((config) => {
+        const canCreate = config.permissions?.create ? can(config.permissions.create) : isAdmin
+        const canEdit = config.permissions?.edit ? can(config.permissions.edit) : isAdmin
+        const canDelete = config.permissions?.delete ? can(config.permissions.delete) : isAdmin
+        const canArchive = config.permissions?.archive ? can(config.permissions.archive) : false
+        const isEditing = Boolean(editingContent[config.key])
+        const showForm = canCreate || (isEditing && canEdit)
+        const showMeetingWorkflow =
+          config.key === 'meetings' &&
+          (can('meeting.edit') || can('meeting.attendance') || can('meeting.minutes') || can('poll.create') || can('poll.view_results'))
+        const showTourWorkflow =
+          config.key === 'tours' && (can('tour.edit') || can('tour.manage_registration'))
+
+        return (
         <Panel key={config.key}>
           <SectionTitle
             icon={FilePlus2}
             title={editingContent[config.key] ? `Edit ${config.title}` : config.title}
           />
-          <ContentForm
-            config={config}
-            editingId={editingContent[config.key]}
-            form={contentForms[config.key]}
-            onCancel={() => onCancelEdit(config)}
-            onImageUpload={onImageUpload}
-            onSubmit={(values) => onCreate(config, values)}
-            uploading={uploadingContentKey === config.key}
-          />
-          {config.key === 'notices' ? (
+          {showForm ? (
+            <ContentForm
+              config={config}
+              editingId={editingContent[config.key]}
+              form={contentForms[config.key]}
+              onCancel={() => onCancelEdit(config)}
+              onImageUpload={onImageUpload}
+              onSubmit={(values) => onCreate(config, values)}
+              uploading={uploadingContentKey === config.key}
+            />
+          ) : null}
+          {config.key === 'notices' && canArchive ? (
             <NoticeArchiveControls onArchive={onArchiveNotices} />
           ) : null}
           <div className="mt-5 grid gap-3">
@@ -3974,39 +4034,50 @@ function ContentTab({
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button icon={Pencil} onClick={() => onEdit(config, item)} variant="secondary">
-                    Edit
-                  </Button>
-                  <Button icon={Trash2} onClick={() => onDelete(config, item._id)} variant="danger">
-                    Delete
-                  </Button>
+                  {canEdit ? (
+                    <Button icon={Pencil} onClick={() => onEdit(config, item)} variant="secondary">
+                      Edit
+                    </Button>
+                  ) : null}
+                  {canDelete ? (
+                    <Button icon={Trash2} onClick={() => onDelete(config, item._id)} variant="danger">
+                      Delete
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ))}
           </div>
-          {config.key === 'meetings' ? (
+          {showMeetingWorkflow ? (
             <div className="mt-5 grid gap-5">
-              <MeetingWorkflowPanel
-                meetings={data.content.meetings}
-                members={approvedMembers}
-                onPublishRecap={onPublishMeetingRecap}
-                onSaveAdvanced={onSaveMeetingAdvanced}
-                onSaveAttendance={onSaveMeetingAttendance}
-              />
-              <PollWorkflowPanel
-                meetings={data.content.meetings}
-                onClose={onPollClose}
-                onCreate={onPollCreate}
-                onDelete={onPollDelete}
-                pollErrors={pollErrors}
-                pollForm={pollForm}
-                pollSubmitting={pollSubmitting}
-                polls={data.polls}
-                registerPoll={registerPoll}
-              />
+              {can('meeting.edit') || can('meeting.attendance') || can('meeting.minutes') ? (
+                <MeetingWorkflowPanel
+                  meetings={data.content.meetings}
+                  members={approvedMembers}
+                  onPublishRecap={onPublishMeetingRecap}
+                  onSaveAdvanced={onSaveMeetingAdvanced}
+                  onSaveAttendance={onSaveMeetingAttendance}
+                />
+              ) : null}
+              {can('poll.create') || can('poll.view_results') ? (
+                <PollWorkflowPanel
+                  canCreate={can('poll.create')}
+                  canDelete={can('poll.delete')}
+                  canEdit={can('poll.edit')}
+                  meetings={data.content.meetings}
+                  onClose={onPollClose}
+                  onCreate={onPollCreate}
+                  onDelete={onPollDelete}
+                  pollErrors={pollErrors}
+                  pollForm={pollForm}
+                  pollSubmitting={pollSubmitting}
+                  polls={data.polls}
+                  registerPoll={registerPoll}
+                />
+              ) : null}
             </div>
           ) : null}
-          {config.key === 'tours' ? (
+          {showTourWorkflow ? (
             <TourWorkflowPanel
               onAddExpense={onAddTourExpense}
               onComplete={onCompleteTour}
@@ -4018,7 +4089,8 @@ function ContentTab({
             />
           ) : null}
         </Panel>
-      )) : null}
+        )
+      })}
     </div>
   )
 }
@@ -5074,6 +5146,9 @@ function MeetingWorkflowPanel({ meetings, members, onPublishRecap, onSaveAdvance
 }
 
 function PollWorkflowPanel({
+  canCreate = false,
+  canDelete = false,
+  canEdit = false,
   meetings,
   onClose,
   onCreate,
@@ -5092,45 +5167,47 @@ function PollWorkflowPanel({
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
       <SectionTitle icon={Vote} title="Meeting Polls" />
-      <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
-        <SelectField
-          error={pollErrors.meetingId?.message}
-          label="Meeting"
-          {...registerPoll('meetingId')}
-        >
-          <option value="">No meeting attachment</option>
-          {meetings.map((meeting) => (
-            <option key={meeting._id} value={meeting._id}>
-              {meeting.title}
-            </option>
-          ))}
-        </SelectField>
-        <Field
-          error={pollErrors.deadline?.message}
-          label="Deadline"
-          type="datetime-local"
-          {...registerPoll('deadline')}
-        />
-        <Field
-          className="md:col-span-2"
-          error={pollErrors.question?.message}
-          label="Question"
-          {...registerPoll('question')}
-        />
-        <Field
-          className="md:col-span-2"
-          error={pollErrors.optionsText?.message}
-          label="Options"
-          textarea
-          {...registerPoll('optionsText')}
-        />
-        <p className="md:col-span-2 text-sm font-semibold text-gray-500">
-          {optionCount}/6 options. Use one option per line.
-        </p>
-        <Button className="md:col-span-2" icon={Vote} loading={pollSubmitting} type="submit">
-          Create Poll
-        </Button>
-      </form>
+      {canCreate ? (
+        <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={onCreate}>
+          <SelectField
+            error={pollErrors.meetingId?.message}
+            label="Meeting"
+            {...registerPoll('meetingId')}
+          >
+            <option value="">No meeting attachment</option>
+            {meetings.map((meeting) => (
+              <option key={meeting._id} value={meeting._id}>
+                {meeting.title}
+              </option>
+            ))}
+          </SelectField>
+          <Field
+            error={pollErrors.deadline?.message}
+            label="Deadline"
+            type="datetime-local"
+            {...registerPoll('deadline')}
+          />
+          <Field
+            className="md:col-span-2"
+            error={pollErrors.question?.message}
+            label="Question"
+            {...registerPoll('question')}
+          />
+          <Field
+            className="md:col-span-2"
+            error={pollErrors.optionsText?.message}
+            label="Options"
+            textarea
+            {...registerPoll('optionsText')}
+          />
+          <p className="md:col-span-2 text-sm font-semibold text-gray-500">
+            {optionCount}/6 options. Use one option per line.
+          </p>
+          <Button className="md:col-span-2" icon={Vote} loading={pollSubmitting} type="submit">
+            Create Poll
+          </Button>
+        </form>
+      ) : null}
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {polls.length === 0 ? <Empty text="No polls created yet." /> : null}
@@ -5152,14 +5229,16 @@ function PollWorkflowPanel({
                 <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
                   {poll.isClosed ? 'Closed' : 'Open'}
                 </Badge>
-                {!poll.isClosed ? (
+                {!poll.isClosed && canEdit ? (
                   <Button icon={XCircle} onClick={() => onClose(poll._id)} size="sm" variant="danger">
                     Close
                   </Button>
                 ) : null}
-                <Button icon={Trash2} onClick={() => onDelete(poll._id)} size="sm" variant="danger">
-                  Delete
-                </Button>
+                {canDelete ? (
+                  <Button icon={Trash2} onClick={() => onDelete(poll._id)} size="sm" variant="danger">
+                    Delete
+                  </Button>
+                ) : null}
               </div>
             </div>
             <PollResultsChart poll={poll} />

@@ -3,6 +3,7 @@ const connectDB = require('../src/config/db')
 const { AUDIENCES, ITEM_STATUSES } = require('../src/constants/contentConstants')
 const { PAYMENT_STATUSES, PAYMENT_TYPES } = require('../src/constants/paymentConstants')
 const { USER_ROLES, USER_STATUSES } = require('../src/constants/userConstants')
+const { seedDefaultRoles } = require('../src/services/permissionService')
 const Activity = require('../src/models/Activity')
 const Achievement = require('../src/models/Achievement')
 const AuditLog = require('../src/models/AuditLog')
@@ -1102,6 +1103,7 @@ const seedNotificationsAndAudit = async (admin, members) => {
 const run = async () => {
   try {
     await connectDB()
+    await seedDefaultRoles()
     await removePreviousSeedData()
 
     const admin = await findOrCreateAdmin()
