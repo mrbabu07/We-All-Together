@@ -1148,7 +1148,10 @@ function HomepageFooter({ controls, notices, orgName, settings, tagline }) {
           <h3 className="premium-footer-title">যোগাযোগ</h3>
           <div className="mt-4 grid gap-3 text-sm text-[var(--text-secondary)]">
             <ContactLine icon={MapPin} text={settings.address || 'Dargah Para'} />
-            <ContactLine icon={Phone} text={settings.phone || settings.whatsappNumber || 'ফোন নম্বর যুক্ত হবে'} />
+            <ContactLine
+              icon={Phone}
+              text={settings.phone || settings.contactNumber || settings.whatsappNumber || 'ফোন নম্বর যুক্ত হবে'}
+            />
             <ContactLine icon={Mail} text={settings.email || 'ইমেইল যুক্ত হবে'} />
           </div>
         </div>
