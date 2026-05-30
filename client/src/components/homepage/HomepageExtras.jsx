@@ -250,7 +250,7 @@ export function TrustBadgeSection({ controls, orgName }) {
     <section className="home-band">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]">
         <motion.div
-          className="home-card bg-[var(--brand-50)] p-6"
+          className="home-card-accent p-6"
           initial={{ opacity: 0, y: 24 }}
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}

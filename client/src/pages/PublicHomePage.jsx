@@ -588,17 +588,19 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
   }, [])
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3">
+    <header className="fixed inset-x-0 top-0 z-50">
       <nav
-        className={`mx-auto flex h-16 max-w-7xl items-center justify-between rounded-[var(--radius-md)] px-4 transition-all duration-300 sm:px-5 ${
-          scrolled ? 'glass-surface' : 'border border-white/20 bg-white/10 text-white backdrop-blur-md'
+        className={`mx-auto flex h-16 max-w-7xl items-center justify-between border-b px-4 transition-all duration-300 sm:px-6 ${
+          scrolled
+            ? 'border-gray-200 bg-white/95 shadow-[var(--shadow-xs)] backdrop-blur-xl'
+            : 'border-white/70 bg-white/90 backdrop-blur-xl'
         }`}
       >
         <a className="flex items-center gap-3" href="#home">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-[var(--brand-600)] to-[var(--brand-800)] text-white shadow-[var(--shadow-brand)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--brand-700)] text-white shadow-[var(--shadow-brand)]">
             <Sparkles aria-hidden="true" className="h-5 w-5" />
           </span>
-          <span className={`max-w-48 truncate text-base font-semibold sm:max-w-none ${scrolled ? 'text-gray-950' : 'text-white'}`}>
+          <span className="max-w-48 truncate text-base font-semibold text-gray-950 sm:max-w-none">
             {orgName}
           </span>
         </a>
@@ -606,9 +608,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         <div className="hidden items-center gap-8 lg:flex">
           {links.map(([label, href]) => (
             <a
-              className={`group relative text-sm font-semibold transition ${
-                scrolled ? 'text-gray-600 hover:text-[var(--brand-700)]' : 'text-white/80 hover:text-white'
-              }`}
+              className="group relative text-sm font-semibold text-gray-600 transition hover:text-[var(--brand-700)]"
               href={href}
               key={href}
             >
@@ -622,11 +622,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
           {showDarkToggle ? <ThemeToggle /> : null}
           {showFontControls ? <FontSizeControl /> : null}
           <Link
-            className={`inline-flex min-h-11 items-center rounded-[var(--radius-md)] border px-5 text-sm font-semibold transition ${
-              scrolled
-                ? 'border-gray-300 text-gray-800 hover:bg-white'
-                : 'border-white/30 bg-white/10 text-white hover:bg-white/20'
-            }`}
+            className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
             to="/login"
           >
             লগইন
@@ -637,11 +633,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         </div>
 
         <button
-          className={`inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border lg:hidden ${
-            scrolled
-              ? 'border-gray-200 bg-white/70 text-gray-800'
-              : 'border-white/30 bg-white/10 text-white'
-          }`}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-gray-200 bg-white/80 text-gray-800 lg:hidden"
           onClick={() => setMenuOpen(true)}
           type="button"
         >
@@ -660,7 +652,7 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
             <div className="flex items-center justify-between">
               <span className="font-semibold text-gray-950">{orgName}</span>
               <button
-              className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gray-100 text-gray-700"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] bg-gray-100 text-gray-700"
                 onClick={() => setMenuOpen(false)}
                 type="button"
               >
@@ -708,15 +700,15 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
   const typedHeading = useTypewriter(phrases)
 
   return (
-    <section className="relative min-h-[92vh] overflow-hidden bg-[#222831] text-white" id="home">
+    <section className="relative min-h-[88vh] overflow-hidden bg-white text-gray-950" id="home">
       <div
         aria-hidden="true"
-        className="hero-image-bg absolute inset-0 opacity-70"
+        className="hero-image-bg absolute inset-0 opacity-38"
         style={{ backgroundImage: `url(${communityHero})` }}
       />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(34,40,49,0.96)_0%,rgba(34,40,49,0.78)_46%,rgba(34,40,49,0.32)_100%)]" />
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-[linear-gradient(180deg,transparent,rgba(34,40,49,0.92))]" />
-      <div className="relative mx-auto flex min-h-[92vh] max-w-7xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6">
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.9)_44%,rgba(234,251,252,0.52)_100%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,transparent,#fff)]" />
+      <div className="relative mx-auto flex min-h-[88vh] max-w-7xl flex-col justify-center px-4 pb-14 pt-28 sm:px-6">
         <motion.div
           animate="show"
           className="max-w-3xl"
@@ -724,20 +716,20 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
           variants={stagger}
         >
           <motion.span
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-lg backdrop-blur-md"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-100)] bg-white/86 px-4 py-2 text-sm font-semibold text-[var(--brand-700)] shadow-[var(--shadow-xs)] backdrop-blur-md"
             variants={fadeUp}
           >
-            <Sparkles aria-hidden="true" className="h-4 w-4 text-[var(--brand-300)]" />
+            <Sparkles aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
             দরগাহ পাড়া এলাকার ঐক্যের প্ল্যাটফর্ম
           </motion.span>
           <motion.h1
-            className="mt-7 max-w-4xl text-4xl font-bold leading-tight text-white sm:text-6xl lg:text-[66px]"
+            className="mt-7 max-w-4xl text-4xl font-bold leading-tight text-gray-950 sm:text-6xl lg:text-[64px]"
             variants={fadeUp}
           >
             <span>{typedHeading}</span>
-            <span className="typewriter-cursor text-[var(--brand-300)]">|</span>
+            <span className="typewriter-cursor text-[var(--brand-600)]">|</span>
           </motion.h1>
-          <motion.p className="mt-6 max-w-2xl text-lg leading-9 text-white/80" variants={fadeUp}>
+          <motion.p className="mt-6 max-w-2xl text-lg leading-9 text-gray-600" variants={fadeUp}>
             {orgName} - {tagline}. সদস্যপদ, নোটিশ, অর্থ ব্যবস্থাপনা ও সামাজিক কার্যক্রমকে এক জায়গায় সহজভাবে পরিচালনার আধুনিক কমিউনিটি প্ল্যাটফর্ম।
           </motion.p>
           <motion.div className="mt-8 flex flex-wrap gap-4" variants={fadeUp}>
@@ -745,13 +737,13 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
               সদস্য হোন
               <ArrowRight aria-hidden="true" className="h-5 w-5" />
             </Link>
-            <a className="inline-flex min-h-14 items-center gap-3 rounded-[var(--radius-md)] border border-white/25 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/20" href="#about">
+            <a className="inline-flex min-h-14 items-center gap-3 rounded-[var(--radius-md)] border border-gray-300 bg-white/88 px-8 py-4 text-base font-semibold text-gray-800 shadow-[var(--shadow-xs)] backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]" href="#about">
               <PlayCircle aria-hidden="true" className="h-5 w-5" />
               আরও জানুন
             </a>
           </motion.div>
           <motion.div
-            className="mt-8 grid gap-3 text-sm font-semibold text-white/80 sm:flex sm:flex-wrap sm:items-center sm:gap-5"
+            className="mt-8 grid gap-3 text-sm font-semibold text-gray-600 sm:flex sm:flex-wrap sm:items-center sm:gap-5"
             variants={fadeUp}
           >
             <TrustItem icon={Users} text={`${stats.totalMembers}+ সক্রিয় সদস্য`} />
@@ -771,14 +763,14 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
             ['দান', stats.yearlyDonation, '৳', HeartHandshake],
             ['কার্যক্রম', stats.completedActivities, '+', CheckCircle2],
           ].map(([label, value, suffix, Icon]) => (
-            <motion.div className="glass-surface-dark rounded-[var(--radius-md)] p-4" key={label} variants={fadeUp}>
-              <Icon aria-hidden="true" className="h-5 w-5 text-[var(--brand-300)]" />
-              <p className="mt-3 text-2xl font-bold text-white">
+            <motion.div className="home-card-soft p-4" key={label} variants={fadeUp}>
+              <Icon aria-hidden="true" className="h-5 w-5 text-[var(--brand-600)]" />
+              <p className="mt-3 text-2xl font-bold text-gray-950">
                 {suffix === '৳' ? suffix : ''}
                 <AnimatedCounter value={value} />
                 {suffix !== '৳' ? suffix : ''}
               </p>
-              <p className="text-sm font-semibold text-white/70">{label}</p>
+              <p className="text-sm font-semibold text-gray-500">{label}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -805,7 +797,7 @@ function StatsSection({ stats }) {
   ]
 
   return (
-    <section className="bg-[#222831] px-4 py-8 text-white sm:px-6">
+    <section className="bg-white px-4 py-8 sm:px-6">
       <motion.div
         className="mx-auto grid max-w-7xl gap-3 md:grid-cols-4"
         initial="hidden"
@@ -814,14 +806,14 @@ function StatsSection({ stats }) {
         whileInView="show"
       >
         {rows.map(([label, value, suffix, Icon, isMoney]) => (
-          <motion.div className="rounded-[var(--radius-md)] border border-white/10 bg-white/[0.06] px-5 py-5 text-center shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur" key={label} variants={fadeUp}>
-            <Icon aria-hidden="true" className="mx-auto h-6 w-6 text-[var(--brand-300)]" />
-            <p className="mt-3 text-4xl font-bold sm:text-5xl">
+          <motion.div className="home-card px-5 py-5 text-center" key={label} variants={fadeUp}>
+            <Icon aria-hidden="true" className="mx-auto h-6 w-6 text-[var(--brand-600)]" />
+            <p className="mt-3 text-4xl font-bold text-gray-950 sm:text-5xl">
               {isMoney ? '৳' : ''}
               <AnimatedCounter value={value} />
               {suffix}
             </p>
-            <p className="mt-2 text-sm font-semibold text-white/70">{label}</p>
+            <p className="mt-2 text-sm font-semibold text-gray-500">{label}</p>
           </motion.div>
         ))}
       </motion.div>
@@ -1001,17 +993,17 @@ function DonationSection({
   uploadingProof,
 }) {
   return (
-    <section className="relative overflow-hidden bg-[#222831] px-4 py-24 text-white sm:px-6" id="donate">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,122,128,0.24),transparent_42%,rgba(255,255,255,0.04))]" />
+    <section className="home-band-muted relative overflow-hidden" id="donate">
+      <div className="absolute inset-x-0 top-0 h-px bg-[var(--brand-100)]" />
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.9fr_1fr]">
         <motion.div initial="hidden" variants={stagger} viewport={{ once: true }} whileInView="show">
-          <motion.p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--brand-300)]" variants={fadeUp}>
+          <motion.p className="home-kicker" variants={fadeUp}>
             দান
           </motion.p>
-          <motion.h2 className="mt-4 text-4xl font-semibold text-white sm:text-5xl" variants={fadeUp}>
+          <motion.h2 className="home-title mt-4 text-4xl sm:text-5xl" variants={fadeUp}>
             আপনার দানে বদলে যাবে একটি জীবন
           </motion.h2>
-          <motion.p className="mt-5 max-w-xl text-base leading-8 text-white/70" variants={fadeUp}>
+          <motion.p className="home-copy mt-5 max-w-xl text-base" variants={fadeUp}>
             শিক্ষা সহায়তা, জরুরি ত্রাণ, সামাজিক কার্যক্রম এবং এলাকার উন্নয়নে আপনার অনুদান সরাসরি কাজে লাগে।
           </motion.p>
           <motion.div className="mt-8 grid gap-3" variants={stagger}>
@@ -1020,26 +1012,26 @@ function DonationSection({
               ['৳৫০০০', 'একটি পরিবারের ত্রাণ'],
               ['৳১০০০০', 'একটি কার্যক্রমের আয়োজন'],
             ].map(([amount, text]) => (
-              <motion.div className="flex items-center gap-4 rounded-[var(--radius-md)] border border-white/10 bg-white/[0.06] p-4 shadow-sm backdrop-blur" key={amount} variants={fadeUp}>
+              <motion.div className="home-card flex items-center gap-4 p-4" key={amount} variants={fadeUp}>
                 <span className="rounded-[var(--radius-sm)] bg-[var(--brand-600)] px-4 py-2 font-bold text-white">{amount}</span>
-                <span className="font-semibold text-white/80">{text}</span>
+                <span className="font-semibold text-gray-800">{text}</span>
               </motion.div>
             ))}
           </motion.div>
-          <motion.div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-white/80" variants={fadeUp}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2">
-              <ShieldCheck aria-hidden="true" className="h-4 w-4 text-[var(--brand-300)]" />
+          <motion.div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-gray-700" variants={fadeUp}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-100)] bg-white px-4 py-2">
+              <ShieldCheck aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
               নিরাপদ লেনদেন
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2">
-              <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-[var(--brand-300)]" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-[var(--brand-100)] bg-white px-4 py-2">
+              <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-[var(--brand-600)]" />
               যাচাইকৃত সংগঠন
             </span>
           </motion.div>
         </motion.div>
 
         <motion.div
-          className="rounded-[var(--radius-md)] border border-white/10 bg-white p-6 text-gray-900 shadow-2xl shadow-black/20 sm:p-8"
+          className="home-card p-6 text-gray-900 sm:p-8"
           initial={{ opacity: 0, x: 40 }}
           transition={{ duration: 0.55 }}
           viewport={{ once: true, amount: 0.25 }}
@@ -1234,31 +1226,35 @@ function BlogSection({ blogs, loading }) {
 
 function MembershipCta() {
   return (
-    <section className="relative overflow-hidden bg-[#222831] px-4 py-24 text-white sm:px-6" id="membership">
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(0,122,128,0.28),transparent_52%)]" />
+    <section className="home-band relative overflow-hidden text-gray-950" id="membership">
+      <div className="absolute inset-x-4 top-0 mx-auto h-px max-w-7xl bg-gray-200" />
       <motion.div
-        className="relative mx-auto max-w-4xl text-center"
+        className="home-card relative mx-auto max-w-5xl overflow-hidden p-8 text-center sm:p-12"
         initial="hidden"
         variants={stagger}
         viewport={{ once: true }}
         whileInView="show"
       >
-        <motion.h2 className="text-4xl font-semibold sm:text-5xl" variants={fadeUp}>
+        <div className="absolute inset-x-0 top-0 h-1 bg-[var(--brand-600)]" />
+        <motion.p className="home-kicker" variants={fadeUp}>
+          সদস্যপদ
+        </motion.p>
+        <motion.h2 className="home-title mt-4 text-4xl sm:text-5xl" variants={fadeUp}>
           আজই আমাদের পরিবারের অংশ হোন
         </motion.h2>
-        <motion.p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-white/70" variants={fadeUp}>
+        <motion.p className="home-copy mx-auto mt-5 max-w-2xl text-base" variants={fadeUp}>
           সদস্যপদে পাবেন সংগঠনের আপডেট, সিদ্ধান্তে অংশগ্রহণ, স্বচ্ছ অর্থনৈতিক তথ্য এবং এলাকার উন্নয়নে সরাসরি ভূমিকা রাখার সুযোগ।
         </motion.p>
-        <motion.div className="mt-7 flex flex-wrap justify-center gap-3 text-sm font-semibold text-white/75" variants={fadeUp}>
-          <span>✓ ব্যক্তিগত পেমেন্ট হিস্ট্রি</span>
-          <span>✓ মিটিং ও ভ্রমণ RSVP</span>
-          <span>✓ নোটিশ ও কার্যক্রম অ্যাক্সেস</span>
+        <motion.div className="mt-7 flex flex-wrap justify-center gap-3 text-sm font-semibold text-gray-700" variants={fadeUp}>
+          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ ব্যক্তিগত পেমেন্ট হিস্ট্রি</span>
+          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ মিটিং ও ভ্রমণ RSVP</span>
+          <span className="rounded-full bg-[var(--brand-50)] px-4 py-2">✓ নোটিশ ও কার্যক্রম অ্যাক্সেস</span>
         </motion.div>
         <motion.div className="mt-9 flex flex-wrap justify-center gap-4" variants={fadeUp}>
-          <Link className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] bg-white px-8 text-base font-bold text-[var(--brand-700)] transition hover:bg-[var(--brand-50)]" to="/register">
+          <Link className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-8 text-base font-bold text-white shadow-[var(--shadow-brand)] transition hover:bg-[var(--brand-700)]" to="/register">
             এখনই নিবন্ধন করুন
           </Link>
-          <a className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] border border-white/40 px-8 text-base font-bold text-white transition hover:bg-white/10" href="#about">
+          <a className="inline-flex min-h-14 items-center rounded-[var(--radius-md)] border border-gray-300 px-8 text-base font-bold text-gray-800 transition hover:border-[var(--brand-300)] hover:text-[var(--brand-700)]" href="#about">
             আরও জানুন
           </a>
         </motion.div>

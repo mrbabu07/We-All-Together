@@ -355,18 +355,18 @@ img {
 
 .home-shell {
   background:
-    linear-gradient(180deg, var(--surface-0) 0%, var(--surface-1) 38%, var(--surface-0) 100%);
+    linear-gradient(180deg, var(--surface-0) 0%, color-mix(in srgb, var(--brand-50) 34%, var(--surface-0)) 36%, var(--surface-0) 100%);
 }
 
 .home-band {
   background: var(--surface-0);
-  padding: 6rem 1rem;
+  padding: 5.5rem 1rem;
 }
 
 .home-band-muted {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 70%, var(--surface-0)), var(--surface-0));
-  padding: 6rem 1rem;
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-50) 46%, var(--surface-0)), var(--surface-0));
+  padding: 5.5rem 1rem;
 }
 
 .home-card {
@@ -379,8 +379,23 @@ img {
 
 .home-card:hover {
   border-color: color-mix(in srgb, var(--brand-300) 42%, var(--gray-200));
-  box-shadow: var(--shadow-lg-token);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md-token);
+  transform: translateY(-1px);
+}
+
+.home-card-soft {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid color-mix(in srgb, var(--gray-200) 78%, transparent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm-token);
+  backdrop-filter: blur(14px);
+}
+
+.home-card-accent {
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm-token);
 }
 
 .home-kicker {
