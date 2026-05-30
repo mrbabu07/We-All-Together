@@ -13,6 +13,7 @@ const {
   waiveFee,
 } = require('../controllers/feeController')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -35,17 +36,17 @@ router.post(
   authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   payFees,
 )
-router.get('/overdue-members', protect, authorize(USER_ROLES.ADMIN), getOverdueMembers)
-router.post('/adjust', protect, authorize(USER_ROLES.ADMIN), adjustFeeAmount)
-router.delete('/adjust/:adjustmentId', protect, authorize(USER_ROLES.ADMIN), removeFeeAdjustment)
-router.post('/waive', protect, authorize(USER_ROLES.ADMIN), waiveFee)
-router.delete('/waive/:waiverId', protect, authorize(USER_ROLES.ADMIN), removeWaiver)
+router.get('/overdue-members', protect, requirePermission('finance.view'), getOverdueMembers)
+router.post('/adjust', protect, requirePermission('finance.waive_fee'), adjustFeeAmount)
+router.delete('/adjust/:adjustmentId', protect, requirePermission('finance.waive_fee'), removeFeeAdjustment)
+router.post('/waive', protect, requirePermission('finance.waive_fee'), waiveFee)
+router.delete('/waive/:waiverId', protect, requirePermission('finance.waive_fee'), removeWaiver)
 router.post(
   '/member/:memberId/reminder',
   protect,
-  authorize(USER_ROLES.ADMIN),
+  requirePermission('notification.send'),
   sendMemberFeeReminder,
 )
-router.get('/member/:memberId/history', protect, authorize(USER_ROLES.ADMIN), getMemberHistory)
+router.get('/member/:memberId/history', protect, requirePermission('finance.view'), getMemberHistory)
 
 module.exports = router

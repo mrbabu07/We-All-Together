@@ -1,3 +1,5 @@
+import { isStaffUser } from './permissionUtils'
+
 export const ACCOUNT_STATUS_PATHS = ['/pending', '/rejected', '/suspended']
 export const MODERATOR_ADMIN_PATHS = ['/admin/blogs', '/admin/gallery']
 
@@ -22,12 +24,8 @@ export const getAccountStatusPath = (user) => {
 }
 
 export const getDashboardPath = (user) => {
-  if (user?.role === 'admin') {
+  if (isStaffUser(user)) {
     return '/admin'
-  }
-
-  if (user?.role === 'moderator') {
-    return '/admin/blogs'
   }
 
   return '/member'
@@ -51,6 +49,10 @@ export const canUseReturnUrlForUser = (url, user) => {
   }
 
   if (user?.role === 'admin') {
+    return true
+  }
+
+  if (isStaffUser(user)) {
     return true
   }
 

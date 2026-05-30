@@ -5,6 +5,7 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { hasAttachedPermission } = require('../services/permissionService')
 const {
   validateBlog,
   validateBlogComment,
@@ -20,13 +21,22 @@ const populateBlog = (query) =>
     .populate('comments.user', 'name phone role profilePhotoUrl')
 
 const canManageBlog = (user, blog) =>
-  user.role === USER_ROLES.ADMIN || blog.createdBy.toString() === user._id.toString()
+  user.role === USER_ROLES.ADMIN ||
+  hasAttachedPermission(user, 'blog.edit_any') ||
+  hasAttachedPermission(user, 'blog.delete') ||
+  blog.createdBy.toString() === user._id.toString()
 
 const canModerateBlog = (user) =>
-  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role)
+  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role) ||
+  hasAttachedPermission(user, 'blog.approve') ||
+  hasAttachedPermission(user, 'blog.reject')
+
+const canApproveBlog = (user) =>
+  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role) ||
+  hasAttachedPermission(user, 'blog.approve')
 
 const getWritableStatus = (user, requestedStatus, currentStatus = '') => {
-  if (canModerateBlog(user)) {
+  if (canApproveBlog(user)) {
     return requestedStatus || currentStatus || 'approved'
   }
 
@@ -296,6 +306,14 @@ const moderateBlog = asyncHandler(async (req, res) => {
     throw new AppError('Blog not found.', 404)
   }
 
+  if (payload.status === 'approved' && !hasAttachedPermission(req.user, 'blog.approve')) {
+    throw new AppError('You do not have permission to approve blogs.', 403)
+  }
+
+  if (payload.status === 'rejected' && !hasAttachedPermission(req.user, 'blog.reject')) {
+    throw new AppError('You do not have permission to reject blogs.', 403)
+  }
+
   blog.moderationStatus = payload.status
   blog.moderationNote = payload.note
   blog.moderatedAt = new Date()
@@ -342,6 +360,15 @@ const moderateBlog = asyncHandler(async (req, res) => {
 
 const bulkModerateBlogs = asyncHandler(async (req, res) => {
   const payload = validateBulkBlogModeration(req.body)
+
+  if (payload.status === 'approved' && !hasAttachedPermission(req.user, 'blog.approve')) {
+    throw new AppError('You do not have permission to approve blogs.', 403)
+  }
+
+  if (payload.status === 'rejected' && !hasAttachedPermission(req.user, 'blog.reject')) {
+    throw new AppError('You do not have permission to reject blogs.', 403)
+  }
+
   const blogs = await Blog.find({ _id: { $in: payload.blogIds } })
 
   if (!blogs.length) {

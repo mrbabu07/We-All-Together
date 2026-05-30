@@ -11,6 +11,7 @@ const {
   verifyDonation,
 } = require('../controllers/donationController')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -29,9 +30,9 @@ router.post(
   authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR, USER_ROLES.ADMIN),
   submitMemberDonation,
 )
-router.get('/', protect, authorize(USER_ROLES.ADMIN), getDonations)
-router.post('/manual', protect, authorize(USER_ROLES.ADMIN), createManualDonation)
-router.patch('/:id/verify', protect, authorize(USER_ROLES.ADMIN), verifyDonation)
-router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectDonation)
+router.get('/', protect, requirePermission('finance.view'), getDonations)
+router.post('/manual', protect, requirePermission('finance.add_donation'), createManualDonation)
+router.patch('/:id/verify', protect, requirePermission('finance.add_donation'), verifyDonation)
+router.patch('/:id/reject', protect, requirePermission('finance.add_donation'), rejectDonation)
 
 module.exports = router

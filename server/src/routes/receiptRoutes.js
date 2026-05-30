@@ -8,6 +8,7 @@ const {
   getRegistrationReceipt,
 } = require('../controllers/receiptController')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -18,7 +19,7 @@ router.get(
   authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   downloadReceiptPdf,
 )
-router.get('/donations/:id/pdf', protect, authorize(USER_ROLES.ADMIN), downloadReceiptPdf)
+router.get('/donations/:id/pdf', protect, requirePermission('finance.view'), downloadReceiptPdf)
 router.get(
   '/registrations/:id/pdf',
   protect,
@@ -37,7 +38,7 @@ router.get(
   authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   getRegistrationReceipt,
 )
-router.get('/donations/:id', protect, authorize(USER_ROLES.ADMIN), getDonationReceipt)
+router.get('/donations/:id', protect, requirePermission('finance.view'), getDonationReceipt)
 router.get('/:id', downloadReceiptPdf)
 
 module.exports = router

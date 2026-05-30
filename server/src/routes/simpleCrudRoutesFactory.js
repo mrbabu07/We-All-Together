@@ -1,18 +1,22 @@
 const express = require('express')
 const { USER_ROLES } = require('../constants/userConstants')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
-const createSimpleCrudRoutes = (controller) => {
+const guarded = (permission) =>
+  permission ? requirePermission(permission) : authorize(USER_ROLES.ADMIN)
+
+const createSimpleCrudRoutes = (controller, permission = '') => {
   const router = express.Router()
 
   router.get('/', controller.getPublicItems)
-  router.get('/admin', protect, authorize(USER_ROLES.ADMIN), controller.getAdminItems)
-  router.post('/', protect, authorize(USER_ROLES.ADMIN), controller.createItem)
-  router.patch('/reorder', protect, authorize(USER_ROLES.ADMIN), controller.reorderItems)
-  router.put('/:id', protect, authorize(USER_ROLES.ADMIN), controller.updateItem)
-  router.patch('/:id', protect, authorize(USER_ROLES.ADMIN), controller.updateItem)
-  router.delete('/:id', protect, authorize(USER_ROLES.ADMIN), controller.deleteItem)
+  router.get('/admin', protect, guarded(permission), controller.getAdminItems)
+  router.post('/', protect, guarded(permission), controller.createItem)
+  router.patch('/reorder', protect, guarded(permission), controller.reorderItems)
+  router.put('/:id', protect, guarded(permission), controller.updateItem)
+  router.patch('/:id', protect, guarded(permission), controller.updateItem)
+  router.delete('/:id', protect, guarded(permission), controller.deleteItem)
 
   return router
 }

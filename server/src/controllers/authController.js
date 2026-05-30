@@ -11,16 +11,23 @@ const {
 } = require('../validators/authValidators')
 const env = require('../config/env')
 const { recordAuditLog } = require('../services/auditService')
+const {
+  attachEffectivePermissions,
+  getEffectivePermissions,
+  toUserWithPermissions,
+} = require('../services/permissionService')
 
-const sendAuthResponse = (res, user, statusCode = 200) => {
+const sendAuthResponse = async (res, user, statusCode = 200) => {
+  await attachEffectivePermissions(user)
   const token = generateAccessToken(user)
+  const safeUser = await toUserWithPermissions(user)
 
   res.status(statusCode).json({
     success: true,
     message: 'Authentication successful.',
     data: {
       token,
-      user,
+      user: safeUser,
     },
   })
 }
@@ -49,7 +56,7 @@ const bootstrapAdmin = asyncHandler(async (req, res) => {
     approvedAt: new Date(),
   })
 
-  sendAuthResponse(res, user, 201)
+  await sendAuthResponse(res, user, 201)
 })
 
 const login = asyncHandler(async (req, res) => {
@@ -83,19 +90,34 @@ const login = asyncHandler(async (req, res) => {
     },
   })
 
-  sendAuthResponse(res, user)
+  await sendAuthResponse(res, user)
 })
 
 const refreshToken = asyncHandler(async (req, res) => {
-  sendAuthResponse(res, req.user)
+  await sendAuthResponse(res, req.user)
 })
 
 const getMe = asyncHandler(async (req, res) => {
+  const user = await toUserWithPermissions(req.user)
+
   res.status(200).json({
     success: true,
     message: 'Profile loaded successfully.',
     data: {
-      user: req.user,
+      user,
+    },
+  })
+})
+
+const getMyPermissions = asyncHandler(async (req, res) => {
+  const effectivePermissions = await getEffectivePermissions(req.user)
+
+  res.status(200).json({
+    success: true,
+    message: 'Permissions loaded successfully.',
+    data: {
+      effectivePermissions,
+      role: req.user.role,
     },
   })
 })
@@ -169,6 +191,7 @@ module.exports = {
   bootstrapAdmin,
   changePassword,
   getMe,
+  getMyPermissions,
   login,
   refreshToken,
   updateMe,

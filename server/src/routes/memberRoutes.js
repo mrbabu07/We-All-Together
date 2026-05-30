@@ -13,7 +13,9 @@ const {
   updateMemberProfile,
   verifyMemberPublic,
 } = require('../controllers/memberController')
+const roleController = require('../controllers/roleController')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -29,11 +31,14 @@ router.get('/my-data', protect, getMyData)
 router.get('/my-data.pdf', protect, downloadMyDataPdf)
 router.get('/my-activity', protect, getMemberActivitySummary)
 router.post('/delete-request', protect, requestAccountDeletion)
-router.get('/users', protect, authorize(USER_ROLES.ADMIN), getAllUsers)
-router.get('/:id/activity', protect, authorize(USER_ROLES.ADMIN), getMemberActivitySummary)
-router.patch('/:id', protect, authorize(USER_ROLES.ADMIN), updateMemberProfile)
-router.patch('/:id/access', protect, authorize(USER_ROLES.ADMIN), updateUserAccess)
-router.patch('/:id/password', protect, authorize(USER_ROLES.ADMIN), resetUserPassword)
-router.delete('/:id', protect, authorize(USER_ROLES.ADMIN), deleteUser)
+router.get('/users', protect, requirePermission('member.view'), getAllUsers)
+router.get('/:id/activity', protect, requirePermission('member.view'), getMemberActivitySummary)
+router.get('/:id/permissions', protect, requirePermission('settings.roles'), roleController.getUserPermissions)
+router.put('/:id/role', protect, requirePermission('settings.roles'), roleController.assignUserRole)
+router.put('/:id/permissions', protect, requirePermission('settings.roles'), roleController.setUserPermissions)
+router.patch('/:id', protect, requirePermission('member.edit'), updateMemberProfile)
+router.patch('/:id/access', protect, requirePermission('member.suspend'), updateUserAccess)
+router.patch('/:id/password', protect, requirePermission('member.reset_password'), resetUserPassword)
+router.delete('/:id', protect, requirePermission('member.edit'), deleteUser)
 
 module.exports = router

@@ -1,5 +1,4 @@
 const express = require('express')
-const { USER_ROLES } = require('../constants/userConstants')
 const {
   deleteMyNotification,
   getAllNotifications,
@@ -11,17 +10,17 @@ const {
   sendNotificationMessage,
 } = require('../controllers/notificationController')
 const { protect } = require('../middlewares/authMiddleware')
-const { authorize } = require('../middlewares/roleMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 
 const router = express.Router()
 
 router.get('/my', protect, getMyNotifications)
 router.patch('/my/read-all', protect, markAllNotificationsRead)
-router.get('/sms-balance', protect, authorize(USER_ROLES.ADMIN), getSmsBalance)
+router.get('/sms-balance', protect, requirePermission('notification.view_log'), getSmsBalance)
 router.patch('/:id/read', protect, markNotificationRead)
 router.delete('/:id', protect, deleteMyNotification)
-router.get('/', protect, authorize(USER_ROLES.ADMIN), getAllNotifications)
-router.post('/broadcast', protect, authorize(USER_ROLES.ADMIN), sendBroadcastNotification)
-router.post('/send', protect, authorize(USER_ROLES.ADMIN), sendNotificationMessage)
+router.get('/', protect, requirePermission('notification.view_log'), getAllNotifications)
+router.post('/broadcast', protect, requirePermission('notification.send'), sendBroadcastNotification)
+router.post('/send', protect, requirePermission('notification.send'), sendNotificationMessage)
 
 module.exports = router

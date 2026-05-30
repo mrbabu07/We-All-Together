@@ -1,4 +1,4 @@
 const testimonialController = require('../controllers/testimonialController')
 const createSimpleCrudRoutes = require('./simpleCrudRoutesFactory')
 
-module.exports = createSimpleCrudRoutes(testimonialController)
+module.exports = createSimpleCrudRoutes(testimonialController, 'homepage.testimonials')

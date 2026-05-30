@@ -14,6 +14,7 @@ const generateAccessToken = (user) => {
   return jwt.sign(
     {
       id: user._id.toString(),
+      effectivePermissions: user.effectivePermissions || user.$locals?.effectivePermissions || [],
       role: user.role,
       sessionVersion: Number(user.sessionVersion || 0),
       status: user.status,

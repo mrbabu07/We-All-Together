@@ -45,6 +45,7 @@ import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { hasAnyPermission, hasPermission } from '../utils/permissionUtils'
 import {
   Bar,
   BarChart,
@@ -163,9 +164,7 @@ const memberEditSchema = z.object({
   passportImageUrl: z.string().trim().optional(),
   phone: z.string().trim().min(1, 'Phone is required.'),
   profilePhotoUrl: z.string().trim().optional(),
-  role: z.enum(['admin', 'member', 'moderator'], {
-    message: 'Choose a valid role.',
-  }),
+  role: z.string().trim().min(1, 'Choose a valid role.'),
   status: z.enum(['pending', 'approved', 'rejected'], {
     message: 'Choose a valid status.',
   }),
@@ -593,6 +592,7 @@ const pathTabs = {
   '/admin/meetings': 'content',
   '/admin/members': 'members',
   '/admin/notices': 'content',
+  '/admin/notifications': 'logs',
   '/admin/polls': 'content',
   '/admin/rules': 'content',
   '/admin/tours': 'content',
@@ -612,9 +612,27 @@ export default function AdminDashboardPage() {
   const requestedTab = searchParams.get('tab')
   const defaultTab = pathTabs[location.pathname] || 'overview'
   const requestedActiveTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
-  const activeTab = user?.role === 'moderator' ? 'content' : requestedActiveTab
+  const visibleTabLabels =
+    user?.role === 'admin'
+      ? tabLabels
+      : tabLabels.filter(([key]) => {
+          if (key === 'overview') return true
+          if (key === 'finance') return hasPermission(user, 'finance.view')
+          if (key === 'members') return hasPermission(user, 'member.view')
+          if (key === 'logs') return hasAnyPermission(user, ['audit.view', 'notification.send', 'notification.view_log'])
+          return hasAnyPermission(user, [
+            'notice.view',
+            'meeting.view',
+            'tour.view',
+            'blog.view',
+            'gallery.view',
+            'poll.view_results',
+          ])
+        })
+  const activeTab = visibleTabLabels.some(([key]) => key === requestedActiveTab)
+    ? requestedActiveTab
+    : visibleTabLabels[0]?.[0] || 'overview'
   const moderationApiPrefix = user?.role === 'moderator' ? '/member' : '/admin'
-  const visibleTabLabels = user?.role === 'moderator' ? [['content', 'Moderation']] : tabLabels
   const initialFinanceTab = financePathTabs[location.pathname] || 'payments'
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -736,6 +754,19 @@ export default function AdminDashboardPage() {
         return
       }
 
+      const can = (permission) => hasPermission(user, permission)
+      const loadIfAllowed = async (allowed, request, fallback) => {
+        if (!allowed) {
+          return fallback
+        }
+
+        try {
+          return await request()
+        } catch {
+          return fallback
+        }
+      }
+
       const [
         pendingResponse,
         settingsResponse,
@@ -755,23 +786,64 @@ export default function AdminDashboardPage() {
         pollsResponse,
         feeOverdueResponse,
       ] = await Promise.all([
-        api.get('/admin/registrations/pending'),
+        loadIfAllowed(can('member.view'), () => api.get('/admin/registrations/pending'), {
+          data: { data: { users: [] } },
+        }),
         api.get('/public/settings'),
-        api.get('/admin/members/users'),
-        api.get('/admin/payments'),
-        api.get('/admin/donations'),
-        api.get('/admin/expenses'),
-        api.get('/admin/notices/members', { params: { archived: 'true' } }),
-        api.get('/admin/meetings/members'),
-        api.get('/admin/tours/members'),
-        api.get('/admin/activities/members'),
-        api.get('/admin/rules/members'),
-        api.get('/admin/blogs/members'),
-        api.get('/admin/gallery/members'),
-        api.get('/admin/audit-logs', { params: { limit: 80 } }),
-        api.get('/admin/finance/analytics'),
-        api.get('/admin/polls'),
-        api.get('/admin/fees/overdue-members'),
+        loadIfAllowed(can('member.view'), () => api.get('/admin/members/users'), {
+          data: { data: { users: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/payments'), {
+          data: { data: { payments: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/donations'), {
+          data: { data: { donations: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/expenses'), {
+          data: { data: { expenses: [] } },
+        }),
+        loadIfAllowed(can('notice.view'), () => api.get('/admin/notices/members', { params: { archived: 'true' } }), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('meeting.view'), () => api.get('/admin/meetings/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('tour.view'), () => api.get('/admin/tours/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(user?.role === 'admin', () => api.get('/admin/activities/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(user?.role === 'admin', () => api.get('/admin/rules/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('blog.view'), () => api.get('/admin/blogs/members'), {
+          data: { data: { blogs: [] } },
+        }),
+        loadIfAllowed(can('gallery.view'), () => api.get('/admin/gallery/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('audit.view'), () => api.get('/admin/audit-logs', { params: { limit: 80 } }), {
+          data: { data: { logs: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/finance/analytics'), {
+          data: {
+            data: {
+              donationTrend: [],
+              expenseBreakdown: [],
+              monthly: [],
+              overdue: { amount: 0, count: 0, members: [] },
+              range: {},
+              summary: {},
+            },
+          },
+        }),
+        loadIfAllowed(can('poll.view_results'), () => api.get('/admin/polls'), {
+          data: { data: { polls: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/fees/overdue-members'), {
+          data: { data: { members: [], totalAmount: 0, totalOverdue: 0 } },
+        }),
       ])
 
       const settings = settingsResponse.data.data.settings

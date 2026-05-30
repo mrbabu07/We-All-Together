@@ -2,6 +2,7 @@ const User = require('../models/User')
 const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const AppError = require('../utils/appError')
 const asyncHandler = require('../utils/asyncHandler')
+const { attachEffectivePermissions } = require('../services/permissionService')
 const { verifyAccessToken } = require('../utils/tokenUtils')
 
 const authenticate = asyncHandler(async (req, res, next) => {
@@ -24,6 +25,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
   }
 
   user.$locals.auditIp = req.ip || ''
+  await attachEffectivePermissions(user)
   req.user = user
   next()
 })

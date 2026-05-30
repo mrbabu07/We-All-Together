@@ -1,48 +1,48 @@
 import {
   BarChart3,
   Bell,
+  BookOpenText,
+  CalendarDays,
   ClipboardList,
-  Home,
   Image,
   LayoutDashboard,
+  LayoutTemplate,
+  MapPin,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
+  Vote,
 } from 'lucide-react'
 import useAuth from '../hooks/useAuth'
+import { getNavItemsForUser } from '../utils/permissionUtils'
 import DashboardShell from './DashboardShell'
+
+const iconMap = {
+  BarChart3,
+  Bell,
+  BookOpenText,
+  CalendarDays,
+  ClipboardList,
+  Image,
+  LayoutDashboard,
+  LayoutTemplate,
+  MapPin,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
+  Users,
+  Vote,
+}
 
 export default function AdminLayout() {
   const { user } = useAuth()
-  const adminItems = [
-    { icon: LayoutDashboard, label: 'ড্যাশবোর্ড', to: '/admin' },
-    { icon: BarChart3, label: 'অর্থ ব্যবস্থাপনা', to: '/admin/finance/payments' },
-    { icon: ClipboardList, label: 'কনটেন্ট', to: '/admin/notices' },
-    { icon: Users, label: 'সদস্য', to: '/admin/members' },
-    { icon: SlidersHorizontal, label: 'কন্ট্রোল', to: '/admin/settings/org' },
-    { icon: Bell, label: 'লগ ও বার্তা', to: '/admin/notifications' },
-    { icon: Settings, label: 'অ্যাকাউন্ট', to: '/account' },
-  ]
-  const moderatorItems = [
-    { icon: ClipboardList, label: 'ব্লগ', to: '/admin/blogs' },
-    { icon: Image, label: 'গ্যালারি', to: '/admin/gallery' },
-    { icon: Settings, label: 'অ্যাকাউন্ট', to: '/account' },
-  ]
-  const navItems = user?.role === 'moderator' ? moderatorItems : adminItems
-  const mobileItems =
-    user?.role === 'moderator'
-      ? [
-          { icon: ClipboardList, label: 'ব্লগ', to: '/admin/blogs' },
-          { icon: Image, label: 'গ্যালারি', to: '/admin/gallery' },
-          { icon: Settings, label: 'অ্যাকাউন্ট', to: '/account' },
-        ]
-      : [
-          { icon: Home, label: 'হোম', to: '/admin' },
-          { icon: BarChart3, label: 'অর্থ', to: '/admin/finance/payments' },
-          { icon: ClipboardList, label: 'নোটিশ', to: '/admin/notices' },
-          { icon: Users, label: 'সদস্য', to: '/admin/members' },
-          { icon: SlidersHorizontal, label: 'কন্ট্রোল', to: '/admin/settings/org' },
-        ]
+  const navItems = getNavItemsForUser(user).map((item) => ({
+    icon: iconMap[item.icon] || LayoutDashboard,
+    label: item.label,
+    to: item.path,
+  }))
+  const mobileItems = navItems.slice(0, 5)
 
   return (
     <DashboardShell

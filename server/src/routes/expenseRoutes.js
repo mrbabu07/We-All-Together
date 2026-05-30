@@ -1,5 +1,4 @@
 const express = require('express')
-const { USER_ROLES } = require('../constants/userConstants')
 const {
   createExpense,
   deleteExpense,
@@ -7,12 +6,18 @@ const {
   updateExpense,
 } = require('../controllers/expenseController')
 const { protect } = require('../middlewares/authMiddleware')
-const { authorize } = require('../middlewares/roleMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 
 const router = express.Router()
 
-router.use(protect, authorize(USER_ROLES.ADMIN))
-router.route('/').get(getExpenses).post(createExpense)
-router.route('/:id').patch(updateExpense).delete(deleteExpense)
+router.use(protect)
+router
+  .route('/')
+  .get(requirePermission('finance.view'), getExpenses)
+  .post(requirePermission('finance.add_expense'), createExpense)
+router
+  .route('/:id')
+  .patch(requirePermission('finance.add_expense'), updateExpense)
+  .delete(requirePermission('finance.add_expense'), deleteExpense)
 
 module.exports = router

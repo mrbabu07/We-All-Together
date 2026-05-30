@@ -1,11 +1,10 @@
 const express = require('express')
-const { USER_ROLES } = require('../constants/userConstants')
 const { getAuditLogs } = require('../controllers/auditController')
 const { protect } = require('../middlewares/authMiddleware')
-const { authorize } = require('../middlewares/roleMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 
 const router = express.Router()
 
-router.get('/', protect, authorize(USER_ROLES.ADMIN), getAuditLogs)
+router.get('/', protect, requirePermission('audit.view'), getAuditLogs)
 
 module.exports = router

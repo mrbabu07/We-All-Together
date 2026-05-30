@@ -1,16 +1,28 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import useAuth from '../hooks/useAuth'
-import { MODERATOR_ADMIN_PATHS, getReturnUrl } from '../utils/authState'
+import { getReturnUrl } from '../utils/authState'
+import {
+  canAccessRequirement,
+  getAdminRouteRequirement,
+  isStaffUser,
+} from '../utils/permissionUtils'
 
 export default function AdminRoute() {
   const { user } = useAuth()
   const location = useLocation()
+  const isAdminAreaUser = user?.role === 'admin' || isStaffUser(user)
+  const requirement = getAdminRouteRequirement(location.pathname)
 
-  const canModerateHere =
-    user?.role === 'moderator' && MODERATOR_ADMIN_PATHS.includes(location.pathname)
+  if (location.pathname === '/admin/unauthorized') {
+    return isAdminAreaUser ? <Outlet /> : <Navigate replace state={{ from: location }} to={getReturnUrl(location)} />
+  }
 
-  if (user?.role !== 'admin' && !canModerateHere) {
+  if (!isAdminAreaUser) {
     return <Navigate replace state={{ from: location }} to={getReturnUrl(location)} />
+  }
+
+  if (!canAccessRequirement(user, requirement)) {
+    return <Navigate replace state={{ from: location, required: requirement }} to="/admin/unauthorized" />
   }
 
   return <Outlet />

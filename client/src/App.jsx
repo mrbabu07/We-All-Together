@@ -14,6 +14,7 @@ const AccountStatusPage = lazy(() => import('./pages/AccountStatusPage'))
 const AdminControlsPage = lazy(() => import('./pages/AdminControlsPage'))
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'))
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
+const AdminUnauthorizedPage = lazy(() => import('./pages/AdminUnauthorizedPage'))
 const AuthenticatedLayout = lazy(() => import('./layouts/AuthenticatedLayout'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const MemberDashboardPage = lazy(() => import('./pages/MemberDashboardPage'))
@@ -26,6 +27,7 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage'))
 const PublicHomePage = lazy(() => import('./pages/PublicHomePage'))
 const PublicLayout = lazy(() => import('./layouts/PublicLayout'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const RolesPage = lazy(() => import('./pages/RolesPage'))
 const VerifyPaymentPage = lazy(() => import('./pages/VerifyPaymentPage'))
 
 const page = (element) => <PageTransition>{element}</PageTransition>
@@ -80,6 +82,7 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route path="admin" element={page(<AdminDashboardPage />)} />
+                <Route path="admin/unauthorized" element={page(<AdminUnauthorizedPage />)} />
                 <Route path="admin/blogs" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/finance" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/finance/analytics" element={page(<AdminDashboardPage />)} />
@@ -97,11 +100,12 @@ function App() {
                 <Route path="admin/achievements" element={page(<AdminControlsPage />)} />
                 <Route path="admin/committee" element={page(<AdminControlsPage />)} />
                 <Route path="admin/controls" element={page(<AdminControlsPage />)} />
-                <Route path="admin/notifications" element={page(<AdminControlsPage />)} />
+                <Route path="admin/notifications" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/partners" element={page(<AdminControlsPage />)} />
                 <Route path="admin/settings" element={page(<AdminControlsPage />)} />
                 <Route path="admin/settings/appearance" element={page(<AdminControlsPage />)} />
                 <Route path="admin/settings/org" element={page(<AdminControlsPage />)} />
+                <Route path="admin/settings/roles" element={page(<RolesPage />)} />
                 <Route path="admin/settings/security" element={page(<AdminControlsPage />)} />
                 <Route path="admin/testimonials" element={page(<AdminControlsPage />)} />
                 <Route path="verify/:paymentId" element={page(<VerifyPaymentPage />)} />

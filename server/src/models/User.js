@@ -106,10 +106,22 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: Object.values(USER_ROLES),
       default: USER_ROLES.MEMBER,
+      trim: true,
       index: true,
     },
+    customPermissions: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    deniedPermissions: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     status: {
       type: String,
       enum: Object.values(USER_STATUSES),

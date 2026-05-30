@@ -5,6 +5,7 @@ const { Server } = require('socket.io')
 const { registerSocketHandlers } = require('./sockets')
 const { startAutoBackupJob } = require('./jobs/backupJobs')
 const { startOverdueCheckerJob } = require('./jobs/overdueChecker')
+const { seedDefaultRoles } = require('./services/permissionService')
 const {
   startMonthlyFeeReminderScheduler,
   startScheduledNotificationDispatcher,
@@ -16,6 +17,7 @@ const startServer = async () => {
   try {
     await connectDB()
     console.log('MongoDB connected successfully')
+    await seedDefaultRoles()
 
     server = app.listen(env.port, () => {
       console.log(`Server running in ${env.nodeEnv} mode on port ${env.port}`)

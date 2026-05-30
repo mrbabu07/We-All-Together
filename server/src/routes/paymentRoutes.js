@@ -12,6 +12,7 @@ const {
   verifyPayment,
 } = require('../controllers/paymentController')
 const { protect } = require('../middlewares/authMiddleware')
+const { requirePermission } = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -28,12 +29,12 @@ router.get(
   authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
   getMyPayments,
 )
-router.get('/', protect, authorize(USER_ROLES.ADMIN), getAllPayments)
-router.get('/monthly-status', protect, authorize(USER_ROLES.ADMIN), getMonthlyPaymentStatus)
-router.patch('/bulk-verify', protect, authorize(USER_ROLES.ADMIN), bulkVerifyPayments)
-router.patch('/bulk-reject', protect, authorize(USER_ROLES.ADMIN), bulkRejectSelectedPayments)
-router.get('/:id', protect, authorize(USER_ROLES.ADMIN), getPaymentById)
-router.patch('/:id/verify', protect, authorize(USER_ROLES.ADMIN), verifyPayment)
-router.patch('/:id/reject', protect, authorize(USER_ROLES.ADMIN), rejectPayment)
+router.get('/', protect, requirePermission('finance.view'), getAllPayments)
+router.get('/monthly-status', protect, requirePermission('finance.view'), getMonthlyPaymentStatus)
+router.patch('/bulk-verify', protect, requirePermission('finance.approve_fees'), bulkVerifyPayments)
+router.patch('/bulk-reject', protect, requirePermission('finance.approve_fees'), bulkRejectSelectedPayments)
+router.get('/:id', protect, requirePermission('finance.view'), getPaymentById)
+router.patch('/:id/verify', protect, requirePermission('finance.approve_fees'), verifyPayment)
+router.patch('/:id/reject', protect, requirePermission('finance.approve_fees'), rejectPayment)
 
 module.exports = router

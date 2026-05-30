@@ -33,8 +33,10 @@ import {
 } from 'lucide-react'
 import api, { getErrorMessage } from '../api/http'
 import useAppStore from '../store/appStore'
+import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { hasAnyPermission, hasPermission } from '../utils/permissionUtils'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -326,6 +328,7 @@ const downloadBlob = (blob, filename) => {
 }
 
 export default function AdminControlsPage() {
+  const { user } = useAuth()
   const { setPreviewAppearance } = useAppStore()
   const location = useLocation()
   const [activeTab, setActiveTab] = useState(pathTabs[location.pathname] || 'site')
@@ -360,6 +363,42 @@ export default function AdminControlsPage() {
     rows: [],
   })
   const [activityUser, setActivityUser] = useState(null)
+  const visibleControlTabs = useMemo(
+    () =>
+      user?.role === 'admin'
+        ? tabs
+        : tabs.filter((tab) => {
+            if (tab.key === 'homepage') {
+              return hasAnyPermission(user, [
+                'homepage.committee',
+                'homepage.achievements',
+                'homepage.testimonials',
+                'homepage.partners',
+              ])
+            }
+            if (tab.key === 'members') return hasPermission(user, 'member.view')
+            if (tab.key === 'finance') return hasPermission(user, 'finance.view')
+            if (tab.key === 'content') {
+              return hasAnyPermission(user, [
+                'notice.view',
+                'meeting.view',
+                'tour.view',
+                'blog.view',
+                'gallery.view',
+              ])
+            }
+            if (tab.key === 'notifications') {
+              return hasAnyPermission(user, ['notification.send', 'notification.view_log'])
+            }
+            if (tab.key === 'appearance') return hasPermission(user, 'settings.appearance')
+            if (tab.key === 'security') return hasPermission(user, 'settings.security')
+            return hasPermission(user, 'settings.org')
+          }),
+    [user],
+  )
+  const effectiveActiveTab = visibleControlTabs.some((tab) => tab.key === activeTab)
+    ? activeTab
+    : visibleControlTabs[0]?.key || activeTab
   const {
     formState: { errors: archiveErrors, isSubmitting: isArchivingNotices },
     handleSubmit: handleArchiveSubmit,
@@ -387,6 +426,20 @@ export default function AdminControlsPage() {
     setMessage('')
 
     try {
+      const can = (permission) => hasPermission(user, permission)
+      const canAny = (permissions) => hasAnyPermission(user, permissions)
+      const loadIfAllowed = async (allowed, request, fallback) => {
+        if (!allowed) {
+          return fallback
+        }
+
+        try {
+          return await request()
+        } catch {
+          return fallback
+        }
+      }
+
       const [
         controlsResponse,
         donationsResponse,
@@ -404,21 +457,51 @@ export default function AdminControlsPage() {
         partnersResponse,
         smsBalanceResponse,
       ] = await Promise.all([
-        api.get('/admin/controls'),
-        api.get('/admin/donations'),
-        api.get('/admin/notifications'),
-        api.get('/admin/blogs/members'),
-        api.get('/admin/notices/members'),
-        api.get('/admin/meetings/members'),
-        api.get('/admin/tours/members'),
-        api.get('/admin/gallery/members'),
-        api.get('/admin/rules/members'),
-        api.get('/admin/payments'),
-        api.get('/admin/committee/admin'),
-        api.get('/admin/achievements/admin'),
-        api.get('/admin/testimonials/admin'),
-        api.get('/admin/partners/admin'),
-        api.get('/admin/notifications/sms-balance'),
+        loadIfAllowed(user?.role === 'admin', () => api.get('/admin/controls'), {
+          data: { data: { recentActivity: [], settings: defaultSettings, users: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/donations'), {
+          data: { data: { donations: [] } },
+        }),
+        loadIfAllowed(canAny(['notification.send', 'notification.view_log']), () => api.get('/admin/notifications'), {
+          data: { data: { notifications: [] } },
+        }),
+        loadIfAllowed(can('blog.view'), () => api.get('/admin/blogs/members'), {
+          data: { data: { blogs: [] } },
+        }),
+        loadIfAllowed(can('notice.view'), () => api.get('/admin/notices/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('meeting.view'), () => api.get('/admin/meetings/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('tour.view'), () => api.get('/admin/tours/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('gallery.view'), () => api.get('/admin/gallery/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(user?.role === 'admin', () => api.get('/admin/rules/members'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('finance.view'), () => api.get('/admin/payments'), {
+          data: { data: { payments: [] } },
+        }),
+        loadIfAllowed(can('homepage.committee'), () => api.get('/admin/committee/admin'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('homepage.achievements'), () => api.get('/admin/achievements/admin'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('homepage.testimonials'), () => api.get('/admin/testimonials/admin'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('homepage.partners'), () => api.get('/admin/partners/admin'), {
+          data: { data: { items: [] } },
+        }),
+        loadIfAllowed(can('notification.view_log'), () => api.get('/admin/notifications/sms-balance'), {
+          data: { data: { balance: null } },
+        }),
       ])
       const settings = {
         ...defaultSettings,
@@ -478,7 +561,7 @@ export default function AdminControlsPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const timer = window.setTimeout(loadControls, 0)
@@ -700,9 +783,11 @@ export default function AdminControlsPage() {
           <Button icon={RefreshCw} onClick={loadControls} variant="secondary">
             রিফ্রেশ
           </Button>
+          {user?.role === 'admin' ? (
           <Button icon={Save} loading={saving} onClick={saveSettings}>
             সব সেটিংস সেভ
           </Button>
+          ) : null}
         </div>
       </div>
 
@@ -713,9 +798,9 @@ export default function AdminControlsPage() {
       ) : null}
 
       <div className="mt-6 flex gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-        {tabs.map((tab) => {
+        {visibleControlTabs.map((tab) => {
           const Icon = tab.icon
-          const active = activeTab === tab.key
+          const active = effectiveActiveTab === tab.key
 
           return (
             <button
@@ -733,7 +818,7 @@ export default function AdminControlsPage() {
         })}
       </div>
 
-      {activeTab === 'site' ? (
+      {effectiveActiveTab === 'site' ? (
         <SiteSettingsTab
           form={settingsForm}
           onChange={updateSettingsField}
@@ -742,7 +827,7 @@ export default function AdminControlsPage() {
           saving={saving}
         />
       ) : null}
-      {activeTab === 'homepage' ? (
+      {effectiveActiveTab === 'homepage' ? (
         <HomepageControlsTab
           collections={{
             achievements: controls.achievements,
@@ -785,7 +870,7 @@ export default function AdminControlsPage() {
           saving={saving}
         />
       ) : null}
-      {activeTab === 'members' ? (
+      {effectiveActiveTab === 'members' ? (
         <MemberControlsTab
           activityUser={activityUser}
           csvImport={csvImport}
@@ -867,7 +952,7 @@ export default function AdminControlsPage() {
           }
         />
       ) : null}
-      {activeTab === 'finance' ? (
+      {effectiveActiveTab === 'finance' ? (
         <FinanceControlsTab
           donations={controls.donations}
           form={settingsForm}
@@ -893,7 +978,7 @@ export default function AdminControlsPage() {
           saving={saving}
         />
       ) : null}
-      {activeTab === 'content' ? (
+      {effectiveActiveTab === 'content' ? (
         <ContentControlsTab
           archiveErrors={archiveErrors}
           archiveSubmitting={isArchivingNotices}
@@ -960,7 +1045,7 @@ export default function AdminControlsPage() {
           saving={saving}
         />
       ) : null}
-      {activeTab === 'notifications' ? (
+      {effectiveActiveTab === 'notifications' ? (
         <NotificationControlsTab
           announcementForm={announcementForm}
           announcementErrors={announcementErrors}
@@ -985,7 +1070,7 @@ export default function AdminControlsPage() {
           users={approvedMembers}
         />
       ) : null}
-      {activeTab === 'appearance' ? (
+      {effectiveActiveTab === 'appearance' ? (
         <AppearanceTab
           form={settingsForm}
           onChange={updateSettingsField}
@@ -995,7 +1080,7 @@ export default function AdminControlsPage() {
           saving={saving}
         />
       ) : null}
-      {activeTab === 'security' ? (
+      {effectiveActiveTab === 'security' ? (
         <SecurityTab
           form={settingsForm}
           onAuditExport={() =>

@@ -5,6 +5,7 @@ const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
 const { createNotification } = require('../services/notificationService')
+const { hasAttachedPermission } = require('../services/permissionService')
 const {
   validateBulkGalleryModeration,
   validateGalleryAlbumVisibility,
@@ -19,10 +20,14 @@ const populateGallery = (query) =>
     .populate('moderatedBy', 'name phone role profilePhotoUrl')
 
 const canManageGalleryItem = (user, item) =>
-  user.role === USER_ROLES.ADMIN || item.createdBy.toString() === user._id.toString()
+  user.role === USER_ROLES.ADMIN ||
+  hasAttachedPermission(user, 'gallery.manage_albums') ||
+  hasAttachedPermission(user, 'gallery.delete') ||
+  item.createdBy.toString() === user._id.toString()
 
 const canModerateGallery = (user) =>
-  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role)
+  [USER_ROLES.ADMIN, USER_ROLES.MODERATOR].includes(user.role) ||
+  hasAttachedPermission(user, 'gallery.approve')
 
 const gallerySort = { album: 1, displayOrder: 1, createdAt: -1 }
 

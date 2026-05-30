@@ -12,6 +12,10 @@ const {
   updateGalleryItem,
 } = require('../controllers/galleryController')
 const { protect } = require('../middlewares/authMiddleware')
+const {
+  requirePermission,
+  requirePermissionOrRoles,
+} = require('../middlewares/permissionMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
@@ -20,49 +24,69 @@ router.get('/public', getPublicGalleryItems)
 router.get(
   '/members',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  requirePermissionOrRoles(
+    'gallery.view',
+    USER_ROLES.ADMIN,
+    USER_ROLES.MEMBER,
+    USER_ROLES.MODERATOR,
+  ),
   getMemberGalleryItems,
 )
 router.post(
   '/',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  requirePermissionOrRoles(
+    'gallery.upload',
+    USER_ROLES.ADMIN,
+    USER_ROLES.MEMBER,
+    USER_ROLES.MODERATOR,
+  ),
   createGalleryItem,
 )
 router.post(
   '/moderation/bulk',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MODERATOR),
+  requirePermission('gallery.approve'),
   bulkModerateGalleryItems,
 )
 router.patch(
   '/albums/visibility',
   protect,
-  authorize(USER_ROLES.ADMIN),
+  requirePermission('gallery.manage_albums'),
   updateAlbumVisibility,
 )
 router.patch(
   '/reorder',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MODERATOR),
+  requirePermission('gallery.manage_albums'),
   reorderGalleryItems,
 )
 router.patch(
   '/:id/moderation',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MODERATOR),
+  requirePermission('gallery.approve'),
   moderateGalleryItem,
 )
 router.patch(
   '/:id',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  requirePermissionOrRoles(
+    'gallery.manage_albums',
+    USER_ROLES.ADMIN,
+    USER_ROLES.MEMBER,
+    USER_ROLES.MODERATOR,
+  ),
   updateGalleryItem,
 )
 router.delete(
   '/:id',
   protect,
-  authorize(USER_ROLES.ADMIN, USER_ROLES.MEMBER, USER_ROLES.MODERATOR),
+  requirePermissionOrRoles(
+    'gallery.delete',
+    USER_ROLES.ADMIN,
+    USER_ROLES.MEMBER,
+    USER_ROLES.MODERATOR,
+  ),
   deleteGalleryItem,
 )
 

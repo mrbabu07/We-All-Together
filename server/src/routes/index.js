@@ -23,6 +23,7 @@ const pollRoutes = require('./pollRoutes')
 const publicRoutes = require('./publicRoutes')
 const receiptRoutes = require('./receiptRoutes')
 const registrationRoutes = require('./registrationRoutes')
+const roleRoutes = require('./roleRoutes')
 const ruleRoutes = require('./ruleRoutes')
 const settingsRoutes = require('./settingsRoutes')
 const testimonialRoutes = require('./testimonialRoutes')
@@ -33,7 +34,7 @@ const { protect } = require('../middlewares/authMiddleware')
 const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
-const adminNamespace = [protect, authorize(USER_ROLES.ADMIN)]
+const adminNamespace = [protect]
 const memberNamespace = [
   protect,
   authorize(USER_ROLES.MEMBER, USER_ROLES.MODERATOR, USER_ROLES.ADMIN),
@@ -62,6 +63,7 @@ router.use('/partners', partnerRoutes)
 router.use('/polls', pollRoutes)
 router.use('/receipts', receiptRoutes)
 router.use('/registrations', registrationRoutes)
+router.use('/roles', roleRoutes)
 router.use('/rules', ruleRoutes)
 router.use('/settings', settingsRoutes)
 router.use('/testimonials', testimonialRoutes)
@@ -89,6 +91,7 @@ router.use('/admin/payments', adminNamespace, paymentRoutes)
 router.use('/admin/polls', adminNamespace, pollRoutes)
 router.use('/admin/receipts', adminNamespace, receiptRoutes)
 router.use('/admin/registrations', adminNamespace, registrationRoutes)
+router.use('/admin/roles', adminNamespace, roleRoutes)
 router.use('/admin/rules', adminNamespace, ruleRoutes)
 router.use('/admin/settings', adminNamespace, settingsRoutes)
 router.use('/admin/testimonials', adminNamespace, testimonialRoutes)
