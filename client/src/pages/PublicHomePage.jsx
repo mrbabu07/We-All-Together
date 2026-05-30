@@ -621,7 +621,14 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         <div className="hidden items-center gap-3 lg:flex">
           {showDarkToggle ? <ThemeToggle /> : null}
           {showFontControls ? <FontSizeControl /> : null}
-          <Link className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] border border-gray-300 px-5 text-sm font-semibold text-gray-800 transition hover:bg-white" to="/login">
+          <Link
+            className={`inline-flex min-h-11 items-center rounded-[var(--radius-md)] border px-5 text-sm font-semibold transition ${
+              scrolled
+                ? 'border-gray-300 text-gray-800 hover:bg-white'
+                : 'border-white/30 bg-white/10 text-white hover:bg-white/20'
+            }`}
+            to="/login"
+          >
             লগইন
           </Link>
           <Link className="inline-flex min-h-11 items-center rounded-[var(--radius-md)] bg-[var(--brand-600)] px-5 text-sm font-semibold text-white shadow-[var(--shadow-brand)] transition hover:bg-[var(--brand-700)]" to={user ? dashboardPath : '/register'}>
@@ -630,7 +637,11 @@ function HomepageNavbar({ controls = {}, orgName, user }) {
         </div>
 
         <button
-          className="inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border border-gray-200 bg-white/70 text-gray-800 lg:hidden"
+          className={`inline-flex h-11 w-11 items-center justify-center rounded-[var(--radius-md)] border lg:hidden ${
+            scrolled
+              ? 'border-gray-200 bg-white/70 text-gray-800'
+              : 'border-white/30 bg-white/10 text-white'
+          }`}
           onClick={() => setMenuOpen(true)}
           type="button"
         >
@@ -760,7 +771,7 @@ function HeroSection({ orgName, phrases, stats, tagline }) {
             ['দান', stats.yearlyDonation, '৳', HeartHandshake],
             ['কার্যক্রম', stats.completedActivities, '+', CheckCircle2],
           ].map(([label, value, suffix, Icon]) => (
-            <motion.div className="glass-surface rounded-[var(--radius-md)] p-4" key={label} variants={fadeUp}>
+            <motion.div className="glass-surface-dark rounded-[var(--radius-md)] p-4" key={label} variants={fadeUp}>
               <Icon aria-hidden="true" className="h-5 w-5 text-[var(--brand-300)]" />
               <p className="mt-3 text-2xl font-bold text-white">
                 {suffix === '৳' ? suffix : ''}

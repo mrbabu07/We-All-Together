@@ -11,8 +11,8 @@
   --brand-300: #73DEE5;
   --brand-400: #38C7D0;
   --brand-500: #00ADB5;
-  --brand-600: #00ADB5;
-  --brand-700: #008B91;
+  --brand-600: #007A80;
+  --brand-700: #00666C;
   --brand-800: #393E46;
   --brand-900: #222831;
 
@@ -28,8 +28,8 @@
   --gray-900: #222831;
 
   --success-light: #E6FAFB;
-  --success: #00ADB5;
-  --success-dark: #008B91;
+  --success: #007A80;
+  --success-dark: #00666C;
   --warning-light: #FFFBEB;
   --warning: #D97706;
   --warning-dark: #78350F;
@@ -37,7 +37,7 @@
   --danger: #E11D48;
   --danger-dark: #881337;
   --info-light: #E6FAFB;
-  --info: #00ADB5;
+  --info: #007A80;
   --info-dark: #393E46;
 
   --surface-0: #FFFFFF;
@@ -55,7 +55,7 @@
   --shadow-md-token: 0 10px 24px rgba(34, 40, 49, 0.08);
   --shadow-lg-token: 0 20px 44px rgba(34, 40, 49, 0.1);
   --shadow-xl-token: 0 28px 70px rgba(34, 40, 49, 0.14);
-  --shadow-brand: 0 14px 32px rgba(0, 173, 181, 0.24);
+  --shadow-brand: 0 14px 32px rgba(0, 122, 128, 0.24);
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -326,6 +326,13 @@ img {
   background: color-mix(in srgb, var(--surface-0) 84%, transparent);
   border: 1px solid color-mix(in srgb, var(--gray-200) 70%, transparent);
   box-shadow: var(--shadow-lg-token);
+  backdrop-filter: blur(18px);
+}
+
+.glass-surface-dark {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.18);
   backdrop-filter: blur(18px);
 }
 
