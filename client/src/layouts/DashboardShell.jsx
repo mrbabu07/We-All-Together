@@ -24,6 +24,7 @@ import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import useTheme from '../hooks/useTheme'
+import { apiArray, apiValue } from '../utils/responseUtils'
 
 const isActiveRoute = (location, to) => {
   const [pathname, search = ''] = to.split('?')
@@ -228,8 +229,8 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
       api
         .get('/notifications/my')
         .then((response) => {
-          setNotifications(response.data.data.notifications || [])
-          setUnreadCount(response.data.data.unreadCount || 0)
+          setNotifications(apiArray(response, 'notifications'))
+          setUnreadCount(apiValue(response, 'unreadCount', 0))
         })
         .catch(() => {})
     }

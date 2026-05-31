@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import { apiData } from '../utils/responseUtils'
 
 const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleString('bn-BD')}`
 
@@ -95,7 +96,13 @@ export default function MemberFeeHistoryPage() {
       const response = await api.get('/member/fees/my-history', {
         params: { year: selectedYear },
       })
-      setData(response.data.data)
+      setData({
+        grid: [],
+        payments: [],
+        status: { totalDuePaisa: 0, paymentHistory: [] },
+        years: [new Date().getFullYear()],
+        ...apiData(response, {}),
+      })
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {

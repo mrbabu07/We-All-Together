@@ -9,6 +9,7 @@ import Button from '../components/ui/Button'
 import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiObject, apiUploadUrl } from '../utils/responseUtils'
 
 const initialForm = {
   name: '',
@@ -114,7 +115,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     api.get('/public/settings').then((response) => {
-      const settings = response.data.data.settings || {}
+      const settings = apiObject(response, 'settings')
       setPaymentSettings({
         donationNumber: settings.donationNumber || '',
         donationProvider: settings.donationProvider || '',
@@ -154,7 +155,11 @@ export default function RegisterPage() {
         image,
         name: `registration-${Date.now()}`,
       })
-      setValue('proofImageUrl', response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setValue('proofImageUrl', url, {
         shouldDirty: true,
         shouldValidate: true,
       })
@@ -183,7 +188,11 @@ export default function RegisterPage() {
         image,
         name: `registration-${fieldName}-${Date.now()}`,
       })
-      setValue(fieldName, response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setValue(fieldName, url, {
         shouldDirty: true,
         shouldValidate: true,
       })

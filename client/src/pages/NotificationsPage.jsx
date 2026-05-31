@@ -6,6 +6,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import { apiArray, apiValue } from '../utils/responseUtils'
 
 const toReadableDate = (value) => (value ? new Date(value).toLocaleString() : 'N/A')
 const typeGroups = {
@@ -72,8 +73,8 @@ export default function NotificationsPage() {
 
     try {
       const response = await api.get('/member/notifications/my')
-      setNotifications(response.data.data.notifications)
-      setUnreadCount(response.data.data.unreadCount)
+      setNotifications(apiArray(response, 'notifications'))
+      setUnreadCount(apiValue(response, 'unreadCount', 0))
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {

@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import api from '../api/http'
 import useAuth from '../hooks/useAuth'
 import { getNavItemsForUser } from '../utils/permissionUtils'
+import { apiObject } from '../utils/responseUtils'
 import DashboardShell from './DashboardShell'
 
 const iconMap = {
@@ -53,7 +54,7 @@ export default function AdminLayout() {
         .get('/admin-controls/nav-counts')
         .then((response) => {
           if (active) {
-            setNavCounts(response.data.data.counts || {})
+            setNavCounts(apiObject(response, 'counts'))
           }
         })
         .catch(() => {

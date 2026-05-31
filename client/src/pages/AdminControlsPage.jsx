@@ -36,6 +36,7 @@ import useAppStore from '../store/appStore'
 import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiArray, apiData, apiObject, apiUploadUrl, apiValue, safeJsonStringify } from '../utils/responseUtils'
 import {
   BLOG_MANAGE_PERMISSIONS,
   FINANCE_MANAGE_PERMISSIONS,
@@ -537,57 +538,58 @@ export default function AdminControlsPage() {
           data: { data: { balance: null } },
         }),
       ])
+      const settingsPayload = apiObject(controlsResponse, 'settings')
       const settings = {
         ...defaultSettings,
-        ...controlsResponse.data.data.settings,
+        ...settingsPayload,
         appearance: {
           ...defaultSettings.appearance,
-          ...controlsResponse.data.data.settings?.appearance,
+          ...settingsPayload.appearance,
         },
         contentControls: {
           ...defaultSettings.contentControls,
-          ...controlsResponse.data.data.settings?.contentControls,
+          ...settingsPayload.contentControls,
         },
         financeControls: {
           ...defaultSettings.financeControls,
-          ...controlsResponse.data.data.settings?.financeControls,
+          ...settingsPayload.financeControls,
         },
         homepageControls: {
           ...defaultSettings.homepageControls,
-          ...controlsResponse.data.data.settings?.homepageControls,
+          ...settingsPayload.homepageControls,
         },
         notificationSettings: {
           ...defaultSettings.notificationSettings,
-          ...controlsResponse.data.data.settings?.notificationSettings,
+          ...settingsPayload.notificationSettings,
         },
         securityControls: {
           ...defaultSettings.securityControls,
-          ...controlsResponse.data.data.settings?.securityControls,
+          ...settingsPayload.securityControls,
         },
         siteSettings: {
           ...defaultSettings.siteSettings,
-          ...controlsResponse.data.data.settings?.siteSettings,
+          ...settingsPayload.siteSettings,
         },
       }
 
       setControls({
-        achievements: achievementsResponse.data.data.items,
-        blogs: blogsResponse.data.data.blogs,
-        committee: committeeResponse.data.data.items,
-        donations: donationsResponse.data.data.donations,
-        gallery: galleryResponse.data.data.items,
-        meetings: meetingsResponse.data.data.items,
-        notices: noticesResponse.data.data.items,
-        notifications: notificationsResponse.data.data.notifications,
-        partners: partnersResponse.data.data.items,
-        payments: paymentsResponse.data.data.payments,
-        recentActivity: controlsResponse.data.data.recentActivity,
-        rules: rulesResponse.data.data.items,
+        achievements: apiArray(achievementsResponse, 'items'),
+        blogs: apiArray(blogsResponse, 'blogs'),
+        committee: apiArray(committeeResponse, 'items'),
+        donations: apiArray(donationsResponse, 'donations'),
+        gallery: apiArray(galleryResponse, 'items'),
+        meetings: apiArray(meetingsResponse, 'items'),
+        notices: apiArray(noticesResponse, 'items'),
+        notifications: apiArray(notificationsResponse, 'notifications'),
+        partners: apiArray(partnersResponse, 'items'),
+        payments: apiArray(paymentsResponse, 'payments'),
+        recentActivity: apiArray(controlsResponse, 'recentActivity'),
+        rules: apiArray(rulesResponse, 'items'),
         settings,
-        smsBalance: smsBalanceResponse.data.data.balance,
-        testimonials: testimonialsResponse.data.data.items,
-        tours: toursResponse.data.data.items,
-        users: controlsResponse.data.data.users,
+        smsBalance: apiValue(smsBalanceResponse, 'balance'),
+        testimonials: apiArray(testimonialsResponse, 'items'),
+        tours: apiArray(toursResponse, 'items'),
+        users: apiArray(controlsResponse, 'users'),
       })
       setSettingsForm(settings)
     } catch (error) {
@@ -662,7 +664,7 @@ export default function AdminControlsPage() {
       const response = await api.patch('/admin/controls', settingsForm)
       const nextSettings = {
         ...settingsForm,
-        ...response.data.data.settings,
+        ...apiObject(response, 'settings'),
       }
       setSettingsForm(nextSettings)
       setControls((current) => ({ ...current, settings: nextSettings }))
@@ -685,7 +687,11 @@ export default function AdminControlsPage() {
     const image = await readFileAsDataUrl(file)
     const response = await api.post('/admin/uploads/image', { image, name })
     toast.success('ছবি আপলোড হয়েছে')
-    return response.data.data.image.url
+    const url = apiUploadUrl(response)
+    if (!url) {
+      throw new Error('Upload completed but no image URL was returned.')
+    }
+    return url
   }
 
   const uploadSettingImage = async (section, field, file) => {
@@ -970,7 +976,7 @@ export default function AdminControlsPage() {
           members={approvedMembers}
           onActivity={async (user) => {
             const response = await api.get(`/admin/members/${user._id}/activity`)
-            setActivityUser({ ...user, activity: response.data.data })
+            setActivityUser({ ...user, activity: apiData(response, { activities: [], logs: [] }) })
           }}
           onBulkApprove={(userIds) =>
             requestConfirm({
@@ -1186,7 +1192,7 @@ export default function AdminControlsPage() {
           onBackup={() =>
             runAction(async () => {
               const response = await api.get('/admin/backup')
-              const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+              const blob = new Blob([safeJsonStringify(response.data)], {
                 type: 'application/json',
               })
               downloadBlob(blob, 'dargah-backup.json')

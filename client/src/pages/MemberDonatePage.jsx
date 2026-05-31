@@ -11,6 +11,7 @@ import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiArray, apiObject, apiUploadUrl } from '../utils/responseUtils'
 
 const quickAmounts = [500, 1000, 2000, 5000]
 
@@ -92,8 +93,8 @@ export default function MemberDonatePage() {
         api.get('/member/donations/my'),
       ])
 
-      setSettings(settingsResponse.data.data.settings || {})
-      setDonations(donationsResponse.data.data.donations || [])
+      setSettings(apiObject(settingsResponse, 'settings'))
+      setDonations(apiArray(donationsResponse, 'donations'))
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {
@@ -153,7 +154,11 @@ export default function MemberDonatePage() {
         image,
         name: `member-donation-${Date.now()}`,
       })
-      setValue('proofImageUrl', response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setValue('proofImageUrl', url, {
         shouldDirty: true,
         shouldValidate: true,
       })

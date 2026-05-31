@@ -6,6 +6,7 @@ import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import { apiObject } from '../utils/responseUtils'
 
 const toDate = (value) => (value ? new Date(value).toLocaleDateString('en-GB') : 'N/A')
 
@@ -19,7 +20,7 @@ export default function MemberVerifyPage() {
     const loadMember = async () => {
       try {
         const response = await api.get(`/public/members/verify/${memberId}`)
-        setMember(response.data.data.member)
+        setMember(apiObject(response, 'member', null))
       } catch (requestError) {
         setError(getErrorMessage(requestError))
       } finally {

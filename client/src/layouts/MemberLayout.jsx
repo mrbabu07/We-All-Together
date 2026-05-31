@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import api from '../api/http'
+import { apiArray } from '../utils/responseUtils'
 import DashboardShell from './DashboardShell'
 
 export default function MemberLayout() {
@@ -27,11 +28,11 @@ export default function MemberLayout() {
         }
 
         if (feeResponse.status === 'fulfilled') {
-          setOverdueCount(feeResponse.value.data.data.overdueMonths?.length || 0)
+          setOverdueCount(apiArray(feeResponse.value, 'overdueMonths').length)
         }
 
         if (pollResponse.status === 'fulfilled') {
-          const polls = pollResponse.value.data.data.polls || []
+          const polls = apiArray(pollResponse.value, 'polls')
           setPollActionCount(polls.filter((poll) => !poll.isClosed && !poll.hasVoted).length)
         }
       })

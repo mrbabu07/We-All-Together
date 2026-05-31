@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import api, { getErrorMessage } from '../../api/http'
 import useDebounce from '../../hooks/useDebounce'
 import { hasAnyPermission, hasPermission, isStaffUser } from '../../utils/permissionUtils'
+import { apiArray, apiData } from '../../utils/responseUtils'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Field from '../ui/Field'
@@ -63,7 +64,13 @@ export default function GlobalSearchModal({ onClose, open, user }) {
             params: { q: debouncedQuery },
           })
           if (active) {
-            setResults(response.data.data)
+            setResults({
+              blogs: [],
+              meetings: [],
+              notices: [],
+              users: [],
+              ...apiData(response, {}),
+            })
           }
           return
         }
@@ -98,18 +105,18 @@ export default function GlobalSearchModal({ onClose, open, user }) {
 
           if (active) {
             setResults({
-              blogs: filterRows(blogsResponse.data.data.blogs, debouncedQuery, ['title', 'body']),
-              meetings: filterRows(meetingsResponse.data.data.items, debouncedQuery, [
+              blogs: filterRows(apiArray(blogsResponse, 'blogs'), debouncedQuery, ['title', 'body']),
+              meetings: filterRows(apiArray(meetingsResponse, 'items'), debouncedQuery, [
                 'title',
                 'agenda',
                 'location',
               ]),
-              notices: filterRows(noticesResponse.data.data.items, debouncedQuery, [
+              notices: filterRows(apiArray(noticesResponse, 'items'), debouncedQuery, [
                 'title',
                 'body',
                 'category',
               ]),
-              users: filterRows(membersResponse.data.data.users, debouncedQuery, [
+              users: filterRows(apiArray(membersResponse, 'users'), debouncedQuery, [
                 'name',
                 'phone',
                 'address',
@@ -129,18 +136,18 @@ export default function GlobalSearchModal({ onClose, open, user }) {
 
         if (active) {
           setResults({
-            blogs: filterRows(blogsResponse.data.data.blogs, debouncedQuery, ['title', 'body']),
-            meetings: filterRows(meetingsResponse.data.data.items, debouncedQuery, [
+            blogs: filterRows(apiArray(blogsResponse, 'blogs'), debouncedQuery, ['title', 'body']),
+            meetings: filterRows(apiArray(meetingsResponse, 'items'), debouncedQuery, [
               'title',
               'agenda',
               'location',
             ]),
-            notices: filterRows(noticesResponse.data.data.items, debouncedQuery, [
+            notices: filterRows(apiArray(noticesResponse, 'items'), debouncedQuery, [
               'title',
               'body',
               'category',
             ]),
-            users: filterRows(membersResponse.data.data.members, debouncedQuery, [
+            users: filterRows(apiArray(membersResponse, 'members'), debouncedQuery, [
               'name',
               'phone',
               'address',

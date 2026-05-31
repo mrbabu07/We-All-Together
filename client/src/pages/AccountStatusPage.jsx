@@ -5,6 +5,7 @@ import api from '../api/http'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
 import useAuth from '../hooks/useAuth'
+import { apiObject } from '../utils/responseUtils'
 
 const RE_REGISTRATION_WAIT_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -82,7 +83,7 @@ export default function AccountStatusPage() {
       .get('/public/settings')
       .then((response) => {
         if (active) {
-          setSiteSettings(response.data.data.settings?.siteSettings || null)
+          setSiteSettings(apiObject(response, 'settings')?.siteSettings || null)
         }
       })
       .catch(() => {

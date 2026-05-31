@@ -41,6 +41,7 @@ import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiArray, apiData, apiObject, apiUploadUrl, apiValue, safeJsonStringify } from '../utils/responseUtils'
 import 'yet-another-react-lightbox/styles.css'
 import 'yet-another-react-lightbox/plugins/thumbnails.css'
 
@@ -370,18 +371,18 @@ export default function MemberDashboardPage() {
       ] = await Promise.allSettled(requests)
 
       setData({
-        activities: getSettledData(activitiesResponse, [], (response) => response.data.data.items),
-        blogs: getSettledData(blogsResponse, [], (response) => response.data.data.blogs),
-        feeStatus: getSettledData(feeStatusResponse, null, (response) => response.data.data),
-        gallery: getSettledData(galleryResponse, [], (response) => response.data.data.items),
-        meetings: getSettledData(meetingsResponse, [], (response) => response.data.data.items),
-        members: getSettledData(membersResponse, [], (response) => response.data.data.members),
-        notices: getSettledData(noticesResponse, [], (response) => response.data.data.items),
-        payments: getSettledData(paymentsResponse, [], (response) => response.data.data.payments),
-        polls: getSettledData(pollsResponse, [], (response) => response.data.data.polls),
-        rules: getSettledData(rulesResponse, [], (response) => response.data.data.items),
-        settings: getSettledData(settingsResponse, {}, (response) => response.data.data.settings),
-        tours: getSettledData(toursResponse, [], (response) => response.data.data.items),
+        activities: getSettledData(activitiesResponse, [], (response) => apiArray(response, 'items')),
+        blogs: getSettledData(blogsResponse, [], (response) => apiArray(response, 'blogs')),
+        feeStatus: getSettledData(feeStatusResponse, null, (response) => apiData(response, null)),
+        gallery: getSettledData(galleryResponse, [], (response) => apiArray(response, 'items')),
+        meetings: getSettledData(meetingsResponse, [], (response) => apiArray(response, 'items')),
+        members: getSettledData(membersResponse, [], (response) => apiArray(response, 'members')),
+        notices: getSettledData(noticesResponse, [], (response) => apiArray(response, 'items')),
+        payments: getSettledData(paymentsResponse, [], (response) => apiArray(response, 'payments')),
+        polls: getSettledData(pollsResponse, [], (response) => apiArray(response, 'polls')),
+        rules: getSettledData(rulesResponse, [], (response) => apiArray(response, 'items')),
+        settings: getSettledData(settingsResponse, {}, (response) => apiObject(response, 'settings')),
+        tours: getSettledData(toursResponse, [], (response) => apiArray(response, 'items')),
       })
 
       if (pollsResponse.status === 'rejected' && activeTab === 'polls') {
@@ -413,7 +414,7 @@ export default function MemberDashboardPage() {
       return undefined
     }
 
-    const draftKey = JSON.stringify({
+    const draftKey = safeJsonStringify({
       audience: blogForm.audience,
       body,
       imageUrl: blogForm.imageUrl,
@@ -433,7 +434,7 @@ export default function MemberDashboardPage() {
             await api.patch(`/member/blogs/${editingBlogId}`, payload)
         } else {
           const response = await api.post('/member/blogs', payload)
-          setEditingBlogId(response.data.data.blog._id)
+          setEditingBlogId(apiObject(response, 'blog')._id || '')
         }
         lastBlogAutoSaveKey.current = draftKey
         setLastBlogAutoSaveAt(new Date())
@@ -548,7 +549,11 @@ export default function MemberDashboardPage() {
         image,
         name: `monthly-payment-${Date.now()}`,
       })
-      setPaymentValue('proofImageUrl', response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setPaymentValue('proofImageUrl', url, {
         shouldDirty: true,
         shouldValidate: true,
       })
@@ -574,7 +579,10 @@ export default function MemberDashboardPage() {
         image: imageData,
         name: `${target}-${Date.now()}`,
       })
-      const imageUrl = response.data.data.image.url
+      const imageUrl = apiUploadUrl(response)
+      if (!imageUrl) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
 
       if (target === 'blog') {
         setBlogValue('imageUrl', imageUrl, {
@@ -633,7 +641,7 @@ export default function MemberDashboardPage() {
 
   const editBlog = (blog) => {
     setEditingBlogId(blog._id)
-    lastBlogAutoSaveKey.current = JSON.stringify({
+    lastBlogAutoSaveKey.current = safeJsonStringify({
       audience: blog.audience || 'public',
       body: blog.body || '',
       imageUrl: blog.imageUrl || '',
@@ -775,7 +783,10 @@ export default function MemberDashboardPage() {
     try {
       setMessage('')
       const response = await api.get(`/member/receipts/payments/${id}`)
-      const receipt = response.data.data.receipt
+      const receipt = apiObject(response, 'receipt', null)
+      if (!receipt?.payment || !receipt?.organization) {
+        throw new Error('Receipt data was incomplete.')
+      }
       const printWindow = window.open('', '_blank', 'noopener,noreferrer')
 
       if (!printWindow) {
@@ -927,7 +938,7 @@ export default function MemberDashboardPage() {
       setMessage('')
       const response = await api.post(`/member/tours/${id}/register`)
       setMessage(
-        response.data.data.waitlisted
+        apiValue(response, 'waitlisted', false)
           ? 'Tour is full. You were added to the waitlist.'
           : 'Tour registration saved successfully.',
       )

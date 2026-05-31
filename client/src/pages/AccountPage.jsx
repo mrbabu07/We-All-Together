@@ -14,6 +14,7 @@ import Panel from '../components/ui/Panel'
 import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiData, apiUploadUrl } from '../utils/responseUtils'
 
 const defaultPreferences = {
   fees: true,
@@ -232,7 +233,7 @@ export default function AccountPage() {
     const loadActivity = async () => {
       try {
         const response = await api.get('/member/members/my-activity')
-        setActivity(response.data.data)
+        setActivity(apiData(response, null))
       } catch {
         setActivity(null)
       }
@@ -307,7 +308,11 @@ export default function AccountPage() {
         image,
         name: `${field}-${Date.now()}`,
       })
-      setProfileValue(field, response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setProfileValue(field, url, {
         shouldDirty: true,
         shouldValidate: true,
       })

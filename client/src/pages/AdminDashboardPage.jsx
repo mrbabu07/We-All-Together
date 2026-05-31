@@ -45,6 +45,7 @@ import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
+import { apiArray, apiData, apiObject, apiUploadUrl, safeJsonStringify } from '../utils/responseUtils'
 import {
   BLOG_MANAGE_PERMISSIONS,
   FINANCE_MANAGE_PERMISSIONS,
@@ -808,8 +809,8 @@ export default function AdminDashboardPage() {
 
         setData((current) => ({
           ...current,
-          blogs: blogsResponse.data.data.blogs,
-          gallery: galleryResponse.data.data.items,
+          blogs: apiArray(blogsResponse, 'blogs'),
+          gallery: apiArray(galleryResponse, 'items'),
         }))
         return
       }
@@ -910,28 +911,35 @@ export default function AdminDashboardPage() {
         }),
       ])
 
-      const settings = settingsResponse.data.data.settings
+      const settings = apiObject(settingsResponse, 'settings')
       setData({
-        auditLogs: auditLogsResponse.data.data.logs,
-        analytics: analyticsResponse.data.data,
-        blogs: blogsResponse.data.data.blogs,
+        auditLogs: apiArray(auditLogsResponse, 'logs'),
+        analytics: apiData(analyticsResponse, {
+          donationTrend: [],
+          expenseBreakdown: [],
+          monthly: [],
+          overdue: { amount: 0, count: 0, members: [] },
+          range: {},
+          summary: {},
+        }),
+        blogs: apiArray(blogsResponse, 'blogs'),
         content: {
-          activities: activitiesResponse.data.data.items,
-          meetings: meetingsResponse.data.data.items,
-          notices: noticesResponse.data.data.items,
-          rules: rulesResponse.data.data.items,
-          tours: toursResponse.data.data.items,
+          activities: apiArray(activitiesResponse, 'items'),
+          meetings: apiArray(meetingsResponse, 'items'),
+          notices: apiArray(noticesResponse, 'items'),
+          rules: apiArray(rulesResponse, 'items'),
+          tours: apiArray(toursResponse, 'items'),
         },
-        donations: donationsResponse.data.data.donations,
-        expenses: expensesResponse.data.data.expenses,
-        feeOverdue: feeOverdueResponse.data.data,
-        gallery: galleryResponse.data.data.items,
-        payments: paymentsResponse.data.data.payments,
-        pendingRegistrations: pendingResponse.data.data.users,
-        polls: pollsResponse.data.data.polls,
-        roles: rolesResponse.data.data.roles,
+        donations: apiArray(donationsResponse, 'donations'),
+        expenses: apiArray(expensesResponse, 'expenses'),
+        feeOverdue: apiData(feeOverdueResponse, { members: [], totalAmount: 0, totalOverdue: 0 }),
+        gallery: apiArray(galleryResponse, 'items'),
+        payments: apiArray(paymentsResponse, 'payments'),
+        pendingRegistrations: apiArray(pendingResponse, 'users'),
+        polls: apiArray(pollsResponse, 'polls'),
+        roles: apiArray(rolesResponse, 'roles'),
         settings,
-        users: usersResponse.data.data.users,
+        users: apiArray(usersResponse, 'users'),
       })
       setSettingsForm({
         donationNumber: settings.donationNumber || '',
@@ -1069,7 +1077,7 @@ export default function AdminDashboardPage() {
       })
       setData((current) => ({
         ...current,
-        analytics: response.data.data,
+        analytics: apiData(response, current.analytics),
       }))
       setMessage('Finance analytics updated.')
     } catch (error) {
@@ -1131,7 +1139,11 @@ export default function AdminDashboardPage() {
         image,
         name: `expense-receipt-${Date.now()}`,
       })
-      setExpenseValue('receiptImageUrl', response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setExpenseValue('receiptImageUrl', url, {
         shouldDirty: true,
         shouldValidate: true,
       })
@@ -1161,7 +1173,7 @@ export default function AdminDashboardPage() {
       const response = await api.get('/admin/payments/monthly-status', {
         params: { month: monthlyStatusMonth },
       })
-      setMonthlyStatus(response.data.data)
+      setMonthlyStatus(apiData(response, {}))
     }, 'Monthly status loaded successfully.')
   }
 
@@ -1178,7 +1190,10 @@ export default function AdminDashboardPage() {
         image,
         name: `${key}-${Date.now()}`,
       })
-      const url = response.data.data.image.url
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
       setMessage('Image uploaded successfully.')
       return url
     } catch (error) {
@@ -1621,7 +1636,7 @@ export default function AdminDashboardPage() {
   const exportBackup = async () => {
     await runAction(async () => {
       const response = await api.get('/admin/backup')
-      const blob = new Blob([JSON.stringify(response.data.data, null, 2)], {
+      const blob = new Blob([safeJsonStringify(apiData(response))], {
         type: 'application/json',
       })
       const url = URL.createObjectURL(blob)
@@ -3280,7 +3295,7 @@ function OverdueMembersPanel({
 
     try {
       const response = await onHistory(member.memberId, year)
-      setHistory(response.data.data)
+      setHistory(apiData(response, { grid: [], payments: [], status: {}, years: [] }))
     } finally {
       setHistoryLoading(false)
     }

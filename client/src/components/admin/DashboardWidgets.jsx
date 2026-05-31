@@ -21,6 +21,7 @@ import {
 } from 'recharts'
 import api, { getErrorMessage } from '../../api/http'
 import useSocket from '../../hooks/useSocket'
+import { apiData } from '../../utils/responseUtils'
 import Badge from '../ui/Badge'
 import Panel from '../ui/Panel'
 import Skeleton from '../ui/Skeleton'
@@ -53,7 +54,7 @@ export default function DashboardWidgets() {
       setLoading(true)
       setMessage('')
       const response = await api.get('/admin-controls/widgets')
-      setData(response.data.data)
+      setData(apiData(response, {}))
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {

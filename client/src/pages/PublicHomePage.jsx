@@ -32,6 +32,7 @@ import useAppStore from '../store/appStore'
 import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { isStaffUser } from '../utils/permissionUtils'
+import { apiUploadUrl } from '../utils/responseUtils'
 
 const PremiumHomeSections = lazy(() => import('../components/homepage/PremiumHomeSections'))
 
@@ -347,7 +348,11 @@ export default function PublicHomePage() {
         name: `public-donation-${Date.now()}`,
       })
 
-      setDonationValue('proofImageUrl', response.data.data.image.url, {
+      const url = apiUploadUrl(response)
+      if (!url) {
+        throw new Error('Upload completed but no image URL was returned.')
+      }
+      setDonationValue('proofImageUrl', url, {
         shouldDirty: true,
         shouldValidate: true,
       })

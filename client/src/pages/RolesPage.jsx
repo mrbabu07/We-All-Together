@@ -21,6 +21,7 @@ import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
+import { apiArray, apiObject } from '../utils/responseUtils'
 
 const colorPresets = ['#00ADB5', '#6366F1', '#0F6E56', '#854F0B', '#993C1D', '#185FA5', '#7C3AED', '#DC2626']
 
@@ -195,11 +196,11 @@ export default function RolesPage() {
         api.get('/admin/members/users'),
       ])
 
-      setRoles(rolesResponse.data.data.roles || [])
-      setAllPermissions(rolesResponse.data.data.allPermissions || {})
-      setPermissionGroups(rolesResponse.data.data.permissionGroups || [])
-      setSettingsPermissions(rolesResponse.data.data.settingsPermissions || [])
-      setMembers(membersResponse.data.data.users || [])
+      setRoles(apiArray(rolesResponse, 'roles'))
+      setAllPermissions(apiObject(rolesResponse, 'allPermissions'))
+      setPermissionGroups(apiArray(rolesResponse, 'permissionGroups'))
+      setSettingsPermissions(apiArray(rolesResponse, 'settingsPermissions'))
+      setMembers(apiArray(membersResponse, 'users'))
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {

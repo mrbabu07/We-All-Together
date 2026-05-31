@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import api from '../api/http'
 import useAppStore from '../store/appStore'
+import { apiObject } from '../utils/responseUtils'
 import { ThemeContext } from './theme-context'
 
 const DEFAULT_APPEARANCE = {
@@ -44,7 +45,7 @@ export function ThemeProvider({ children }) {
       .get('/public/settings')
       .then((response) => {
         if (active) {
-          const settings = response.data.data.settings || {}
+          const settings = apiObject(response, 'settings')
           setSettingsAppearance({
             ...DEFAULT_APPEARANCE,
             ...settings.appearance,

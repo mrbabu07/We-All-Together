@@ -11,6 +11,7 @@ import Field from '../components/ui/Field'
 import Modal from '../components/ui/Modal'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import { apiObject } from '../utils/responseUtils'
 
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 
@@ -40,7 +41,7 @@ export default function VerifyPaymentPage() {
 
     try {
       const response = await api.get(`/admin/payments/${paymentId}`)
-      setPayment(response.data.data.payment)
+      setPayment(apiObject(response, 'payment', null))
     } catch (error) {
       setMessage(getErrorMessage(error))
     } finally {
