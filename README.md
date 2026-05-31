@@ -1,6 +1,7 @@
 # Dargah Para OIkko Porishod
 
 A MERN organization management system for member registration, admin approval, financial tracking, notices, meetings, tours, activities, and rules.
+liveLink: https://we-all-together-client.vercel.app
 
 ## Features
 
