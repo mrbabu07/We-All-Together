@@ -49,11 +49,13 @@ const formatBadge = (value) => {
   return count > 99 ? '99+' : String(count)
 }
 
-function SidebarContent({ navItems, onNavigate, user }) {
+function SidebarContent({ forceExpanded = false, navItems, onNavigate, user }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const profilePath = user?.role === 'member' ? '/member/profile' : '/account'
+  const expandedBlockClass = forceExpanded ? 'block' : 'hidden lg:block'
+  const expandedInlineClass = forceExpanded ? 'inline' : 'hidden lg:inline'
 
   const handleLogout = () => {
     logout()
@@ -66,7 +68,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-full)] bg-gradient-to-br from-[var(--brand-500)] to-[var(--brand-800)] text-[var(--text-inverted)] shadow-[var(--shadow-brand)]">
           <Sparkles aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <span className="hidden min-w-0 lg:block">
+        <span className={`min-w-0 ${expandedBlockClass}`}>
           <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
             {ORG_NAME_BN}
           </span>
@@ -75,7 +77,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
       </Link>
 
       <nav className="grid gap-1 px-3 py-4">
-        <p className="mb-1 mt-2 hidden px-3 text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] lg:block">
+        <p className={`mb-1 mt-2 px-3 text-xs font-semibold uppercase tracking-widest text-[var(--text-muted)] ${expandedBlockClass}`}>
           মেনু
         </p>
         {navItems.map((item) => {
@@ -108,7 +110,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
                 }`}
                 strokeWidth={1.75}
               />
-              <span className="hidden truncate lg:block">{item.label}</span>
+              <span className={`min-w-0 truncate ${expandedBlockClass}`}>{item.label}</span>
               {badge ? (
                 <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--danger)] px-1.5 text-xs font-bold text-[var(--text-inverted)] shadow-[var(--shadow-xs)]">
                   {badge}
@@ -122,16 +124,16 @@ function SidebarContent({ navItems, onNavigate, user }) {
       <div className="mt-auto border-t border-[var(--gray-200)] p-4">
         <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_86%,transparent)] p-3 shadow-[var(--shadow-xs)]">
           <Avatar name={user?.name} size="sm" src={user?.profilePhotoUrl} status="online" />
-          <div className="hidden min-w-0 lg:block">
+          <div className={`min-w-0 ${expandedBlockClass}`}>
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{user?.name}</p>
             <p className="truncate text-xs text-[var(--text-muted)]">{user?.role || user?.phone}</p>
           </div>
-          <Link className="ml-auto hidden text-[var(--text-muted)] hover:text-[var(--brand-600)] lg:block" to={profilePath}>
+          <Link className={`ml-auto text-[var(--text-muted)] hover:text-[var(--brand-600)] ${expandedBlockClass}`} to={profilePath}>
             <Settings aria-hidden="true" className="h-4 w-4" />
           </Link>
         </div>
         <Button className="mt-3 w-full justify-start" icon={LogOut} onClick={handleLogout} variant="ghost">
-          <span className="hidden lg:inline">লগআউট</span>
+          <span className={expandedInlineClass}>লগআউট</span>
         </Button>
       </div>
     </div>
@@ -291,6 +293,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                     </button>
                   </div>
                   <SidebarContent
+                    forceExpanded
                     navItems={navItems}
                     onNavigate={() => setDrawerOpen(false)}
                     user={user}
