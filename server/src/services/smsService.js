@@ -1,15 +1,29 @@
 const twilio = require('twilio')
 const env = require('../config/env')
-const { toE164BangladeshiPhone } = require('../utils/phoneUtils')
+const { toE164Phone } = require('../utils/phoneUtils')
+
+const isConfiguredValue = (value) => {
+  const normalized = String(value || '').trim()
+
+  return Boolean(
+    normalized &&
+      !/^\[[^\]]+\]$/.test(normalized) &&
+      !/^(replace_|your_|example_|xxx)/i.test(normalized),
+  )
+}
 
 const hasTwilioCredentials = () =>
-  Boolean(env.twilioAccountSid && env.twilioAuthToken && (env.twilioSmsFrom || env.twilioWhatsappFrom))
+  Boolean(
+    isConfiguredValue(env.twilioAccountSid) &&
+      isConfiguredValue(env.twilioAuthToken) &&
+      (isConfiguredValue(env.twilioSmsFrom) || isConfiguredValue(env.twilioWhatsappFrom)),
+  )
 
 const getTwilioClient = () => twilio(env.twilioAccountSid, env.twilioAuthToken)
 
 const formatFrom = (channel) => {
   if (channel === 'whatsapp') {
-    if (!env.twilioWhatsappFrom) {
+    if (!isConfiguredValue(env.twilioWhatsappFrom)) {
       return ''
     }
 
@@ -18,16 +32,26 @@ const formatFrom = (channel) => {
       : `whatsapp:${env.twilioWhatsappFrom}`
   }
 
-  return env.twilioSmsFrom
+  return isConfiguredValue(env.twilioSmsFrom) ? env.twilioSmsFrom : ''
 }
 
 const formatTo = (phone, channel) => {
-  const to = toE164BangladeshiPhone(phone)
+  const to = toE164Phone(phone)
   return channel === 'whatsapp' ? `whatsapp:${to}` : to
 }
 
 const sendTextMessage = async ({ body, channel = 'sms', phone }) => {
   const from = formatFrom(channel)
+
+  if (!phone) {
+    return {
+      channel,
+      phone,
+      provider: 'twilio',
+      skipped: true,
+      reason: 'Recipient phone is missing.',
+    }
+  }
 
   if (!hasTwilioCredentials() || !from) {
     return {

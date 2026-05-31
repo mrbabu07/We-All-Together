@@ -4,14 +4,21 @@ const {
   isBangladeshiPhone,
   normalizeBangladeshiPhone,
   toE164BangladeshiPhone,
+  toE164Phone,
 } = require('../src/utils/phoneUtils')
 
 test('phone utils normalize Bangladeshi numbers', () => {
   assert.equal(normalizeBangladeshiPhone('+8801711111111'), '01711111111')
   assert.equal(isBangladeshiPhone('01711111111'), true)
   assert.equal(toE164BangladeshiPhone('01711111111'), '+8801711111111')
+  assert.equal(toE164Phone('01711111111'), '+8801711111111')
 })
 
 test('phone utils reject invalid numbers', () => {
   assert.equal(isBangladeshiPhone('12345'), false)
+})
+
+test('phone utils preserve international SMS numbers', () => {
+  assert.equal(toE164Phone('+18777804236'), '+18777804236')
+  assert.equal(toE164Phone('0018777804236'), '+18777804236')
 })
