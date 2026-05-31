@@ -140,3 +140,4 @@ npm run build
 
 - [Development steps](docs/development-steps.md)
 - [API overview](docs/api-overview.md)
+- [Vercel deployment](docs/vercel-deployment.md)

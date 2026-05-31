@@ -7,11 +7,19 @@ const apiRoutes = require('./routes')
 const { errorHandler, notFound } = require('./middlewares/errorHandler')
 
 const app = express()
+const allowedOrigins = new Set(env.clientUrls)
 
 app.use(helmet())
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true)
+        return
+      }
+
+      callback(new Error(`CORS blocked origin: ${origin}`))
+    },
     credentials: true,
   }),
 )

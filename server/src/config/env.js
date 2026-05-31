@@ -11,10 +11,21 @@ const toNumber = (value, fallback) => {
   return Number.isNaN(parsedValue) ? fallback : parsedValue
 }
 
+const toList = (value, fallback = []) =>
+  String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .concat(fallback)
+    .filter((item, index, list) => list.indexOf(item) === index)
+
+const clientUrls = toList(process.env.CLIENT_URL, ['http://localhost:5173'])
+
 const env = {
   port: toNumber(process.env.PORT, 5000),
   nodeEnv: process.env.NODE_ENV || 'development',
-  clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+  clientUrl: clientUrls[0],
+  clientUrls,
   mongodbUri: process.env.MONGODB_URI || '',
   mongodbDnsServers: (process.env.MONGODB_DNS_SERVERS || '8.8.8.8,1.1.1.1')
     .split(',')
