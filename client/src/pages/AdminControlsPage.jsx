@@ -285,6 +285,7 @@ const tabs = [
 const pathTabs = {
   '/admin/achievements': 'homepage',
   '/admin/committee': 'homepage',
+  '/admin/controls': 'site',
   '/admin/notifications': 'notifications',
   '/admin/partners': 'homepage',
   '/admin/settings': 'site',

@@ -10,6 +10,7 @@ export const NAV_ITEMS = [
   { icon: 'BookOpenText', label: 'ব্লগ', path: '/admin/blogs', requiredPermission: 'blog.view' },
   { icon: 'Image', label: 'গ্যালারি', path: '/admin/gallery', requiredPermission: 'gallery.view' },
   { icon: 'Vote', label: 'পোল', path: '/admin/polls', requiredPermission: 'poll.view_results' },
+  { icon: 'SlidersHorizontal', label: 'অ্যাডমিন কন্ট্রোল', path: '/admin/controls', requiredPermission: 'settings.org' },
   { icon: 'Bell', label: 'বিজ্ঞপ্তি', path: '/admin/notifications', anyPermissions: ['notification.send', 'notification.view_log'] },
   {
     icon: 'LayoutTemplate',
