@@ -401,7 +401,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
 
             return (
               <Link
-                className={`relative flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold ${
+                className={`relative flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 px-1 text-center text-[11px] font-semibold leading-tight ${
                   active ? 'text-[var(--brand-600)]' : 'text-[var(--text-muted)]'
                 }`}
                 key={item.to}
@@ -410,7 +410,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                 <motion.span whileTap={{ scale: 1.18, y: -2 }}>
                   <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
                 </motion.span>
-                <span>{item.label}</span>
+                <span className="max-w-full truncate">{item.label}</span>
                 {badge ? (
                   <span className="absolute right-4 top-2 inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--brand-600)] px-1.5 text-xs font-bold text-[var(--text-inverted)]">
                     {badge}

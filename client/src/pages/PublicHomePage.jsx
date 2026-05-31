@@ -816,14 +816,14 @@ function HeroGeometry({ orgName, stats }) {
       <div aria-hidden="true" className="premium-shape premium-shape-cylinder premium-shape-cylinder-1" />
       <div aria-hidden="true" className="premium-shape premium-shape-cylinder premium-shape-cylinder-2" />
       <div className="premium-family-card float-card">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-sm font-bold text-[var(--text-primary)]">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--success-bg)] text-[var(--accent-ui)]">
               <Home aria-hidden="true" className="h-5 w-5" />
             </span>
-            আমাদের পরিবার
+            <span className="truncate">আমাদের পরিবার</span>
           </div>
-          <span className="rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--accent-ui)]">
+          <span className="shrink-0 rounded-full bg-[var(--success-bg)] px-3 py-1 text-xs font-bold text-[var(--accent-ui)]">
             Active
           </span>
         </div>
@@ -854,9 +854,9 @@ function HeroGeometry({ orgName, stats }) {
 
 function StatRow({ label, value }) {
   return (
-    <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--soft-row-bg)] px-4 py-3">
-      <span className="text-sm text-[var(--text-secondary)]">{label}</span>
-      <span className="text-sm font-bold text-[var(--accent-ui)]">{value}</span>
+    <div className="flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--soft-row-bg)] px-4 py-3">
+      <span className="min-w-0 text-sm text-[var(--text-secondary)]">{label}</span>
+      <span className="shrink-0 text-sm font-bold text-[var(--accent-ui)]">{value}</span>
     </div>
   )
 }

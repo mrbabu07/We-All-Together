@@ -1563,10 +1563,15 @@ textarea::placeholder {
   color: var(--text-secondary);
   display: flex;
   flex-direction: column;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   gap: 0.25rem;
   justify-content: center;
+  line-height: 1.1;
+  min-width: 0;
+  padding: 0.35rem 0.2rem;
+  text-align: center;
+  word-break: keep-all;
 }
 
 .premium-mobile-nav a:hover {
@@ -1641,24 +1646,54 @@ textarea::placeholder {
   }
 
   .premium-hero-visual {
-    min-height: 390px;
+    display: flex;
+    min-height: auto;
+    padding-top: 1rem;
+  }
+
+  .premium-hero-visual::before {
+    height: 250px;
+    top: 44%;
+    width: 250px;
   }
 
   .premium-shape-circle {
     height: 220px;
-    right: -18%;
+    right: -22%;
+    top: 0;
     width: 220px;
   }
 
   .premium-shape-rect {
-    height: 150px;
-    right: 14%;
-    width: 200px;
+    height: 118px;
+    right: 10%;
+    top: 12%;
+    width: 160px;
+  }
+
+  .premium-shape-block,
+  .premium-shape-cylinder {
+    opacity: 0.42;
   }
 
   .premium-family-card {
-    bottom: 4%;
+    bottom: auto;
+    left: auto;
+    margin: 2.25rem auto 0;
+    padding: 1rem;
+    position: relative;
+    right: auto;
+    transform: none;
     width: min(335px, calc(100vw - 2rem));
+  }
+
+  .premium-family-card .premium-avatar-stack {
+    height: 2.15rem;
+    width: 2.15rem;
+  }
+
+  .premium-family-card p.text-5xl {
+    font-size: 2.5rem;
   }
 
   .premium-sticky-whatsapp {
