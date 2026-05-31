@@ -42,6 +42,12 @@ const timeAgo = (value) => {
   return `${Math.floor(hours / 24)} দিন`
 }
 
+const formatBadge = (value) => {
+  const count = Number(value || 0)
+  if (!count) return null
+  return count > 99 ? '99+' : String(count)
+}
+
 function SidebarContent({ navItems, onNavigate, user }) {
   const { logout } = useAuth()
   const navigate = useNavigate()
@@ -74,6 +80,7 @@ function SidebarContent({ navItems, onNavigate, user }) {
         {navItems.map((item) => {
           const Icon = item.icon
           const active = isActiveRoute(location, item.to)
+          const badge = formatBadge(item.badge)
 
           return (
             <Link
@@ -101,9 +108,9 @@ function SidebarContent({ navItems, onNavigate, user }) {
                 strokeWidth={1.75}
               />
               <span className="hidden truncate lg:block">{item.label}</span>
-              {item.badge ? (
-                <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--brand-600)] px-1.5 text-xs font-bold text-[var(--text-inverted)]">
-                  {item.badge}
+              {badge ? (
+                <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--danger)] px-1.5 text-xs font-bold text-[var(--text-inverted)] shadow-[var(--shadow-xs)]">
+                  {badge}
                 </span>
               ) : null}
             </Link>
@@ -131,16 +138,18 @@ function SidebarContent({ navItems, onNavigate, user }) {
 }
 
 function NotificationDropdown({ notificationPath, notifications, unreadCount }) {
+  const badge = formatBadge(unreadCount)
+
   return (
     <Menu as="div" className="relative">
       <MenuButton className="relative inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] text-[var(--text-secondary)] transition hover:bg-[var(--surface-2)] hover:text-[var(--brand-600)]">
         <Bell aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
-        {unreadCount ? (
+        {badge ? (
           <motion.span
             animate={{ scale: [1, 1.18, 1] }}
             className="absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--danger)] px-1 text-[10px] font-bold text-[var(--text-inverted)]"
           >
-            {unreadCount}
+            {badge}
           </motion.span>
         ) : null}
       </MenuButton>
@@ -387,6 +396,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
           {mobileItems.slice(0, 5).map((item) => {
             const Icon = item.icon
             const active = isActiveRoute(location, item.to)
+            const badge = formatBadge(item.badge)
 
             return (
               <Link
@@ -400,9 +410,9 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                   <Icon aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
                 </motion.span>
                 <span>{item.label}</span>
-                {item.badge ? (
+                {badge ? (
                   <span className="absolute right-4 top-2 inline-flex min-w-5 items-center justify-center rounded-[var(--radius-full)] bg-[var(--brand-600)] px-1.5 text-xs font-bold text-[var(--text-inverted)]">
-                    {item.badge}
+                    {badge}
                   </span>
                 ) : null}
               </Link>

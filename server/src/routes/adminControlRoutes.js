@@ -6,8 +6,11 @@ const { authorize } = require('../middlewares/roleMiddleware')
 
 const router = express.Router()
 
-router.use(protect, authorize(USER_ROLES.ADMIN))
+router.use(protect)
 
+router.get('/nav-counts', adminControlController.getNavCounts)
+
+router.use(authorize(USER_ROLES.ADMIN))
 router.get('/', adminControlController.getControls)
 router.patch('/', adminControlController.updateControls)
 router.get('/widgets', adminControlController.getDashboardWidgets)

@@ -3,9 +3,12 @@ const AuditLog = require('../models/AuditLog')
 const Blog = require('../models/Blog')
 const Donation = require('../models/Donation')
 const Expense = require('../models/Expense')
+const GalleryItem = require('../models/GalleryItem')
 const Meeting = require('../models/Meeting')
 const Notice = require('../models/Notice')
+const Notification = require('../models/Notification')
 const Payment = require('../models/Payment')
+const Poll = require('../models/Poll')
 const Tour = require('../models/Tour')
 const User = require('../models/User')
 const { PAYMENT_STATUSES, PAYMENT_TYPES } = require('../constants/paymentConstants')
@@ -13,6 +16,7 @@ const { USER_ROLES, USER_STATUSES } = require('../constants/userConstants')
 const asyncHandler = require('../utils/asyncHandler')
 const AppError = require('../utils/appError')
 const { recordAuditLog } = require('../services/auditService')
+const { hasPermission } = require('../services/permissionService')
 const {
   approvePendingRegistrations,
   rejectPendingRegistrations,
@@ -53,6 +57,77 @@ const validateSuspensionPayload = (body) => {
     suspended,
   }
 }
+
+const getNavCounts = asyncHandler(async (req, res) => {
+  const counts = {}
+  const can = (permission) => hasPermission(req.user, permission)
+  const addCount = (path, value) => {
+    const count = Number(value || 0)
+    if (count > 0) {
+      counts[path] = count
+    }
+  }
+
+  const unreadNotificationsPromise = Notification.countDocuments({
+    readAt: null,
+    user: req.user._id,
+  })
+
+  const [
+    canViewMembers,
+    canViewFinance,
+    canViewBlogs,
+    canViewGallery,
+    canViewPolls,
+    canUseNotifications,
+  ] = await Promise.all([
+    can('member.view'),
+    can('finance.view'),
+    can('blog.view'),
+    can('gallery.view'),
+    can('poll.view_results'),
+    Promise.all([can('notification.send'), can('notification.view_log')]).then((values) =>
+      values.some(Boolean),
+    ),
+  ])
+
+  const [
+    unreadNotifications,
+    pendingMembers,
+    pendingPayments,
+    pendingDonations,
+    pendingBlogs,
+    pendingGallery,
+    activePolls,
+  ] = await Promise.all([
+    unreadNotificationsPromise,
+    canViewMembers ? User.countDocuments({ status: USER_STATUSES.PENDING }) : 0,
+    canViewFinance ? Payment.countDocuments({ status: PAYMENT_STATUSES.PENDING }) : 0,
+    canViewFinance ? Donation.countDocuments({ status: PAYMENT_STATUSES.PENDING }) : 0,
+    canViewBlogs ? Blog.countDocuments({ moderationStatus: 'pending' }) : 0,
+    canViewGallery ? GalleryItem.countDocuments({ moderationStatus: 'pending' }) : 0,
+    canViewPolls ? Poll.countDocuments({ deadline: { $gt: new Date() }, isClosed: false }) : 0,
+  ])
+
+  addCount('/admin/members', pendingMembers)
+  addCount('/admin/controls', pendingMembers)
+  addCount('/admin/finance/payments', pendingPayments + pendingDonations)
+  addCount('/admin/blogs', pendingBlogs)
+  addCount('/admin/gallery', pendingGallery)
+  addCount('/admin/polls', activePolls)
+  if (canUseNotifications) {
+    addCount('/admin/notifications', unreadNotifications)
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Navigation counts loaded successfully.',
+    data: {
+      counts,
+      unreadNotifications,
+    },
+  })
+})
 
 const getControls = asyncHandler(async (req, res) => {
   const settings = await getSettings()
@@ -638,6 +713,7 @@ module.exports = {
   exportMembersPdf,
   getControls,
   getDashboardWidgets,
+  getNavCounts,
   globalSearch,
   importMembers,
   manualFeeEntry,
