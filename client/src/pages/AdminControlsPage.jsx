@@ -36,7 +36,17 @@ import useAppStore from '../store/appStore'
 import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
-import { hasAnyPermission, hasPermission } from '../utils/permissionUtils'
+import {
+  BLOG_MANAGE_PERMISSIONS,
+  FINANCE_MANAGE_PERMISSIONS,
+  GALLERY_MANAGE_PERMISSIONS,
+  MEMBER_MANAGE_PERMISSIONS,
+  MEETING_MANAGE_PERMISSIONS,
+  NOTICE_MANAGE_PERMISSIONS,
+  TOUR_MANAGE_PERMISSIONS,
+  hasAnyPermission,
+  hasPermission,
+} from '../utils/permissionUtils'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -295,6 +305,20 @@ const pathTabs = {
   '/admin/testimonials': 'homepage',
 }
 
+const homepagePathKeys = {
+  '/admin/achievements': 'achievements',
+  '/admin/committee': 'committee',
+  '/admin/partners': 'partners',
+  '/admin/testimonials': 'testimonials',
+}
+
+const homepagePermissionByKey = {
+  achievements: 'homepage.achievements',
+  committee: 'homepage.committee',
+  partners: 'homepage.partners',
+  testimonials: 'homepage.testimonials',
+}
+
 const money = (value = 0) => `Tk ${Number(value || 0).toLocaleString('en-US')}`
 const toDate = (value) => (value ? new Date(value).toLocaleString('en-BD') : 'N/A')
 
@@ -377,15 +401,15 @@ export default function AdminControlsPage() {
                 'homepage.partners',
               ])
             }
-            if (tab.key === 'members') return hasPermission(user, 'member.view')
-            if (tab.key === 'finance') return hasPermission(user, 'finance.view')
+            if (tab.key === 'members') return hasAnyPermission(user, MEMBER_MANAGE_PERMISSIONS)
+            if (tab.key === 'finance') return hasAnyPermission(user, FINANCE_MANAGE_PERMISSIONS)
             if (tab.key === 'content') {
               return hasAnyPermission(user, [
-                'notice.view',
-                'meeting.view',
-                'tour.view',
-                'blog.view',
-                'gallery.view',
+                ...NOTICE_MANAGE_PERMISSIONS,
+                ...MEETING_MANAGE_PERMISSIONS,
+                ...TOUR_MANAGE_PERMISSIONS,
+                ...BLOG_MANAGE_PERMISSIONS,
+                ...GALLERY_MANAGE_PERMISSIONS,
               ])
             }
             if (tab.key === 'notifications') {
@@ -402,6 +426,13 @@ export default function AdminControlsPage() {
   const effectiveActiveTab = visibleControlTabs.some((tab) => tab.key === activeTab)
     ? activeTab
     : visibleControlTabs[0]?.key || activeTab
+  const focusedHomepageKey = homepagePathKeys[location.pathname] || ''
+  const visibleHomepageKeys =
+    user?.role === 'admin'
+      ? Object.keys(homepagePermissionByKey)
+      : Object.entries(homepagePermissionByKey)
+          .filter(([, permission]) => hasPermission(user, permission))
+          .map(([key]) => key)
   const {
     formState: { errors: archiveErrors, isSubmitting: isArchivingNotices },
     handleSubmit: handleArchiveSubmit,
@@ -894,6 +925,7 @@ export default function AdminControlsPage() {
             testimonials: controls.testimonials,
           }}
           form={settingsForm}
+          focusedHomepageKey={focusedHomepageKey}
           onChange={updateSettingsField}
           onCreate={(collection, payload) =>
             runAction(() => api.post(`/admin/${collection}`, payload), 'Homepage item saved')
@@ -926,6 +958,7 @@ export default function AdminControlsPage() {
           onUploadImage={uploadImageFile}
           onUploadSetting={uploadSettingImage}
           saving={saving}
+          visibleHomepageKeys={visibleHomepageKeys}
         />
       ) : null}
       {effectiveActiveTab === 'members' ? (
@@ -1572,6 +1605,7 @@ function HomepageManagerForm({ config, draft, onCancel, onSubmit, onUploadImage 
 function HomepageControlsTab({
   collections,
   form,
+  focusedHomepageKey = '',
   onChange,
   onCreate,
   onDelete,
@@ -1581,9 +1615,15 @@ function HomepageControlsTab({
   onUploadImage,
   onUploadSetting,
   saving,
+  visibleHomepageKeys = [],
 }) {
   const [drafts, setDrafts] = useState(createEmptyHomepageDrafts)
   const homepage = form.homepageControls || defaultSettings.homepageControls
+  const visibleConfigs = homepageManagerConfigs.filter(
+    (config) =>
+      visibleHomepageKeys.includes(config.key) &&
+      (!focusedHomepageKey || config.key === focusedHomepageKey),
+  )
 
   const resetDraft = (key) => {
     setDrafts((current) => ({
@@ -1621,6 +1661,7 @@ function HomepageControlsTab({
 
   return (
     <div className="mt-6 grid gap-6">
+      {!focusedHomepageKey ? (
       <Panel>
         <SectionTitle icon={Home} title="হোমপেজ নিয়ন্ত্রণ" />
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1661,9 +1702,10 @@ function HomepageControlsTab({
           </Button>
         </div>
       </Panel>
+      ) : null}
 
       <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
-        {homepageManagerConfigs.map((config) => (
+        {visibleConfigs.map((config) => (
           <Panel className="min-w-0 overflow-hidden" key={config.key}>
             <SectionTitle icon={config.icon} title={config.title} />
             <HomepageManagerForm

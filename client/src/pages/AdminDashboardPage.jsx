@@ -45,7 +45,18 @@ import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
 import { readFileAsDataUrl } from '../utils/fileUtils'
-import { hasAnyPermission, hasPermission } from '../utils/permissionUtils'
+import {
+  BLOG_MANAGE_PERMISSIONS,
+  FINANCE_MANAGE_PERMISSIONS,
+  GALLERY_MANAGE_PERMISSIONS,
+  MEMBER_MANAGE_PERMISSIONS,
+  MEETING_MANAGE_PERMISSIONS,
+  NOTICE_MANAGE_PERMISSIONS,
+  POLL_MANAGE_PERMISSIONS,
+  TOUR_MANAGE_PERMISSIONS,
+  hasAnyPermission,
+  hasPermission,
+} from '../utils/permissionUtils'
 import {
   Bar,
   BarChart,
@@ -635,6 +646,13 @@ const pathTabs = {
   '/admin/tours': 'content',
 }
 
+const contentPathKeys = {
+  '/admin/meetings': 'meetings',
+  '/admin/notices': 'notices',
+  '/admin/rules': 'rules',
+  '/admin/tours': 'tours',
+}
+
 const financePathTabs = {
   '/admin/finance/donations': 'donations',
   '/admin/finance/expenses': 'expenses',
@@ -649,25 +667,25 @@ export default function AdminDashboardPage() {
   const requestedTab = searchParams.get('tab')
   const defaultTab = pathTabs[location.pathname] || 'overview'
   const isPollPage = location.pathname === '/admin/polls'
+  const isBlogPage = location.pathname === '/admin/blogs'
+  const isGalleryPage = location.pathname === '/admin/gallery'
+  const focusedContentKey = contentPathKeys[location.pathname] || ''
   const requestedActiveTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
   const visibleTabLabels =
     user?.role === 'admin'
       ? tabLabels
       : tabLabels.filter(([key]) => {
           if (key === 'overview') return true
-          if (key === 'finance') return hasPermission(user, 'finance.view')
-          if (key === 'members') return hasPermission(user, 'member.view')
+          if (key === 'finance') return hasAnyPermission(user, FINANCE_MANAGE_PERMISSIONS)
+          if (key === 'members') return hasAnyPermission(user, MEMBER_MANAGE_PERMISSIONS)
           if (key === 'logs') return hasAnyPermission(user, ['audit.view', 'notification.send', 'notification.view_log'])
           return hasAnyPermission(user, [
-            'notice.view',
-            'meeting.view',
-            'tour.view',
-            'blog.view',
-            'gallery.view',
-            'poll.view_results',
-            'poll.create',
-            'poll.edit',
-            'poll.delete',
+            ...NOTICE_MANAGE_PERMISSIONS,
+            ...MEETING_MANAGE_PERMISSIONS,
+            ...TOUR_MANAGE_PERMISSIONS,
+            ...BLOG_MANAGE_PERMISSIONS,
+            ...GALLERY_MANAGE_PERMISSIONS,
+            ...POLL_MANAGE_PERMISSIONS,
           ])
         })
   const activeTab = visibleTabLabels.some(([key]) => key === requestedActiveTab)
@@ -1885,7 +1903,10 @@ export default function AdminDashboardPage() {
           onGalleryModerate={moderateGalleryItem}
           onGalleryMove={moveGalleryItem}
           onGalleryReorder={reorderGalleryAlbum}
+          focusedContentKey={focusedContentKey}
           onImageUpload={uploadContentImage}
+          isBlogPage={isBlogPage}
+          isGalleryPage={isGalleryPage}
           isPollPage={isPollPage}
           onPollClose={closePoll}
           onPollCreate={submitPoll}
@@ -3900,7 +3921,10 @@ function ContentTab({
   contentForms,
   data,
   editingContent,
+  focusedContentKey = '',
   isPollPage = false,
+  isBlogPage = false,
+  isGalleryPage = false,
   onCancelEdit,
   onArchiveNotices,
   onBlogBulkModerate,
@@ -3937,15 +3961,23 @@ function ContentTab({
 }) {
   const can = (permission) => hasPermission(user, permission)
   const isAdmin = user?.role === 'admin'
+  const canAny = (permissions = []) => isAdmin || hasAnyPermission(user, permissions)
   const approvedMembers = data.users.filter(
     (item) => item.role === 'member' && item.status === 'approved',
   )
   const visibleContentConfigs = contentConfigs.filter((config) =>
-    config.permissions?.view ? can(config.permissions.view) : isAdmin,
+    config.permissions ? canAny(Object.values(config.permissions)) : isAdmin,
   )
-  const canManagePolls = can('poll.view_results') || can('poll.create') || can('poll.edit') || can('poll.delete')
+  const canManagePolls = canAny(POLL_MANAGE_PERMISSIONS)
   const showStandalonePollPanel = canManagePolls && (isPollPage || !can('meeting.view'))
-  const renderedContentConfigs = showStandalonePollPanel && isPollPage ? [] : visibleContentConfigs
+  const isFocusedContentPage = Boolean(focusedContentKey || isBlogPage || isGalleryPage || isPollPage)
+  const renderedContentConfigs = isPollPage || isBlogPage || isGalleryPage
+    ? []
+    : focusedContentKey
+      ? visibleContentConfigs.filter((config) => config.key === focusedContentKey)
+      : visibleContentConfigs
+  const showBlogPanel = canAny(BLOG_MANAGE_PERMISSIONS) && (isBlogPage || !isFocusedContentPage)
+  const showGalleryPanel = canAny(GALLERY_MANAGE_PERMISSIONS) && (isGalleryPage || !isFocusedContentPage)
 
   return (
     <div className="mt-6 grid gap-6">
@@ -3966,7 +3998,7 @@ function ContentTab({
           registerPoll={registerPoll}
         />
       ) : null}
-      {!isPollPage && can('blog.view') ? (
+      {showBlogPanel ? (
         <BlogModerationPanel
           blogs={data.blogs}
           canDelete={can('blog.delete')}
@@ -3975,7 +4007,7 @@ function ContentTab({
           onModerate={onBlogModerate}
         />
       ) : null}
-      {!isPollPage && can('gallery.view') ? (
+      {showGalleryPanel ? (
         <GalleryManagementPanel
           canManageGallery={can('gallery.manage_albums')}
           gallery={data.gallery}
@@ -3996,7 +4028,7 @@ function ContentTab({
         const showForm = canCreate || (isEditing && canEdit)
         const showMeetingWorkflow =
           config.key === 'meetings' &&
-          (can('meeting.edit') || can('meeting.attendance') || can('meeting.minutes') || can('poll.create') || can('poll.view_results'))
+          (can('meeting.edit') || can('meeting.attendance') || can('meeting.minutes') || canManagePolls)
         const showTourWorkflow =
           config.key === 'tours' && (can('tour.edit') || can('tour.manage_registration'))
 
@@ -4085,7 +4117,7 @@ function ContentTab({
                   onSaveAttendance={onSaveMeetingAttendance}
                 />
               ) : null}
-              {!showStandalonePollPanel && (can('poll.create') || can('poll.view_results')) ? (
+              {!showStandalonePollPanel && canManagePolls ? (
                 <PollWorkflowPanel
                   canCreate={can('poll.create')}
                   canDelete={can('poll.delete')}

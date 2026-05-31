@@ -1,15 +1,84 @@
 export const BASE_ROLES = ['admin', 'member', 'moderator']
 
+export const NOTICE_MANAGE_PERMISSIONS = [
+  'notice.view',
+  'notice.create',
+  'notice.edit',
+  'notice.delete',
+  'notice.pin',
+  'notice.publish',
+  'notice.archive',
+]
+
+export const MEETING_MANAGE_PERMISSIONS = [
+  'meeting.view',
+  'meeting.create',
+  'meeting.edit',
+  'meeting.delete',
+  'meeting.attendance',
+  'meeting.minutes',
+]
+
+export const TOUR_MANAGE_PERMISSIONS = [
+  'tour.view',
+  'tour.create',
+  'tour.edit',
+  'tour.delete',
+  'tour.manage_registration',
+]
+
+export const BLOG_MANAGE_PERMISSIONS = [
+  'blog.view',
+  'blog.approve',
+  'blog.reject',
+  'blog.delete',
+  'blog.edit_any',
+]
+
+export const GALLERY_MANAGE_PERMISSIONS = [
+  'gallery.view',
+  'gallery.upload',
+  'gallery.approve',
+  'gallery.delete',
+  'gallery.manage_albums',
+]
+
+export const MEMBER_MANAGE_PERMISSIONS = [
+  'member.view',
+  'member.approve',
+  'member.reject',
+  'member.suspend',
+  'member.edit',
+  'member.reset_password',
+  'member.export',
+]
+
+export const FINANCE_MANAGE_PERMISSIONS = [
+  'finance.view',
+  'finance.approve_fees',
+  'finance.add_expense',
+  'finance.add_donation',
+  'finance.waive_fee',
+  'finance.export',
+]
+
+export const POLL_MANAGE_PERMISSIONS = ['poll.view_results', 'poll.create', 'poll.edit', 'poll.delete']
+
 export const NAV_ITEMS = [
   { icon: 'LayoutDashboard', label: 'ড্যাশবোর্ড', path: '/admin/dashboard', requiredPermission: null },
-  { icon: 'ClipboardList', label: 'নোটিশ', path: '/admin/notices', requiredPermission: 'notice.view' },
-  { icon: 'CalendarDays', label: 'মিটিং', path: '/admin/meetings', requiredPermission: 'meeting.view' },
-  { icon: 'MapPin', label: 'ট্যুর', path: '/admin/tours', requiredPermission: 'tour.view' },
-  { icon: 'Users', label: 'সদস্য', path: '/admin/members', requiredPermission: 'member.view' },
-  { icon: 'BarChart3', label: 'আর্থিক', path: '/admin/finance/payments', requiredPermission: 'finance.view' },
-  { icon: 'BookOpenText', label: 'ব্লগ', path: '/admin/blogs', requiredPermission: 'blog.view' },
-  { icon: 'Image', label: 'গ্যালারি', path: '/admin/gallery', requiredPermission: 'gallery.view' },
-  { icon: 'Vote', label: 'পোল', path: '/admin/polls', requiredPermission: 'poll.view_results' },
+  { icon: 'ClipboardList', label: 'নোটিশ', path: '/admin/notices', anyPermissions: NOTICE_MANAGE_PERMISSIONS },
+  { icon: 'CalendarDays', label: 'মিটিং', path: '/admin/meetings', anyPermissions: MEETING_MANAGE_PERMISSIONS },
+  { icon: 'MapPin', label: 'ট্যুর', path: '/admin/tours', anyPermissions: TOUR_MANAGE_PERMISSIONS },
+  { icon: 'Users', label: 'সদস্য', path: '/admin/members', anyPermissions: MEMBER_MANAGE_PERMISSIONS },
+  { icon: 'BarChart3', label: 'আর্থিক', path: '/admin/finance/payments', anyPermissions: FINANCE_MANAGE_PERMISSIONS },
+  { icon: 'BookOpenText', label: 'ব্লগ', path: '/admin/blogs', anyPermissions: BLOG_MANAGE_PERMISSIONS },
+  { icon: 'Image', label: 'গ্যালারি', path: '/admin/gallery', anyPermissions: GALLERY_MANAGE_PERMISSIONS },
+  {
+    icon: 'Vote',
+    label: 'পোল',
+    path: '/admin/polls',
+    anyPermissions: POLL_MANAGE_PERMISSIONS,
+  },
   { icon: 'SlidersHorizontal', label: 'অ্যাডমিন কন্ট্রোল', path: '/admin/controls', requiredPermission: 'settings.org' },
   { icon: 'Bell', label: 'বিজ্ঞপ্তি', path: '/admin/notifications', anyPermissions: ['notification.send', 'notification.view_log'] },
   {
@@ -45,14 +114,14 @@ export const ADMIN_ROUTE_REQUIREMENTS = [
   { prefix: '/admin/settings', requiredPermission: 'settings.org' },
   { prefix: '/admin/controls', requiredPermission: 'settings.org' },
   { prefix: '/admin/audit', requiredPermission: 'audit.view' },
-  { prefix: '/admin/finance', requiredPermission: 'finance.view' },
-  { prefix: '/admin/members', requiredPermission: 'member.view' },
-  { prefix: '/admin/notices', requiredPermission: 'notice.view' },
-  { prefix: '/admin/meetings', requiredPermission: 'meeting.view' },
-  { prefix: '/admin/tours', requiredPermission: 'tour.view' },
-  { prefix: '/admin/blogs', requiredPermission: 'blog.view' },
-  { prefix: '/admin/gallery', requiredPermission: 'gallery.view' },
-  { prefix: '/admin/polls', requiredPermission: 'poll.view_results' },
+  { prefix: '/admin/finance', anyPermissions: FINANCE_MANAGE_PERMISSIONS },
+  { prefix: '/admin/members', anyPermissions: MEMBER_MANAGE_PERMISSIONS },
+  { prefix: '/admin/notices', anyPermissions: NOTICE_MANAGE_PERMISSIONS },
+  { prefix: '/admin/meetings', anyPermissions: MEETING_MANAGE_PERMISSIONS },
+  { prefix: '/admin/tours', anyPermissions: TOUR_MANAGE_PERMISSIONS },
+  { prefix: '/admin/blogs', anyPermissions: BLOG_MANAGE_PERMISSIONS },
+  { prefix: '/admin/gallery', anyPermissions: GALLERY_MANAGE_PERMISSIONS },
+  { prefix: '/admin/polls', anyPermissions: POLL_MANAGE_PERMISSIONS },
   { prefix: '/admin/notifications', anyPermissions: ['notification.send', 'notification.view_log'] },
   { prefix: '/admin/committee', requiredPermission: 'homepage.committee' },
   { prefix: '/admin/achievements', requiredPermission: 'homepage.achievements' },
@@ -97,10 +166,6 @@ export const isStaffUser = (user) => {
 
 export const getNavItemsForUser = (user) =>
   NAV_ITEMS.filter((item) => {
-    if (item.path === '/admin/polls') {
-      return hasAnyPermission(user, ['poll.view_results', 'poll.create', 'poll.edit', 'poll.delete'])
-    }
-
     if (!item.requiredPermission && !item.anyPermissions) {
       return true
     }
@@ -112,17 +177,10 @@ export const getNavItemsForUser = (user) =>
     return hasPermission(user, item.requiredPermission)
   })
 
-export const getAdminRouteRequirement = (pathname) => {
-  if (pathname === '/admin/polls' || pathname.startsWith('/admin/polls/')) {
-    return { anyPermissions: ['poll.view_results', 'poll.create', 'poll.edit', 'poll.delete'] }
-  }
-
-  return (
-    ADMIN_ROUTE_REQUIREMENTS.find(
-      (item) => pathname === item.prefix || pathname.startsWith(`${item.prefix}/`),
-    ) || { requiredPermission: null }
-  )
-}
+export const getAdminRouteRequirement = (pathname) =>
+  ADMIN_ROUTE_REQUIREMENTS.find(
+    (item) => pathname === item.prefix || pathname.startsWith(`${item.prefix}/`),
+  ) || { requiredPermission: null }
 
 export const canAccessRequirement = (user, requirement) => {
   if (!requirement) {
