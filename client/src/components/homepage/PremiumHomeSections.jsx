@@ -439,7 +439,7 @@ function MembershipSection({ stats }) {
             </span>
             <div>
               <p className="text-2xl font-bold text-[var(--text-primary)]">সদস্যের নাম</p>
-              <p className="mt-1 font-[Inter] text-sm text-[var(--text-secondary)]">DP-{Number(stats.totalMembers || 84).toLocaleString('bn-BD')}</p>
+              <p className="mt-1 font-[Inter] text-sm text-[var(--text-secondary)]">DP-{Number(stats.totalMembers ?? 0).toLocaleString('bn-BD')}</p>
             </div>
           </div>
           <div className="mt-8 grid gap-3">

@@ -16,11 +16,25 @@ const { recordAuditLog } = require('../services/auditService')
 const getPublicSettings = asyncHandler(async (req, res) => {
   const settings = await getSettings()
   const notificationSettings = settings.notificationSettings || {}
-  const yearStart = new Date(new Date().getFullYear(), 0, 1)
-  const [totalMembers, yearlyDonationRows, completedActivities] = await Promise.all([
+  const now = new Date()
+  const yearStart = new Date(now.getFullYear(), 0, 1)
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const [
+    totalMembers,
+    activeMembers,
+    newMembersThisMonth,
+    yearlyDonationRows,
+    completedActivities,
+  ] = await Promise.all([
+    User.countDocuments(),
     User.countDocuments({
-      role: { $in: [USER_ROLES.MEMBER, USER_ROLES.MODERATOR, USER_ROLES.ADMIN] },
       status: USER_STATUSES.APPROVED,
+      softDeletedAt: null,
+      suspendedAt: null,
+    }),
+    User.countDocuments({
+      createdAt: { $gte: monthStart },
+      softDeletedAt: null,
     }),
     Donation.aggregate([
       {
@@ -66,7 +80,9 @@ const getPublicSettings = asyncHandler(async (req, res) => {
           whatsappNoticeEnabled: Boolean(notificationSettings.whatsappNoticeEnabled),
         },
         stats: {
+          activeMembers,
           completedActivities,
+          newMembersThisMonth,
           totalMembers,
           yearlyDonation: yearlyDonationRows[0]?.total || 0,
           yearsActive: 5,

@@ -286,10 +286,12 @@ export default function PublicHomePage() {
     )
 
     return {
-      completedActivities: currentStats.completedActivities || data.activities.length || 12,
-      totalMembers: currentStats.totalMembers || 84,
-      yearlyDonation: currentStats.yearlyDonation || donationsTotal || 89589,
-      yearsActive: currentStats.yearsActive || 5,
+      activeMembers: currentStats.activeMembers ?? currentStats.totalMembers ?? 0,
+      completedActivities: currentStats.completedActivities ?? data.activities.length ?? 0,
+      newMembersThisMonth: currentStats.newMembersThisMonth ?? 0,
+      totalMembers: currentStats.totalMembers ?? 0,
+      yearlyDonation: currentStats.yearlyDonation ?? donationsTotal ?? 0,
+      yearsActive: currentStats.yearsActive ?? 5,
     }
   }, [data.activities.length, data.donations, data.settings.stats])
 
@@ -768,7 +770,7 @@ function HeroSection({ orgName, phrases, stats, tagline, tickerEnabled }) {
           </motion.div>
 
           <motion.div className="mt-8 flex flex-wrap items-center gap-4 text-sm font-semibold text-[var(--text-secondary)]" variants={fadeUp}>
-            <TrustItem icon={Users} text={`${Number(stats.totalMembers || 0).toLocaleString('bn-BD')}+ সক্রিয় সদস্য`} />
+            <TrustItem icon={Users} text={`${Number(stats.activeMembers ?? stats.totalMembers ?? 0).toLocaleString('bn-BD')}+ সক্রিয় সদস্য`} />
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary-400)]" />
             <TrustItem icon={CalendarDays} text={`${Number(stats.yearsActive || 0).toLocaleString('bn-BD')}+ বছরের অভিজ্ঞতা`} />
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--primary-400)]" />
@@ -837,11 +839,11 @@ function HeroGeometry({ orgName, stats }) {
           ))}
         </div>
         <p className="mt-6 font-[Inter] text-5xl font-bold text-[var(--accent-ui)]">
-          {Number(stats.totalMembers || 0).toLocaleString('bn-BD')}+
+          {Number(stats.activeMembers ?? stats.totalMembers ?? 0).toLocaleString('bn-BD')}+
         </p>
         <p className="mt-1 text-sm font-semibold text-[var(--text-secondary)]">সক্রিয় সদস্য</p>
         <div className="mt-6 grid gap-3">
-          <StatRow label="এই মাসে যোগদান" value="১২ জন" />
+          <StatRow label="এই মাসে যোগদান" value={`${Number(stats.newMembersThisMonth ?? 0).toLocaleString('bn-BD')} জন`} />
           <StatRow label="মোট দান" value={money(stats.yearlyDonation)} />
           <StatRow label="পরবর্তী ইভেন্ট" value="শীঘ্রই" />
         </div>
