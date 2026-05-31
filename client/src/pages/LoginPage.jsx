@@ -69,7 +69,7 @@ export default function LoginPage() {
           <Field
             error={errors.identifier?.message}
             label="ইমেইল বা ফোন নম্বর"
-            placeholder="admin@gmail.com"
+            placeholder="your@email.com"
             {...register('identifier')}
           />
           <Field
