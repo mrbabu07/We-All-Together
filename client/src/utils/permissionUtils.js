@@ -1,7 +1,7 @@
 export const BASE_ROLES = ['admin', 'member', 'moderator']
 
 export const NAV_ITEMS = [
-  { icon: 'LayoutDashboard', label: 'ড্যাশবোর্ড', path: '/admin', requiredPermission: null },
+  { icon: 'LayoutDashboard', label: 'ড্যাশবোর্ড', path: '/admin/dashboard', requiredPermission: null },
   { icon: 'ClipboardList', label: 'নোটিশ', path: '/admin/notices', requiredPermission: 'notice.view' },
   { icon: 'CalendarDays', label: 'মিটিং', path: '/admin/meetings', requiredPermission: 'meeting.view' },
   { icon: 'MapPin', label: 'ট্যুর', path: '/admin/tours', requiredPermission: 'tour.view' },

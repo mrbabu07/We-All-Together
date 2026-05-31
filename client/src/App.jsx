@@ -82,6 +82,7 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AdminLayout />}>
                 <Route path="admin" element={page(<AdminDashboardPage />)} />
+                <Route path="admin/dashboard" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/unauthorized" element={page(<AdminUnauthorizedPage />)} />
                 <Route path="admin/blogs" element={page(<AdminDashboardPage />)} />
                 <Route path="admin/finance" element={page(<AdminDashboardPage />)} />
