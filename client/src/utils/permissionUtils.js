@@ -97,6 +97,10 @@ export const isStaffUser = (user) => {
 
 export const getNavItemsForUser = (user) =>
   NAV_ITEMS.filter((item) => {
+    if (item.path === '/admin/polls') {
+      return hasAnyPermission(user, ['poll.view_results', 'poll.create', 'poll.edit', 'poll.delete'])
+    }
+
     if (!item.requiredPermission && !item.anyPermissions) {
       return true
     }
@@ -108,10 +112,17 @@ export const getNavItemsForUser = (user) =>
     return hasPermission(user, item.requiredPermission)
   })
 
-export const getAdminRouteRequirement = (pathname) =>
-  ADMIN_ROUTE_REQUIREMENTS.find(
-    (item) => pathname === item.prefix || pathname.startsWith(`${item.prefix}/`),
-  ) || { requiredPermission: null }
+export const getAdminRouteRequirement = (pathname) => {
+  if (pathname === '/admin/polls' || pathname.startsWith('/admin/polls/')) {
+    return { anyPermissions: ['poll.view_results', 'poll.create', 'poll.edit', 'poll.delete'] }
+  }
+
+  return (
+    ADMIN_ROUTE_REQUIREMENTS.find(
+      (item) => pathname === item.prefix || pathname.startsWith(`${item.prefix}/`),
+    ) || { requiredPermission: null }
+  )
+}
 
 export const canAccessRequirement = (user, requirement) => {
   if (!requirement) {

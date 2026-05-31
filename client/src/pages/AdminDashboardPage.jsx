@@ -648,6 +648,7 @@ export default function AdminDashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const defaultTab = pathTabs[location.pathname] || 'overview'
+  const isPollPage = location.pathname === '/admin/polls'
   const requestedActiveTab = tabLabels.some(([key]) => key === requestedTab) ? requestedTab : defaultTab
   const visibleTabLabels =
     user?.role === 'admin'
@@ -664,6 +665,9 @@ export default function AdminDashboardPage() {
             'blog.view',
             'gallery.view',
             'poll.view_results',
+            'poll.create',
+            'poll.edit',
+            'poll.delete',
           ])
         })
   const activeTab = visibleTabLabels.some(([key]) => key === requestedActiveTab)
@@ -1882,6 +1886,7 @@ export default function AdminDashboardPage() {
           onGalleryMove={moveGalleryItem}
           onGalleryReorder={reorderGalleryAlbum}
           onImageUpload={uploadContentImage}
+          isPollPage={isPollPage}
           onPollClose={closePoll}
           onPollCreate={submitPoll}
           onPollDelete={deletePoll}
@@ -3895,6 +3900,7 @@ function ContentTab({
   contentForms,
   data,
   editingContent,
+  isPollPage = false,
   onCancelEdit,
   onArchiveNotices,
   onBlogBulkModerate,
@@ -3937,10 +3943,30 @@ function ContentTab({
   const visibleContentConfigs = contentConfigs.filter((config) =>
     config.permissions?.view ? can(config.permissions.view) : isAdmin,
   )
+  const canManagePolls = can('poll.view_results') || can('poll.create') || can('poll.edit') || can('poll.delete')
+  const showStandalonePollPanel = canManagePolls && (isPollPage || !can('meeting.view'))
+  const renderedContentConfigs = showStandalonePollPanel && isPollPage ? [] : visibleContentConfigs
 
   return (
     <div className="mt-6 grid gap-6">
-      {can('blog.view') ? (
+      {showStandalonePollPanel ? (
+        <PollWorkflowPanel
+          canCreate={can('poll.create')}
+          canDelete={can('poll.delete')}
+          canEdit={can('poll.edit')}
+          canView={can('poll.view_results')}
+          meetings={data.content.meetings}
+          onClose={onPollClose}
+          onCreate={onPollCreate}
+          onDelete={onPollDelete}
+          pollErrors={pollErrors}
+          pollForm={pollForm}
+          pollSubmitting={pollSubmitting}
+          polls={data.polls}
+          registerPoll={registerPoll}
+        />
+      ) : null}
+      {!isPollPage && can('blog.view') ? (
         <BlogModerationPanel
           blogs={data.blogs}
           canDelete={can('blog.delete')}
@@ -3949,7 +3975,7 @@ function ContentTab({
           onModerate={onBlogModerate}
         />
       ) : null}
-      {can('gallery.view') ? (
+      {!isPollPage && can('gallery.view') ? (
         <GalleryManagementPanel
           canManageGallery={can('gallery.manage_albums')}
           gallery={data.gallery}
@@ -3961,7 +3987,7 @@ function ContentTab({
           onReorder={onGalleryReorder}
         />
       ) : null}
-      {visibleContentConfigs.map((config) => {
+      {renderedContentConfigs.map((config) => {
         const canCreate = config.permissions?.create ? can(config.permissions.create) : isAdmin
         const canEdit = config.permissions?.edit ? can(config.permissions.edit) : isAdmin
         const canDelete = config.permissions?.delete ? can(config.permissions.delete) : isAdmin
@@ -4059,11 +4085,12 @@ function ContentTab({
                   onSaveAttendance={onSaveMeetingAttendance}
                 />
               ) : null}
-              {can('poll.create') || can('poll.view_results') ? (
+              {!showStandalonePollPanel && (can('poll.create') || can('poll.view_results')) ? (
                 <PollWorkflowPanel
                   canCreate={can('poll.create')}
                   canDelete={can('poll.delete')}
                   canEdit={can('poll.edit')}
+                  canView={can('poll.view_results')}
                   meetings={data.content.meetings}
                   onClose={onPollClose}
                   onCreate={onPollCreate}
@@ -5149,6 +5176,7 @@ function PollWorkflowPanel({
   canCreate = false,
   canDelete = false,
   canEdit = false,
+  canView = false,
   meetings,
   onClose,
   onCreate,
@@ -5209,42 +5237,50 @@ function PollWorkflowPanel({
         </form>
       ) : null}
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {polls.length === 0 ? <Empty text="No polls created yet." /> : null}
-        {polls.map((poll) => (
-          <div className="rounded-md border border-gray-200 bg-white p-4" key={poll._id}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-gray-950">{poll.question}</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  {poll.meetingId?.title || 'Standalone poll'} | Deadline {toReadableDate(poll.deadline)}
-                </p>
-                {poll.closedAt ? (
-                  <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
-                    Closed {toReadableDate(poll.closedAt)} by {poll.closedBy?.name || 'admin'}
+      {canView ? (
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {polls.length === 0 ? <Empty text="No polls created yet." /> : null}
+          {polls.map((poll) => (
+            <div className="rounded-md border border-gray-200 bg-white p-4" key={poll._id}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-gray-950">{poll.question}</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {poll.meetingId?.title || 'Standalone poll'} | Deadline {toReadableDate(poll.deadline)}
                   </p>
-                ) : null}
+                  {poll.closedAt ? (
+                    <p className="mt-1 text-xs font-semibold uppercase text-gray-500">
+                      Closed {toReadableDate(poll.closedAt)} by {poll.closedBy?.name || 'admin'}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
+                    {poll.isClosed ? 'Closed' : 'Open'}
+                  </Badge>
+                  {!poll.isClosed && canEdit ? (
+                    <Button icon={XCircle} onClick={() => onClose(poll._id)} size="sm" variant="danger">
+                      Close
+                    </Button>
+                  ) : null}
+                  {canDelete ? (
+                    <Button icon={Trash2} onClick={() => onDelete(poll._id)} size="sm" variant="danger">
+                      Delete
+                    </Button>
+                  ) : null}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge value={poll.isClosed ? 'rejected' : 'approved'}>
-                  {poll.isClosed ? 'Closed' : 'Open'}
-                </Badge>
-                {!poll.isClosed && canEdit ? (
-                  <Button icon={XCircle} onClick={() => onClose(poll._id)} size="sm" variant="danger">
-                    Close
-                  </Button>
-                ) : null}
-                {canDelete ? (
-                  <Button icon={Trash2} onClick={() => onDelete(poll._id)} size="sm" variant="danger">
-                    Delete
-                  </Button>
-                ) : null}
-              </div>
+              <PollResultsChart poll={poll} />
             </div>
-            <PollResultsChart poll={poll} />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-md border border-gray-200 bg-white p-3 text-sm font-semibold text-gray-500">
+          {canCreate
+            ? 'You can create polls. Viewing results needs the poll.view_results permission.'
+            : 'Viewing poll results needs the poll.view_results permission.'}
+        </p>
+      )}
     </div>
   )
 }
