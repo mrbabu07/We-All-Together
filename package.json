@@ -1,3 +1,4 @@
+
 {
   "name": "dorgah-para-oikko-porishod",
   "version": "1.0.0",
@@ -25,5 +26,9 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   }
 }
