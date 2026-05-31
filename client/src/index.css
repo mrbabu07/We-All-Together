@@ -348,6 +348,21 @@ img {
   box-shadow: var(--shadow-md-token);
 }
 
+.admin-controls-page .premium-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-controls-page input,
+.admin-controls-page select,
+.admin-controls-page textarea {
+  min-width: 0;
+}
+
+.admin-controls-page button {
+  white-space: nowrap;
+}
+
 .hero-image-bg {
   background-position: center;
   background-size: cover;

@@ -332,7 +332,7 @@ export default function AdminControlsPage() {
   const { user } = useAuth()
   const { setPreviewAppearance } = useAppStore()
   const location = useLocation()
-  const [activeTab, setActiveTab] = useState(pathTabs[location.pathname] || 'site')
+  const [manualTab, setManualTab] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -397,6 +397,8 @@ export default function AdminControlsPage() {
           }),
     [user],
   )
+  const activeTab =
+    manualTab?.pathname === location.pathname ? manualTab.key : pathTabs[location.pathname] || 'site'
   const effectiveActiveTab = visibleControlTabs.some((tab) => tab.key === activeTab)
     ? activeTab
     : visibleControlTabs[0]?.key || activeTab
@@ -593,6 +595,16 @@ export default function AdminControlsPage() {
     })
   }, [controls.users, memberFilter])
 
+  const controlStats = useMemo(
+    () => [
+      { label: 'মোট সদস্য', value: controls.users.length },
+      { label: 'নোটিশ', value: controls.notices.length },
+      { label: 'পেমেন্ট', value: controls.payments.length },
+      { label: 'ডোনেশন', value: controls.donations.length },
+    ],
+    [controls.donations.length, controls.notices.length, controls.payments.length, controls.users.length],
+  )
+
   const updateSettingsField = (section, field, value) => {
     if (field === undefined) {
       setSettingsForm((current) => ({
@@ -760,7 +772,7 @@ export default function AdminControlsPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
         <Panel>
           <Skeleton rows={8} />
         </Panel>
@@ -769,8 +781,51 @@ export default function AdminControlsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <main className="admin-controls-page mx-auto w-full max-w-[1600px] overflow-hidden px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden rounded-[var(--radius-2xl)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--surface-0)_96%,transparent),color-mix(in_srgb,var(--brand-50)_52%,var(--surface-0)))] p-5 shadow-[var(--shadow-lg-token)] sm:p-6">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[color-mix(in_srgb,var(--brand-500)_16%,transparent)] blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/2 h-32 w-96 -translate-x-1/2 rounded-full bg-[color-mix(in_srgb,var(--brand-300)_16%,transparent)] blur-3xl" />
+        <div className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <div className="min-w-0">
+            <p className="inline-flex rounded-full border border-[color-mix(in_srgb,var(--brand-400)_34%,transparent)] bg-[color-mix(in_srgb,var(--brand-50)_74%,transparent)] px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-700)]">
+              Control Panel
+            </p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+              অ্যাডমিন কন্ট্রোল প্যানেল
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium text-[var(--text-secondary)] sm:text-base">
+              সাইট সেটিংস, হোমপেজ কন্টেন্ট, সদস্য, ফাইন্যান্স, নোটিফিকেশন ও সিকিউরিটি এক জায়গা থেকে সুন্দরভাবে নিয়ন্ত্রণ করুন।
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 xl:justify-end">
+            <Button icon={RefreshCw} onClick={loadControls} variant="secondary">
+              রিফ্রেশ
+            </Button>
+            {user?.role === 'admin' ? (
+              <Button icon={Save} loading={saving} onClick={saveSettings}>
+                সব সেটিংস সেভ
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {controlStats.map((item) => (
+            <div
+              className="rounded-[var(--radius-lg)] border border-[color-mix(in_srgb,var(--gray-200)_68%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_78%,transparent)] px-4 py-3 shadow-[var(--shadow-xs)] backdrop-blur"
+              key={item.label}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                {item.label}
+              </p>
+              <p className="mt-1 font-['Inter'] text-2xl font-bold text-[var(--text-primary)]">
+                {Number(item.value || 0).toLocaleString('en-US')}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="hidden">
         <div>
           <p className="text-sm font-semibold uppercase text-indigo-700">Control Panel</p>
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
@@ -798,18 +853,20 @@ export default function AdminControlsPage() {
         </p>
       ) : null}
 
-      <div className="mt-6 flex gap-2 overflow-x-auto rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+      <div className="mt-6 flex gap-2 overflow-x-auto rounded-[var(--radius-xl)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_90%,transparent)] p-2 shadow-[var(--shadow-sm-token)] backdrop-blur">
         {visibleControlTabs.map((tab) => {
           const Icon = tab.icon
           const active = effectiveActiveTab === tab.key
 
           return (
             <button
-              className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition ${
-                active ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius-md)] px-4 text-sm font-semibold transition ${
+                active
+                  ? 'bg-[linear-gradient(135deg,var(--brand-600),var(--brand-800))] text-[var(--text-inverted)] shadow-[var(--shadow-brand)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
               }`}
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setManualTab({ key: tab.key, pathname: location.pathname })}
               type="button"
             >
               <Icon aria-hidden="true" className="h-4 w-4" />
@@ -1148,21 +1205,37 @@ export default function AdminControlsPage() {
 
 function Toggle({ checked, label, onChange }) {
   return (
-    <label className="flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-2">
-      <span className="text-sm font-semibold text-gray-700">{label}</span>
+    <label className="group flex min-h-12 cursor-pointer items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--gray-200)_72%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2.5 shadow-[var(--shadow-xs)] transition hover:border-[color-mix(in_srgb,var(--brand-300)_48%,var(--gray-200))] hover:bg-[var(--surface-0)]">
+      <span className="text-sm font-semibold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">
+        {label}
+      </span>
       <input
         checked={checked}
-        className="h-5 w-5 accent-indigo-600"
+        className="sr-only"
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
       />
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border transition ${
+          checked
+            ? 'border-[var(--brand-600)] bg-[var(--brand-600)]'
+            : 'border-[var(--gray-300)] bg-[var(--surface-2)]'
+        }`}
+      >
+        <span
+          className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full bg-[var(--text-inverted)] shadow-[var(--shadow-xs)] transition ${
+            checked ? 'left-6' : 'left-1'
+          }`}
+        />
+      </span>
     </label>
   )
 }
 
 function FileUploadButton({ label, onUpload }) {
   return (
-    <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+    <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--gray-200)_72%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-[var(--shadow-xs)] transition hover:border-[color-mix(in_srgb,var(--brand-300)_48%,var(--gray-200))] hover:bg-[var(--surface-0)] hover:text-[var(--brand-700)] sm:w-auto">
       <Upload aria-hidden="true" className="h-4 w-4" />
       {label}
       <input
@@ -1177,11 +1250,13 @@ function FileUploadButton({ label, onUpload }) {
 
 function SectionTitle({ icon: Icon, title }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--brand-400)_26%,transparent)] bg-[color-mix(in_srgb,var(--brand-50)_82%,transparent)] text-[var(--brand-700)]">
         <Icon aria-hidden="true" className="h-5 w-5" />
       </span>
-      <h2 className="text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
+      <h2 className="min-w-0 truncate text-lg font-bold tracking-tight text-[var(--text-primary)]">
+        {title}
+      </h2>
     </div>
   )
 }
@@ -1587,9 +1662,9 @@ function HomepageControlsTab({
         </div>
       </Panel>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
         {homepageManagerConfigs.map((config) => (
-          <Panel key={config.key}>
+          <Panel className="min-w-0 overflow-hidden" key={config.key}>
             <SectionTitle icon={config.icon} title={config.title} />
             <HomepageManagerForm
               config={config}
@@ -1600,7 +1675,10 @@ function HomepageControlsTab({
             />
             <div className="mt-6 grid gap-3">
               {(collections[config.key] || []).map((item, index, items) => (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-4" key={item._id}>
+                <div
+                  className="grid min-w-0 gap-3 rounded-[var(--radius-lg)] border border-[color-mix(in_srgb,var(--gray-200)_72%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_86%,transparent)] p-4 shadow-[var(--shadow-xs)]"
+                  key={item._id}
+                >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-semibold text-gray-900">{item.name || item.title}</p>
@@ -1613,35 +1691,48 @@ function HomepageControlsTab({
                       {item.position || item.year || item.joinYear || item.websiteUrl || 'Homepage item'}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Button
+                      className="w-full !aspect-auto"
                       disabled={index === 0}
                       icon={ArrowUp}
                       iconOnly
                       onClick={() => moveItem(config, item, -1)}
+                      size="sm"
                       type="button"
                       variant="secondary"
                     >
                       Move up
                     </Button>
                     <Button
+                      className="w-full !aspect-auto"
                       disabled={index === items.length - 1}
                       icon={ArrowDown}
                       iconOnly
                       onClick={() => moveItem(config, item, 1)}
+                      size="sm"
                       type="button"
                       variant="secondary"
                     >
                       Move down
                     </Button>
                     <Button
+                      className="w-full"
                       onClick={() => setDrafts((current) => ({ ...current, [config.key]: createHomepageDraft(item) }))}
+                      size="sm"
                       type="button"
                       variant="secondary"
                     >
                       Edit
                     </Button>
-                    <Button icon={Trash2} onClick={() => onDelete(config.key, item)} type="button" variant="danger">
+                    <Button
+                      className="w-full"
+                      icon={Trash2}
+                      onClick={() => onDelete(config.key, item)}
+                      size="sm"
+                      type="button"
+                      variant="danger"
+                    >
                       Delete
                     </Button>
                   </div>

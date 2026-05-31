@@ -212,6 +212,7 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
   const profilePath = user?.role === 'member' ? '/member/profile' : '/account'
   const showDarkToggle = homepageControls.darkModeToggleEnabled !== false
   const showFontControls = homepageControls.fontSizeControlsEnabled !== false
+  const activeTitle = navItems.find((item) => isActiveRoute(location, item.to))?.label || title
 
   useEffect(() => {
     const loadNotifications = () => {
@@ -310,10 +311,10 @@ export default function DashboardShell({ mobileItems, navItems, title }) {
                     হোম
                   </Link>
                   <span className="px-2">/</span>
-                  <span className="text-[var(--text-primary)]">{title}</span>
+                  <span className="text-[var(--text-primary)]">{activeTitle}</span>
                 </p>
                 <h1 className="truncate text-lg font-semibold text-[var(--text-primary)]">
-                  {title}
+                  {activeTitle}
                 </h1>
               </div>
               <p className="truncate text-sm font-semibold text-[var(--text-primary)] md:hidden">
