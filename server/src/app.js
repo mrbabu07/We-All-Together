@@ -21,6 +21,7 @@ app.use(
       callback(new Error(`CORS blocked origin: ${origin}`))
     },
     credentials: true,
+    exposedHeaders: ['Content-Disposition', 'Content-Type'],
   }),
 )
 app.use(express.json({ limit: '10mb' }))

@@ -16,8 +16,12 @@ const { verifyAccessToken } = require('../utils/tokenUtils')
 const organizationName = 'Dargah Para OIkko Porishod'
 
 const buildReceiptOrganization = (settings) => ({
+  address: settings.siteSettings?.address || settings.address || '',
+  contactNumber: settings.siteSettings?.contactNumber || settings.contactNumber || '',
   donationNumber: settings.donationNumber,
   donationProvider: settings.donationProvider,
+  email: settings.siteSettings?.email || settings.email || '',
+  logoUrl: settings.siteSettings?.logoUrl || settings.logoUrl || '',
   name: settings.siteSettings?.orgName || organizationName,
 })
 

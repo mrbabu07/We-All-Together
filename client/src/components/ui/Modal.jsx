@@ -15,21 +15,21 @@ export default function Modal({ children, className = '', onClose, open, title }
               exit={modalBackdrop.exit}
               initial={modalBackdrop.initial}
             />
-            <div className="fixed inset-x-0 bottom-0 flex items-end justify-center px-0 sm:inset-0 sm:items-center sm:px-4 sm:py-6">
+            <div className="fixed inset-0 flex items-end justify-center overflow-y-auto px-2 py-2 sm:items-center sm:px-4 sm:py-6">
               <DialogPanel
                 as={motion.div}
                 animate={modalPanel.animate}
-                className={`max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[var(--radius-2xl)] border border-[var(--gray-200)] bg-[var(--surface-0)] p-6 shadow-[var(--shadow-xl-token)] sm:rounded-[var(--radius-2xl)] ${className}`}
+                className={`max-h-[calc(100dvh-1rem)] w-full max-w-md overflow-y-auto rounded-t-[var(--radius-2xl)] border border-[var(--gray-200)] bg-[var(--surface-0)] p-4 shadow-[var(--shadow-xl-token)] sm:max-h-[calc(100dvh-3rem)] sm:rounded-[var(--radius-2xl)] sm:p-6 ${className}`}
                 exit={modalPanel.exit}
                 initial={modalPanel.initial}
                 transition={{ duration: 0.18, ease: 'easeOut' }}
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
-                  <DialogTitle className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+                  <DialogTitle className="min-w-0 text-lg font-semibold tracking-tight text-[var(--text-primary)]">
                     {title}
                   </DialogTitle>
                   <button
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-full)] text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-full)] text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
                     onClick={onClose}
                     type="button"
                   >

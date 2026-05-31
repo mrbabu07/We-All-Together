@@ -35,6 +35,7 @@ import api, { getErrorMessage } from '../api/http'
 import useAppStore from '../store/appStore'
 import useAuth from '../hooks/useAuth'
 import { downloadCsv } from '../utils/csvExport'
+import { downloadBlob, downloadResponseBlob } from '../utils/downloadUtils'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { apiArray, apiData, apiObject, apiUploadUrl, apiValue, safeJsonStringify } from '../utils/responseUtils'
 import {
@@ -340,17 +341,6 @@ const parseCsv = (text) => {
   })
 
   return { headers, rows }
-}
-
-const downloadBlob = (blob, filename) => {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 export default function AdminControlsPage() {
@@ -750,14 +740,14 @@ export default function AdminControlsPage() {
       },
       responseType: 'blob',
     })
-    downloadBlob(response.data, 'member-report.pdf')
+    downloadResponseBlob(response, 'member-report.pdf', 'application/pdf')
   }
 
   const exportFinancePdf = async () => {
     const response = await api.get('/admin/controls/finance-report.pdf', {
       responseType: 'blob',
     })
-    downloadBlob(response.data, 'finance-report.pdf')
+    downloadResponseBlob(response, 'finance-report.pdf', 'application/pdf')
   }
 
   const handleCsvFile = (file) => {

@@ -40,6 +40,7 @@ import SelectField from '../components/ui/SelectField'
 import Skeleton from '../components/ui/Skeleton'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
+import { downloadResponseBlob } from '../utils/downloadUtils'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { apiArray, apiData, apiObject, apiUploadUrl, apiValue, safeJsonStringify } from '../utils/responseUtils'
 import 'yet-another-react-lightbox/styles.css'
@@ -157,7 +158,11 @@ const getNoticeShareUrl = (notice) =>
   `${window.location.origin}/notices/${notice?._id || ''}`
 
 const monthLabel = ({ label, month, year }) =>
-  label || `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
+  label
+    ? String(label).replace(/^(\d{4})-(0[1-9]|1[0-2])$/, (_, itemYear, itemMonth) =>
+        `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(itemMonth) - 1]} ${itemYear}`,
+      )
+    : `${['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'][Number(month || 1) - 1]} ${year}`
 
 const paymentAmountPaisa = (payment) =>
   Number(payment.amountPaisa || Math.round(Number(payment.amount || 0) * 100))
@@ -179,6 +184,15 @@ const getPaymentCoveredMonths = (payment) =>
 
 const paymentCoveredMonthsLabel = (payment) =>
   getPaymentCoveredMonths(payment).map(monthLabel).join(', ') || 'N/A'
+
+const paymentStatusLabels = {
+  approved: 'অনুমোদিত',
+  pending: 'অপেক্ষমাণ',
+  rejected: 'প্রত্যাখ্যাত',
+  verified: 'অনুমোদিত',
+}
+
+const paymentStatusLabel = (status = '') => paymentStatusLabels[status] || status || 'N/A'
 
 const paymentCoversMonth = (payment, monthKeyValue) => {
   if (!payment || !monthKeyValue) {
@@ -240,9 +254,6 @@ const getNoticeDetailHtml = (notice) =>
   notice?.richBody
     ? sanitizeRichContent(notice.richBody)
     : escapeHtml(notice?.body || '').replace(/\n/g, '<br />')
-
-const cssVar = (name) =>
-  window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
 const tabs = [
   ['overview', 'Overview'],
@@ -794,52 +805,547 @@ export default function MemberDashboardPage() {
         return
       }
 
-      const qrHtml = receipt.payment.qrCodeDataUrl
-        ? `<div class="qr"><span class="label">Verification QR</span><img src="${receipt.payment.qrCodeDataUrl}" alt="" /><p>${escapeHtml(receipt.payment.verificationUrl || '')}</p></div>`
+      const payment = receipt.payment
+      const organization = receipt.organization
+      const member = payment.user || {}
+      const receiptNo = receipt.receiptNo || payment.receiptNumber || `PAY-${payment._id}`
+      const organizationName = organization.name || 'Dargah Para Oikko Porishod'
+      const organizationInitials =
+        organizationName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join('')
+          .toUpperCase() || 'DP'
+      const lateFeePaisa = paymentLateFeePaisa(payment)
+      const paidAt = payment.verifiedAt || payment.receiptGeneratedAt || payment.createdAt
+      const detailRows = [
+        ['সদস্যের নাম', member.name],
+        ['ফোন নম্বর', member.phone],
+        ['ঠিকানা', member.address],
+        ['ফি মাস', paymentCoveredMonthsLabel(payment)],
+        ['পেমেন্ট মাধ্যম', payment.method],
+        ['ট্রানজেকশন আইডি', payment.transactionId],
+        ['প্রেরকের নম্বর', payment.senderPhone],
+        ['স্ট্যাটাস', paymentStatusLabel(payment.status)],
+        ['অনুমোদনকারী', payment.verifiedBy?.name || 'Admin'],
+        ['পেমেন্ট তারিখ', formatDate(paidAt)],
+      ]
+      const detailsHtml = detailRows
+        .map(
+          ([label, value], index) => `
+            <div class="field ${index === 2 || index === 3 ? 'wide' : ''}">
+              <span class="label">${escapeHtml(label)}</span>
+              <span class="value">${escapeHtml(value || 'N/A')}</span>
+            </div>
+          `,
+        )
+        .join('')
+      const logoHtml = organization.logoUrl
+        ? `<img class="logo" src="${escapeHtml(organization.logoUrl)}" alt="${escapeHtml(organizationName)} logo" />`
+        : `<div class="mark">${escapeHtml(organizationInitials)}</div>`
+      const organizationContact = [organization.address, organization.contactNumber, organization.email]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join(' &bull; ')
+      const noteHtml = payment.note
+        ? `<div class="note"><span class="label">নোট</span><p>${escapeHtml(payment.note)}</p></div>`
         : ''
+      const qrHtml = payment.qrCodeDataUrl
+        ? `
+          <aside class="verify-card">
+            <span class="label">ভেরিফিকেশন QR</span>
+            <img class="qr-image" src="${escapeHtml(payment.qrCodeDataUrl)}" alt="Receipt verification QR" />
+            <p>${escapeHtml(payment.verificationUrl || '')}</p>
+          </aside>
+        `
+        : `
+          <aside class="verify-card muted-card">
+            <span class="label">ভেরিফিকেশন</span>
+            <strong>QR পাওয়া যায়নি</strong>
+            <p>রসিদ নম্বর দিয়ে অফিসে যাচাই করুন।</p>
+          </aside>
+        `
 
-      printWindow.document.write(`
+      const printedBy = [member.name, member.phone].filter(Boolean).join(' | ') || 'Member'
+
+      const receiptHtml = `
         <!doctype html>
-        <html>
+        <html lang="bn">
           <head>
-            <title>${escapeHtml(receipt.receiptNo)}</title>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>${escapeHtml(receiptNo)}</title>
             <style>
-              body { font-family: Arial, sans-serif; color: ${cssVar('--text-primary')}; padding: 32px; }
-              .receipt { border: 1px solid ${cssVar('--gray-200')}; border-radius: 8px; padding: 24px; max-width: 720px; margin: 0 auto; }
-              h1 { margin: 0; font-size: 24px; }
-              .muted { color: ${cssVar('--text-secondary')}; }
-              .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
-              .item { border-bottom: 1px solid ${cssVar('--gray-200')}; padding-bottom: 8px; }
-              .label { display: block; color: ${cssVar('--text-secondary')}; font-size: 12px; text-transform: uppercase; }
-              .value { display: block; font-weight: 700; margin-top: 4px; }
-              .qr { margin-top: 24px; }
-              .qr img { display: block; height: 120px; margin-top: 8px; width: 120px; }
-              .qr p { color: ${cssVar('--text-secondary')}; font-size: 11px; overflow-wrap: anywhere; }
-              @media print { button { display: none; } body { padding: 0; } }
+              @page {
+                margin: 12mm;
+                size: A4;
+              }
+
+              * {
+                box-sizing: border-box;
+              }
+
+              body {
+                margin: 0;
+                background: #eef2f7;
+                color: #111827;
+                font-family: "Noto Sans Bengali", "Segoe UI", Arial, sans-serif;
+                padding: 24px;
+              }
+
+              .actions {
+                display: flex;
+                justify-content: flex-end;
+                margin: 0 auto 12px;
+                max-width: 820px;
+              }
+
+              button {
+                background: #4338ca;
+                border: 0;
+                border-radius: 8px;
+                color: #fff;
+                cursor: pointer;
+                font: inherit;
+                font-weight: 700;
+                min-height: 40px;
+                padding: 0 16px;
+              }
+
+              .receipt {
+                background: #fff;
+                border: 1px solid #dbe3ef;
+                border-radius: 14px;
+                box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
+                margin: 0 auto;
+                max-width: 820px;
+                overflow: hidden;
+              }
+
+              .receipt-head {
+                border-bottom: 4px solid #4f46e5;
+                display: grid;
+                gap: 20px;
+                grid-template-columns: minmax(0, 1fr) auto;
+                padding: 28px 30px 22px;
+              }
+
+              .brand {
+                align-items: center;
+                display: flex;
+                gap: 14px;
+                min-width: 0;
+              }
+
+              .logo,
+              .mark {
+                border: 1px solid #e5e7eb;
+                border-radius: 14px;
+                flex: 0 0 auto;
+                height: 64px;
+                width: 64px;
+              }
+
+              .logo {
+                object-fit: cover;
+              }
+
+              .mark {
+                align-items: center;
+                background: linear-gradient(135deg, #4338ca, #16a34a);
+                color: #fff;
+                display: inline-flex;
+                font-size: 20px;
+                font-weight: 800;
+                justify-content: center;
+              }
+
+              h1,
+              h2,
+              p {
+                margin: 0;
+              }
+
+              h1 {
+                color: #0f172a;
+                font-size: 25px;
+                line-height: 1.2;
+                overflow-wrap: anywhere;
+              }
+
+              .org-meta {
+                color: #64748b;
+                font-size: 12px;
+                line-height: 1.5;
+                margin-top: 6px;
+              }
+
+              .receipt-title {
+                text-align: right;
+              }
+
+              .receipt-title h2 {
+                color: #0f172a;
+                font-size: 22px;
+                line-height: 1.1;
+              }
+
+              .status-pill {
+                background: #dcfce7;
+                border: 1px solid #86efac;
+                border-radius: 999px;
+                color: #166534;
+                display: inline-flex;
+                font-size: 12px;
+                font-weight: 800;
+                margin-top: 10px;
+                padding: 5px 11px;
+              }
+
+              .meta-strip {
+                border-bottom: 1px solid #e5e7eb;
+                display: grid;
+                grid-template-columns: 1.25fr 1fr 1fr;
+              }
+
+              .meta-box {
+                border-right: 1px solid #e5e7eb;
+                min-width: 0;
+                padding: 14px 30px;
+              }
+
+              .meta-box:last-child {
+                border-right: 0;
+              }
+
+              .label {
+                color: #64748b;
+                display: block;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.02em;
+                text-transform: uppercase;
+              }
+
+              .value {
+                color: #111827;
+                display: block;
+                font-size: 14px;
+                font-weight: 800;
+                margin-top: 4px;
+                overflow-wrap: anywhere;
+              }
+
+              .content {
+                display: grid;
+                gap: 22px;
+                grid-template-columns: minmax(0, 1fr) 230px;
+                padding: 26px 30px 28px;
+              }
+
+              .section-title {
+                align-items: center;
+                color: #0f172a;
+                display: flex;
+                font-size: 15px;
+                font-weight: 800;
+                gap: 10px;
+                margin-bottom: 12px;
+              }
+
+              .section-title::before {
+                background: #4f46e5;
+                border-radius: 999px;
+                content: "";
+                display: inline-block;
+                height: 9px;
+                width: 9px;
+              }
+
+              .detail-grid {
+                display: grid;
+                gap: 10px;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+              }
+
+              .field {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                min-width: 0;
+                padding: 10px 12px;
+              }
+
+              .field.wide {
+                grid-column: 1 / -1;
+              }
+
+              .summary {
+                background: #eef2ff;
+                border: 1px solid #c7d2fe;
+                border-radius: 12px;
+                margin-top: 14px;
+                overflow: hidden;
+              }
+
+              .summary-row {
+                align-items: center;
+                display: flex;
+                gap: 14px;
+                justify-content: space-between;
+                padding: 11px 14px;
+              }
+
+              .summary-row + .summary-row {
+                border-top: 1px solid #c7d2fe;
+              }
+
+              .summary-row strong {
+                color: #111827;
+                font-size: 16px;
+                white-space: nowrap;
+              }
+
+              .summary-row.total {
+                background: #312e81;
+                color: #fff;
+              }
+
+              .summary-row.total .label,
+              .summary-row.total strong {
+                color: #fff;
+              }
+
+              .verify-card {
+                align-self: start;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 14px;
+                text-align: center;
+              }
+
+              .verify-card .qr-image {
+                display: block;
+                height: 150px;
+                margin: 10px auto;
+                width: 150px;
+              }
+
+              .verify-card p {
+                color: #64748b;
+                font-size: 10px;
+                line-height: 1.45;
+                overflow-wrap: anywhere;
+              }
+
+              .muted-card strong {
+                color: #0f172a;
+                display: block;
+                margin: 14px 0 6px;
+              }
+
+              .note {
+                background: #fffbeb;
+                border: 1px solid #fde68a;
+                border-radius: 10px;
+                margin-top: 12px;
+                padding: 10px 12px;
+              }
+
+              .note p {
+                color: #78350f;
+                font-size: 13px;
+                line-height: 1.5;
+                margin-top: 5px;
+                overflow-wrap: anywhere;
+              }
+
+              .footer {
+                border-top: 1px solid #e5e7eb;
+                display: grid;
+                gap: 18px;
+                grid-template-columns: 1fr 1fr;
+                padding: 22px 30px 26px;
+              }
+
+              .signature {
+                align-self: end;
+                border-top: 1px solid #94a3b8;
+                color: #475569;
+                font-size: 12px;
+                font-weight: 700;
+                justify-self: end;
+                padding-top: 8px;
+                text-align: center;
+                width: 190px;
+              }
+
+              .footer-note {
+                color: #64748b;
+                font-size: 12px;
+                line-height: 1.6;
+              }
+
+              @media (max-width: 700px) {
+                body {
+                  padding: 12px;
+                }
+
+                .receipt-head,
+                .content,
+                .footer {
+                  grid-template-columns: 1fr;
+                  padding-left: 18px;
+                  padding-right: 18px;
+                }
+
+                .receipt-title {
+                  text-align: left;
+                }
+
+                .meta-strip {
+                  grid-template-columns: 1fr;
+                }
+
+                .meta-box {
+                  border-bottom: 1px solid #e5e7eb;
+                  border-right: 0;
+                  padding: 12px 18px;
+                }
+
+                .meta-box:last-child {
+                  border-bottom: 0;
+                }
+
+                .detail-grid {
+                  grid-template-columns: 1fr;
+                }
+
+                .verify-card {
+                  text-align: left;
+                }
+
+                .verify-card .qr-image {
+                  margin-left: 0;
+                }
+
+                .signature {
+                  justify-self: start;
+                }
+              }
+
+              @media print {
+                body {
+                  background: #fff;
+                  padding: 0;
+                }
+
+                .actions {
+                  display: none;
+                }
+
+                .receipt {
+                  border-color: #cbd5e1;
+                  border-radius: 0;
+                  box-shadow: none;
+                  max-width: none;
+                }
+
+                .field,
+                .summary,
+                .verify-card,
+                .note {
+                  break-inside: avoid;
+                }
+              }
             </style>
           </head>
           <body>
-            <div class="receipt">
-              <h1>${escapeHtml(receipt.organization.name)}</h1>
-              <p class="muted">Receipt No: ${escapeHtml(receipt.receiptNo)} | Issued: ${escapeHtml(formatDate(receipt.issuedAt))}</p>
-              <div class="grid">
-                <div class="item"><span class="label">Member</span><span class="value">${escapeHtml(receipt.payment.user.name)}</span></div>
-                <div class="item"><span class="label">Month</span><span class="value">${escapeHtml(receipt.payment.month)}</span></div>
-                <div class="item"><span class="label">Amount</span><span class="value">${escapeHtml(money(receipt.payment.amount))}</span></div>
-                <div class="item"><span class="label">Method</span><span class="value">${escapeHtml(receipt.payment.method)}</span></div>
-                <div class="item"><span class="label">Transaction ID</span><span class="value">${escapeHtml(receipt.payment.transactionId)}</span></div>
-                <div class="item"><span class="label">Status</span><span class="value">${escapeHtml(receipt.payment.status)}</span></div>
-              </div>
-              ${qrHtml}
-              <p class="muted">This receipt was generated from the organization management system.</p>
-              <button onclick="window.print()">Print</button>
+            <div class="actions">
+              <button type="button" onclick="window.print()">Print receipt</button>
             </div>
+            <article class="receipt">
+              <header class="receipt-head">
+                <div class="brand">
+                  ${logoHtml}
+                  <div>
+                    <h1>${escapeHtml(organizationName)}</h1>
+                    <p class="org-meta">${organizationContact || 'Dargah Para, Bangladesh'}</p>
+                  </div>
+                </div>
+                <div class="receipt-title">
+                  <h2>ফি রসিদ</h2>
+                  <span class="status-pill">${escapeHtml(paymentStatusLabel(payment.status))}</span>
+                </div>
+              </header>
+
+              <section class="meta-strip">
+                <div class="meta-box">
+                  <span class="label">রসিদ নম্বর</span>
+                  <span class="value">${escapeHtml(receiptNo)}</span>
+                </div>
+                <div class="meta-box">
+                  <span class="label">ইস্যু তারিখ</span>
+                  <span class="value">${escapeHtml(formatDate(receipt.issuedAt))}</span>
+                </div>
+                <div class="meta-box">
+                  <span class="label">প্রিন্ট করেছেন</span>
+                  <span class="value">${escapeHtml(printedBy)}</span>
+                </div>
+              </section>
+
+              <main class="content">
+                <section>
+                  <h3 class="section-title">পেমেন্ট বিবরণ</h3>
+                  <div class="detail-grid">
+                    ${detailsHtml}
+                  </div>
+                  ${noteHtml}
+                  <div class="summary">
+                    <div class="summary-row">
+                      <span class="label">বিলম্ব ফি</span>
+                      <strong>${escapeHtml(moneyPaisa(lateFeePaisa))}</strong>
+                    </div>
+                    <div class="summary-row total">
+                      <span class="label">মোট পরিশোধ</span>
+                      <strong>${escapeHtml(moneyPaisa(paymentAmountPaisa(payment)))}</strong>
+                    </div>
+                  </div>
+                </section>
+                ${qrHtml}
+              </main>
+
+              <footer class="footer">
+                <p class="footer-note">
+                  এই রসিদটি সংগঠনের ম্যানেজমেন্ট সিস্টেম থেকে স্বয়ংক্রিয়ভাবে তৈরি করা হয়েছে।
+                  QR কোড অথবা রসিদ নম্বর দিয়ে পেমেন্ট যাচাই করা যাবে।
+                </p>
+                <div class="signature">অনুমোদিত স্বাক্ষর</div>
+              </footer>
+            </article>
+            <script>
+              const printWhenReady = () => {
+                window.setTimeout(() => {
+                  window.focus();
+                  window.print();
+                }, 350);
+              };
+
+              if (document.readyState === 'complete') {
+                printWhenReady();
+              } else {
+                window.addEventListener('load', printWhenReady, { once: true });
+              }
+            </script>
           </body>
         </html>
-      `)
+      `
+
+      printWindow.document.write(receiptHtml)
       printWindow.document.close()
-      printWindow.focus()
-      printWindow.print()
     } catch (error) {
       setMessage(getErrorMessage(error))
     }
@@ -851,14 +1357,7 @@ export default function MemberDashboardPage() {
       const response = await api.get(`/member/receipts/${id}`, {
         responseType: 'blob',
       })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `payment-receipt-${id}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
+      downloadResponseBlob(response, `payment-receipt-${id}.pdf`, 'application/pdf')
     } catch (error) {
       setMessage(getErrorMessage(error))
     }

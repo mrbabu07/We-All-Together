@@ -15,6 +15,7 @@
     "build": "npm run build --workspace client",
     "lint": "npm run lint --workspace client",
     "seed": "npm run seed --workspace server",
+    "start": "npm run start --workspace server",
     "test": "npm run test --workspaces --if-present"
   },
   "keywords": [
@@ -26,9 +27,5 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^9.2.1"
-  },
-  "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
   }
 }

@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Panel from '../components/ui/Panel'
 import Skeleton from '../components/ui/Skeleton'
+import { downloadResponseBlob } from '../utils/downloadUtils'
 import { apiData } from '../utils/responseUtils'
 
 const moneyPaisa = (value = 0) => `৳${(Number(value || 0) / 100).toLocaleString('bn-BD')}`
@@ -130,14 +131,7 @@ export default function MemberFeeHistoryPage() {
   const downloadReceipt = async (id) => {
     try {
       const response = await api.get(`/member/receipts/${id}`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `fee-receipt-${id}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
+      downloadResponseBlob(response, `fee-receipt-${id}.pdf`, 'application/pdf')
     } catch (error) {
       setMessage(getErrorMessage(error))
     }

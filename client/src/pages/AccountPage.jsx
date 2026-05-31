@@ -13,6 +13,7 @@ import Field from '../components/ui/Field'
 import Panel from '../components/ui/Panel'
 import { ORG_NAME_BN, ORG_NAME_EN } from '../constants/brand'
 import useAuth from '../hooks/useAuth'
+import { downloadDataUrl, downloadResponseBlob } from '../utils/downloadUtils'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { apiData, apiUploadUrl } from '../utils/responseUtils'
 
@@ -345,17 +346,9 @@ export default function AccountPage() {
   const downloadMyData = async () => {
     try {
       const response = await api.get('/member/members/my-data.pdf', { responseType: 'blob' })
-      const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
       const safePhone = String(user?.phone || 'member').replace(/[^\w-]/g, '-')
 
-      link.href = url
-      link.download = `member-data-${safePhone}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      downloadResponseBlob(response, `member-data-${safePhone}.pdf`, 'application/pdf')
       toast.success('My data PDF downloaded.')
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -489,10 +482,7 @@ export default function AccountPage() {
       context.font = '14px Arial'
       context.fillText('Scan to verify membership', 648, 426)
 
-      const link = document.createElement('a')
-      link.download = `member-id-${user?.phone || 'card'}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
+      downloadDataUrl(canvas.toDataURL('image/png'), `member-id-${user?.phone || 'card'}.png`)
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {

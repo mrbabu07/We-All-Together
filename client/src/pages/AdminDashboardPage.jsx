@@ -44,6 +44,7 @@ import StatCard from '../components/ui/StatCard'
 import useAuth from '../hooks/useAuth'
 import useLanguage from '../hooks/useLanguage'
 import { downloadCsv } from '../utils/csvExport'
+import { downloadBlob, downloadResponseBlob } from '../utils/downloadUtils'
 import { readFileAsDataUrl } from '../utils/fileUtils'
 import { apiArray, apiData, apiObject, apiUploadUrl, safeJsonStringify } from '../utils/responseUtils'
 import {
@@ -288,6 +289,29 @@ const formatMonthYear = (month, year) =>
 
 const formatCoveredMonths = (months = []) =>
   months.length ? months.map((item) => formatMonthYear(item.month, item.year)).join(', ') : 'N/A'
+
+const feeStatusLabels = {
+  approved: 'পরিশোধিত',
+  cancelled: 'বাতিল',
+  default: 'নেই',
+  overdue: 'বকেয়া',
+  pending: 'অপেক্ষমাণ',
+  rejected: 'প্রত্যাখ্যাত',
+  verified: 'পরিশোধিত',
+  waived: 'মওকুফ',
+}
+
+const feeStatusBadgeValue = (status) => {
+  if (['approved', 'verified'].includes(status)) return 'verified'
+  if (status === 'pending') return 'pending'
+  if (['overdue', 'rejected', 'cancelled'].includes(status)) return 'rejected'
+  return 'default'
+}
+
+const feeStatusLabel = (status = 'default') => feeStatusLabels[status] || status || 'N/A'
+const hasAmountValue = (value) => value !== undefined && value !== null && value !== ''
+const moneyFromPaisaOrAmount = (amountPaisa, amount) =>
+  hasAmountValue(amountPaisa) ? moneyPaisa(amountPaisa) : money(amount)
 
 const toDateInput = (value) => (value ? new Date(value).toISOString().slice(0, 10) : '')
 const toDateTimeInput = (value) => (value ? new Date(value).toISOString().slice(0, 16) : '')
@@ -1639,14 +1663,7 @@ export default function AdminDashboardPage() {
       const blob = new Blob([safeJsonStringify(apiData(response))], {
         type: 'application/json',
       })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `dargah-para-backup-${new Date().toISOString().slice(0, 10)}.json`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, `dargah-para-backup-${new Date().toISOString().slice(0, 10)}.json`)
     }, 'Backup downloaded successfully.')
   }
 
@@ -1654,20 +1671,11 @@ export default function AdminDashboardPage() {
     try {
       setMessage('')
       const response = await api.get(endpoint, { responseType: 'blob' })
-      const disposition = response.headers['content-disposition'] || ''
-      const filename =
-        disposition.match(/filename="?([^"]+)"?/i)?.[1] ||
-        `${fallbackName}-${new Date().toISOString().slice(0, 10)}.pdf`
-      const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-
-      link.href = url
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
+      downloadResponseBlob(
+        response,
+        `${fallbackName}-${new Date().toISOString().slice(0, 10)}.pdf`,
+        'application/pdf',
+      )
       setMessage('Receipt PDF downloaded.')
     } catch (error) {
       setMessage(getErrorMessage(error))
@@ -3401,14 +3409,7 @@ function OverdueMembersPanel({
 
   const downloadHistoryReceipt = async (paymentId) => {
     const response = await api.get(`/admin/receipts/${paymentId}`, { responseType: 'blob' })
-    const url = URL.createObjectURL(response.data)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `fee-receipt-${paymentId}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    downloadResponseBlob(response, `fee-receipt-${paymentId}.pdf`, 'application/pdf')
   }
 
   return (
@@ -3667,7 +3668,7 @@ function OverdueMembersPanel({
             </p>
             <Field
               error={adjustmentErrors.amount?.message}
-              label="Amount (Tk)"
+              label="পরিমাণ (টাকা)"
               min="0"
               step="0.01"
               type="number"
@@ -3675,7 +3676,7 @@ function OverdueMembersPanel({
             />
             <Field
               error={adjustmentErrors.reason?.message}
-              label="Adjustment reason"
+              label="সমন্বয়ের কারণ"
               required
               textarea
               {...registerAdjustment('reason')}
@@ -3696,7 +3697,7 @@ function OverdueMembersPanel({
         className="max-w-lg"
         onClose={closeHistoryPaymentRejectModal}
         open={Boolean(paymentRejectModal)}
-        title="Payment reject করুন"
+        title="পেমেন্ট প্রত্যাখ্যান করুন"
       >
         {paymentRejectModal ? (
           <form
@@ -3704,11 +3705,11 @@ function OverdueMembersPanel({
             onSubmit={handleHistoryPaymentRejectSubmit(submitHistoryPaymentReject)}
           >
             <p className="text-sm text-gray-600">
-              {paymentRejectModal.label || 'এই মাসের'} pending payment reject করার কারণ লিখুন।
+              {paymentRejectModal.label || 'এই মাসের'} পেমেন্ট প্রত্যাখ্যান করার কারণ লিখুন।
             </p>
             <Field
               error={historyPaymentRejectErrors.reason?.message}
-              label="Reason"
+              label="কারণ"
               required
               textarea
               {...registerHistoryPaymentReject('reason')}
@@ -3718,7 +3719,7 @@ function OverdueMembersPanel({
                 বাতিল
               </Button>
               <Button icon={XCircle} loading={isRejectingHistoryPayment} type="submit" variant="danger">
-                Reject
+                প্রত্যাখ্যান
               </Button>
             </div>
           </form>
@@ -3726,7 +3727,7 @@ function OverdueMembersPanel({
       </Modal>
 
       <Modal
-        className="max-h-[90vh] max-w-6xl overflow-y-auto"
+        className="max-w-6xl"
         onClose={() => {
           setHistoryMember(null)
           setHistory(null)
@@ -3736,19 +3737,23 @@ function OverdueMembersPanel({
       >
         {historyLoading ? <Skeleton rows={6} /> : null}
         {!historyLoading && history ? (
-          <div className="grid gap-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+          <div className="grid gap-5 sm:gap-6">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="flex min-w-0 items-center gap-3">
                 <Avatar name={history.member?.name} src={history.member?.profilePhotoUrl} />
-                <div>
-                  <p className="font-semibold text-gray-950">{history.member?.name}</p>
-                  <p className="text-sm text-gray-500">{history.member?.phone}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-gray-950">
+                    {history.member?.name || historyMember?.name || 'সদস্য'}
+                  </p>
+                  <p className="break-all text-sm text-gray-500">
+                    {history.member?.phone || historyMember?.phone || 'ফোন নম্বর নেই'}
+                  </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:justify-end sm:overflow-visible sm:px-0 sm:pb-0">
                 {(history.years || []).map((year) => (
                   <button
-                    className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${
+                    className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-semibold transition ${
                       Number(year) === Number(historyYear)
                         ? 'bg-indigo-600 text-white'
                         : 'border border-gray-300 bg-white text-gray-700'
@@ -3763,10 +3768,10 @@ function OverdueMembersPanel({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {(history.grid || []).map((cell) => (
                 <div
-                  className={`rounded-xl border p-3 ${
+                  className={`rounded-lg border p-3 sm:p-4 ${
                     cell.status === 'approved'
                       ? 'border-green-200 bg-green-50'
                       : cell.status === 'pending'
@@ -3779,42 +3784,36 @@ function OverdueMembersPanel({
                   }`}
                   key={`${cell.month}-${cell.year}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-gray-950">{cell.label}</p>
-                    <Badge
-                      value={
-                        cell.status === 'approved'
-                          ? 'verified'
-                          : cell.status === 'pending'
-                            ? 'pending'
-                            : cell.status === 'overdue'
-                              ? 'rejected'
-                              : 'default'
-                      }
-                    >
-                      {cell.status}
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 break-words font-semibold text-gray-950">{cell.label}</p>
+                    <Badge className="shrink-0" value={feeStatusBadgeValue(cell.status)}>
+                      {feeStatusLabel(cell.status)}
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm font-bold text-gray-900">
-                    {cell.amountPaisa ? moneyPaisa(cell.amountPaisa) : money(cell.amount)}
+                    {moneyFromPaisaOrAmount(cell.amountPaisa, cell.amount)}
                   </p>
                   {cell.adjustment?._id ? (
-                    <p className="mt-1 text-xs font-semibold text-indigo-700">
-                      Adjusted: {cell.adjustment.reason}
+                    <p className="mt-1 break-words text-xs font-semibold text-indigo-700">
+                      সমন্বয়: {cell.adjustment.reason}
                     </p>
                   ) : null}
                   {cell.payment?.status === 'pending' ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <Button
+                        className="w-full"
                         onClick={() => handlePaymentAction(onPaymentVerify, cell.payment._id)}
+                        size="sm"
                       >
-                        Approve
+                        অনুমোদন
                       </Button>
                       <Button
+                        className="w-full"
                         onClick={() => openHistoryPaymentRejectModal(cell.payment._id, cell.label)}
+                        size="sm"
                         variant="danger"
                       >
-                        Reject
+                        প্রত্যাখ্যান
                       </Button>
                     </div>
                   ) : null}
@@ -3824,6 +3823,7 @@ function OverdueMembersPanel({
                         onClick={() =>
                           openWaiverModal(historyMember, `${cell.month}-${cell.year}`)
                         }
+                        size="sm"
                         variant="secondary"
                       >
                         মওকুফ
@@ -3831,17 +3831,20 @@ function OverdueMembersPanel({
                       <Button
                         onClick={() =>
                           openAdjustmentModal({
-                            amount: cell.amountPaisa
+                            amount: hasAmountValue(cell.amountPaisa)
                               ? Number(cell.amountPaisa) / 100
-                              : cell.amount || '',
+                              : hasAmountValue(cell.amount)
+                                ? cell.amount
+                                : '',
                             member: historyMember,
                             month: cell.month,
                             year: cell.year,
                           })
                         }
+                        size="sm"
                         variant="secondary"
                       >
-                        টাকা সেট
+                        পরিমাণ সেট
                       </Button>
                     </div>
                   ) : null}
@@ -3849,6 +3852,7 @@ function OverdueMembersPanel({
                     <Button
                       className="mt-3 w-full"
                       onClick={() => removeAdjustment(cell.adjustment._id)}
+                      size="sm"
                       variant="danger"
                     >
                       সমন্বয় বাতিল
@@ -3858,6 +3862,7 @@ function OverdueMembersPanel({
                     <Button
                       className="mt-3 w-full"
                       onClick={() => removeWaiver(cell.waiver._id)}
+                      size="sm"
                       variant="danger"
                     >
                       মওকুফ বাতিল
@@ -3867,8 +3872,61 @@ function OverdueMembersPanel({
               ))}
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-left text-sm">
+            {(history.payments || []).length ? (
+              <div className="grid gap-3 sm:hidden">
+                {(history.payments || []).map((payment) => (
+                  <div className="rounded-lg border border-gray-200 bg-white p-3" key={payment._id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold text-gray-950">
+                          {toReadableDate(payment.createdAt)}
+                        </p>
+                        <p className="mt-1 break-words text-xs leading-relaxed text-gray-500">
+                          {formatCoveredMonths(payment.coveredMonths || [])}
+                        </p>
+                      </div>
+                      <Badge className="shrink-0" value={feeStatusBadgeValue(payment.status)}>
+                        {feeStatusLabel(payment.status)}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500">পরিমাণ</p>
+                        <p className="mt-1 font-bold text-gray-950">
+                          {moneyFromPaisaOrAmount(payment.amountPaisa, payment.amount)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500">বিলম্ব ফি</p>
+                        <p className="mt-1 font-semibold text-gray-700">
+                          {moneyFromPaisaOrAmount(
+                            payment.lateFeeAppliedPaisa,
+                            payment.lateFeeApplied || 0,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    {payment.status === 'verified' ? (
+                      <Button
+                        className="mt-3 w-full"
+                        icon={Download}
+                        onClick={() => downloadHistoryReceipt(payment._id)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        রসিদ PDF
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Empty text="এই সদস্যের কোনো পেমেন্ট ইতিহাস নেই।" />
+            )}
+
+            {(history.payments || []).length ? (
+              <div className="hidden overflow-x-auto rounded-lg border border-gray-200 sm:block">
+                <table className="min-w-[760px] divide-y divide-gray-200 text-left text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     {['তারিখ', 'মাসসমূহ', 'পরিমাণ', 'বিলম্ব ফি', 'অবস্থা', 'রসিদ'].map(
@@ -3883,29 +3941,35 @@ function OverdueMembersPanel({
                 <tbody className="divide-y divide-gray-100">
                   {(history.payments || []).map((payment) => (
                     <tr key={payment._id}>
-                      <td className="px-4 py-3 text-gray-600">{toReadableDate(payment.createdAt)}</td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                        {toReadableDate(payment.createdAt)}
+                      </td>
+                      <td className="max-w-xs break-words px-4 py-3 text-gray-600">
                         {formatCoveredMonths(payment.coveredMonths || [])}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-gray-950">
-                        {payment.amountPaisa ? moneyPaisa(payment.amountPaisa) : money(payment.amount)}
+                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-gray-950">
+                        {moneyFromPaisaOrAmount(payment.amountPaisa, payment.amount)}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {payment.lateFeeAppliedPaisa
-                          ? moneyPaisa(payment.lateFeeAppliedPaisa)
-                          : money(payment.lateFeeApplied || 0)}
+                      <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                        {moneyFromPaisaOrAmount(
+                          payment.lateFeeAppliedPaisa,
+                          payment.lateFeeApplied || 0,
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge value={payment.status}>{payment.status}</Badge>
+                        <Badge value={feeStatusBadgeValue(payment.status)}>
+                          {feeStatusLabel(payment.status)}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3">
                         {payment.status === 'verified' ? (
                           <Button
                             icon={Download}
                             onClick={() => downloadHistoryReceipt(payment._id)}
+                            size="sm"
                             variant="secondary"
                           >
-                            PDF
+                            রসিদ PDF
                           </Button>
                         ) : (
                           <span className="text-gray-400">--</span>
@@ -3914,8 +3978,9 @@ function OverdueMembersPanel({
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </Modal>
