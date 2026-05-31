@@ -19,7 +19,10 @@ const toList = (value, fallback = []) =>
     .concat(fallback)
     .filter((item, index, list) => list.indexOf(item) === index)
 
-const clientUrls = toList(process.env.CLIENT_URL, ['http://localhost:5173'])
+const clientUrls = toList(process.env.CLIENT_URL, [
+  'http://localhost:5173',
+  'https://we-all-together-client.vercel.app',
+])
 
 const env = {
   port: toNumber(process.env.PORT, 5000),
