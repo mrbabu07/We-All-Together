@@ -1233,13 +1233,13 @@ function Toggle({ checked, label, onChange }) {
   )
 }
 
-function FileUploadButton({ label, onUpload }) {
+function FileUploadButton({ accept = 'image/*', label, onUpload }) {
   return (
     <label className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color-mix(in_srgb,var(--gray-200)_72%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_92%,transparent)] px-4 py-2 text-sm font-semibold text-[var(--text-secondary)] shadow-[var(--shadow-xs)] transition hover:border-[color-mix(in_srgb,var(--brand-300)_48%,var(--gray-200))] hover:bg-[var(--surface-0)] hover:text-[var(--brand-700)] sm:w-auto">
       <Upload aria-hidden="true" className="h-4 w-4" />
       {label}
       <input
-        accept="image/*"
+        accept={accept}
         className="sr-only"
         onChange={(event) => onUpload(event.target.files?.[0])}
         type="file"
@@ -1810,6 +1810,15 @@ function MemberControlsTab({
   )
   const selectedVisiblePendingIds = selectedPendingIds.filter((id) => visiblePendingIds.has(id))
   const bulkRejectReason = useWatch({ control: bulkRejectControl, name: 'reason' }) || ''
+  const memberStats = useMemo(
+    () => [
+      { label: 'দেখানো সদস্য', value: filteredMembers.length },
+      { label: 'Pending', value: visiblePendingMembers.length },
+      { label: 'Approved', value: filteredMembers.filter((user) => user.status === 'approved').length },
+      { label: 'Selected', value: selectedVisiblePendingIds.length },
+    ],
+    [filteredMembers, selectedVisiblePendingIds.length, visiblePendingMembers.length],
+  )
 
   const togglePendingSelection = (userId) => {
     setSelectedPendingIds((current) =>
@@ -1837,10 +1846,26 @@ function MemberControlsTab({
 
   return (
     <div className="mt-6 grid gap-6">
-      <Panel>
+      <Panel className="min-w-0 overflow-hidden">
         <SectionTitle icon={UserCog} title="সদস্য নিয়ন্ত্রণ" />
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {memberStats.map((item) => (
+            <div
+              className="rounded-[var(--radius-lg)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-1)_72%,var(--surface-0))] p-4"
+              key={item.label}
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                {item.label}
+              </p>
+              <p className="mt-1 font-['Inter'] text-2xl font-bold text-[var(--text-primary)]">
+                {Number(item.value || 0).toLocaleString('en-US')}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 grid gap-3 rounded-[var(--radius-xl)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-1)_62%,transparent)] p-4 sm:grid-cols-2 xl:grid-cols-[auto_auto_minmax(220px,1fr)_auto_auto_auto] xl:items-end">
           <Button
+            className="w-full"
             disabled={!visiblePendingMembers.length}
             onClick={selectVisiblePending}
             variant="secondary"
@@ -1848,6 +1873,7 @@ function MemberControlsTab({
             Select visible pending
           </Button>
           <Button
+            className="w-full"
             disabled={!selectedVisiblePendingIds.length}
             icon={CheckCircle2}
             onClick={() => onBulkApprove(selectedVisiblePendingIds)}
@@ -1855,12 +1881,13 @@ function MemberControlsTab({
             Bulk approve ({selectedVisiblePendingIds.length})
           </Button>
           <Field
-            className="min-w-72"
+            className="min-w-0"
             error={bulkRejectErrors.reason?.message}
             label="Reject reason"
             {...registerBulkReject('reason')}
           />
           <Button
+            className="w-full"
             disabled={!selectedVisiblePendingIds.length || !bulkRejectReason.trim()}
             icon={XCircle}
             loading={isBulkRejecting}
@@ -1871,21 +1898,23 @@ function MemberControlsTab({
           >
             Bulk reject ({selectedVisiblePendingIds.length})
           </Button>
-          <Button icon={Download} onClick={onExportCsv} variant="secondary">
+          <Button className="w-full" icon={Download} onClick={onExportCsv} variant="secondary">
             CSV export
           </Button>
-          <Button icon={FileDown} onClick={onExportPdf} variant="secondary">
+          <Button className="w-full" icon={FileDown} onClick={onExportPdf} variant="secondary">
             PDF export
           </Button>
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           <Field
+            className="min-w-0"
             label="সদস্য খুঁজুন"
             name="memberSearch"
             onChange={(event) => onFilter({ ...filter, query: event.target.value })}
             value={filter.query}
           />
           <SelectField
+            className="min-w-0"
             label="Status"
             name="status"
             onChange={(event) => onFilter({ ...filter, status: event.target.value })}
@@ -1897,6 +1926,7 @@ function MemberControlsTab({
             <option value="rejected">Rejected</option>
           </SelectField>
           <SelectField
+            className="min-w-0"
             label="Role"
             name="role"
             onChange={(event) => onFilter({ ...filter, role: event.target.value })}
@@ -1910,14 +1940,13 @@ function MemberControlsTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="min-w-0 overflow-hidden">
         <SectionTitle icon={FileInput} title="CSV Import with field mapping" />
         <div className="mt-5 grid gap-4">
-          <input
+          <FileUploadButton
             accept=".csv,text/csv"
-            className="min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700"
-            onChange={(event) => onFile(event.target.files?.[0])}
-            type="file"
+            label="CSV file upload"
+            onUpload={onFile}
           />
           {csvImport.headers.length ? (
             <>
@@ -1941,13 +1970,13 @@ function MemberControlsTab({
                   </SelectField>
                 ))}
               </div>
-              <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <div className="overflow-x-auto rounded-[var(--radius-lg)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)]">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <tbody className="divide-y divide-gray-100">
                     {csvImport.rows.slice(0, 4).map((row, index) => (
                       <tr key={index}>
                         {csvImport.headers.map((header) => (
-                          <td className="px-3 py-2 text-gray-600" key={header}>
+                          <td className="px-3 py-2 text-[var(--text-secondary)]" key={header}>
                             {row[header]}
                           </td>
                         ))}
@@ -1956,7 +1985,7 @@ function MemberControlsTab({
                   </tbody>
                 </table>
               </div>
-              <Button icon={Upload} onClick={onImport}>
+              <Button className="w-full sm:w-fit" icon={Upload} onClick={onImport}>
                 Import {csvImport.rows.length} rows
               </Button>
             </>
@@ -1964,12 +1993,15 @@ function MemberControlsTab({
         </div>
       </Panel>
 
-      <Panel>
+      <Panel className="min-w-0 overflow-hidden">
         <SectionTitle icon={UserCog} title="সদস্য তালিকা ও action" />
         <div className="mt-5 grid gap-3">
           {filteredMembers.map((user) => (
-            <div className="grid gap-3 rounded-xl border border-gray-200 p-4 lg:grid-cols-[1fr_auto]" key={user._id}>
-              <div className="flex gap-3">
+            <div
+              className="grid min-w-0 gap-4 rounded-[var(--radius-xl)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-0)_88%,transparent)] p-4 shadow-[var(--shadow-xs)] xl:grid-cols-[minmax(0,1fr)_420px]"
+              key={user._id}
+            >
+              <div className="flex min-w-0 gap-3">
                 {user.status === 'pending' ? (
                   <input
                     aria-label={`Select ${user.name}`}
@@ -1980,18 +2012,20 @@ function MemberControlsTab({
                   />
                 ) : null}
                 <Avatar name={user.name} src={user.profilePhotoUrl} />
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{user.name}</h3>
+                    <h3 className="min-w-0 truncate font-semibold text-[var(--text-primary)]">
+                      {user.name}
+                    </h3>
                     <Badge value={user.status}>{user.status}</Badge>
                     <Badge value="default">{user.role}</Badge>
                     {user.suspendedAt ? <Badge value="rejected">Suspended</Badge> : null}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 line-clamp-2 text-sm text-[var(--text-muted)]">
                     {user.phone} | {user.address || 'No address'} | Last login {toDate(user.lastLoginAt)}
                   </p>
                   {activityUser?._id === user._id ? (
-                    <p className="mt-2 text-sm text-indigo-700">
+                    <p className="mt-3 rounded-[var(--radius-md)] bg-[color-mix(in_srgb,var(--brand-50)_80%,transparent)] px-3 py-2 text-sm font-semibold text-[var(--brand-700)]">
                       Payments {activityUser.activity.paymentCount}, Events{' '}
                       {activityUser.activity.attendedCount}, Blogs {activityUser.activity.blogCount},
                       Donations {activityUser.activity.donationCount}
@@ -1999,8 +2033,9 @@ function MemberControlsTab({
                   ) : null}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-2">
                 <SelectField
+                  className="min-w-0"
                   label="Role"
                   name={`role-${user._id}`}
                   onChange={(event) => onRole(user, event.target.value)}
@@ -2011,6 +2046,7 @@ function MemberControlsTab({
                   <option value="admin">Admin</option>
                 </SelectField>
                 <SelectField
+                  className="min-w-0"
                   label="Status"
                   name={`status-${user._id}`}
                   onChange={(event) => onStatus(user, event.target.value)}
@@ -2020,21 +2056,37 @@ function MemberControlsTab({
                   <option value="pending">Pending</option>
                   <option value="rejected">Rejected</option>
                 </SelectField>
-                <Button onClick={() => onActivity(user)} variant="secondary">
+                <Button className="w-full" onClick={() => onActivity(user)} size="sm" variant="secondary">
                   Activity
                 </Button>
                 <Button
+                  className="w-full"
                   onClick={() => (user.suspendedAt ? onSuspend(user) : setSuspendingUser(user))}
+                  size="sm"
                   variant="secondary"
                 >
                   {user.suspendedAt ? 'Unsuspend' : 'Suspend'}
                 </Button>
-                <Button icon={Trash2} onClick={() => onDelete(user)} variant="danger">
+                <Button
+                  className="w-full sm:col-span-2"
+                  icon={Trash2}
+                  onClick={() => onDelete(user)}
+                  size="sm"
+                  variant="danger"
+                >
                   Delete
                 </Button>
               </div>
             </div>
           ))}
+          {!filteredMembers.length ? (
+            <div className="rounded-[var(--radius-xl)] border border-dashed border-[color-mix(in_srgb,var(--gray-300)_80%,transparent)] bg-[color-mix(in_srgb,var(--surface-1)_72%,transparent)] p-8 text-center">
+              <p className="font-semibold text-[var(--text-primary)]">কোনো সদস্য পাওয়া যায়নি</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                Search বা filter পরিবর্তন করে আবার চেষ্টা করুন।
+              </p>
+            </div>
+          ) : null}
         </div>
       </Panel>
 
@@ -2068,10 +2120,14 @@ function MemberControlsTab({
         ) : null}
       </Modal>
 
-      <Panel>
+      <Panel className="min-w-0 overflow-hidden">
         <SectionTitle icon={Lock} title="পাসওয়ার্ড reset" />
-        <form className="mt-5 grid gap-4 md:grid-cols-3" onSubmit={handlePasswordResetSubmit(onPasswordReset)}>
+        <form
+          className="mt-5 grid gap-4 rounded-[var(--radius-xl)] border border-[color-mix(in_srgb,var(--gray-200)_70%,transparent)] bg-[color-mix(in_srgb,var(--surface-1)_62%,transparent)] p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+          onSubmit={handlePasswordResetSubmit(onPasswordReset)}
+        >
           <SelectField
+            className="min-w-0"
             error={passwordResetErrors.userId?.message}
             label="Member"
             {...registerPasswordReset('userId')}
@@ -2084,13 +2140,14 @@ function MemberControlsTab({
             ))}
           </SelectField>
           <Field
+            className="min-w-0"
             error={passwordResetErrors.newPassword?.message}
             label="Temporary password"
             type="password"
             {...registerPasswordReset('newPassword')}
           />
           <div className="flex items-end">
-            <Button icon={Lock} loading={isResettingPassword} type="submit">
+            <Button className="w-full" icon={Lock} loading={isResettingPassword} type="submit">
               Reset password
             </Button>
           </div>
